@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Hent rutetabellen for samband 1136 éin gong frå Entur.
+"""Hent rutetabellen for samband 1136 frå Entur.
 
-Nettlesaren byter berre visning mellom dei to Standal-alternativa og treffer
-ikkje API-et. Tabellen blir berre skriven på nytt når innhaldet er endra.
+Køyr berre når rutetabellen er endra. Nettlesaren les den lagra fila og byter
+visning mellom dei to Standal-alternativa utan nye API-kall.
 """
 
 from __future__ import annotations

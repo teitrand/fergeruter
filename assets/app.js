@@ -53,6 +53,16 @@ function formatDateTime(iso) {
   }).format(new Date(iso));
 }
 
+function formatDateOnly(iso) {
+  if (!iso) return "";
+  return new Intl.DateTimeFormat("nn-NO", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "Europe/Oslo",
+  }).format(new Date(iso));
+}
+
 function formatDay(isoDate) {
   return new Intl.DateTimeFormat("nn-NO", {
     weekday: "long",
@@ -257,6 +267,10 @@ async function loadRoutes() {
     }
     renderAlternativeButtons();
     renderDepartures();
+    const updated = document.getElementById("timetable-updated");
+    if (updated && state.routes.fetchedAt) {
+      updated.textContent = `Sist lasta ned ${formatDateOnly(state.routes.fetchedAt)}. `;
+    }
   } catch (error) {
     meta.textContent = "Feil ved lasting av rutetabell";
     document.getElementById("departures").replaceChildren(

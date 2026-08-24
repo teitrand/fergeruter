@@ -1,27 +1,22 @@
 name: Oppdater rutetabell
 
+# Køyr berre når FRAM/Fjord1 har lagt ut ny rutetabell.
+# Sida les den lagra fila og treffer ikkje API-et.
 on:
-  schedule:
-    - cron: "0 4 * * *"
   workflow_dispatch:
-  push:
-    paths:
-      - "scripts/fetch_ruter.py"
-      - ".github/workflows/update-ruter.yml"
 
 permissions:
   contents: write
 
 jobs:
   update:
-    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Hent rutetabell frå Entur
+      - name: Last ned rutetabell frå Entur
         run: python scripts/fetch_ruter.py
       - name: Commit berre ved endring i tabellen
         run: |

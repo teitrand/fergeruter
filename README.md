@@ -25,7 +25,13 @@ Opne [http://localhost:8080](http://localhost:8080).
 ## Oppdatering
 
 - Trafikkmeldingar: kvart 15. minutt på `main`
-- Rutetabell: éin gong i døgnet, men commit berre om tabellen er endra
+- Rutetabell: last ned att **berre når tabellen er endra**:
+
+```bash
+python3 scripts/fetch_ruter.py
+```
+
+eller køyr GitHub Action **Oppdater rutetabell** manuelt. Det er ingen dagleg/automatisk nedlasting mot Entur.
 
 ## Testar
 
