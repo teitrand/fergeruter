@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="nn">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Trafikkmeldingar frå Fjord1 og live avganger for ferjesamband 1136 Standal–Trandal–Sæbø–Skår–Valderøya–Store Kalvøy.">
+  <title>Fergeruter 1136 · Standal–Trandal</title>
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,560;9..144,700&family=Outfit:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#innhald">Hopp til innhald</a>
+  <div class="skyline" aria-hidden="true"></div>
+  <header class="site-header">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true">
+        <rect width="64" height="64" rx="14" fill="#073b4c"/>
+        <path d="M8 42c6 4 12 4 18 0s12-4 18 0 12 4 18 0" fill="none" stroke="#7ec8c3" stroke-width="3" stroke-linecap="round"/>
+        <path d="M14 38 32 20l10 6h8l-6 12H18z" fill="#f4efe4"/>
+        <rect x="28" y="16" width="3" height="10" fill="#e07a3d"/>
+      </svg>
+      <div>
+        <p class="eyebrow">Rute 1136 · Fjord1 / FRAM</p>
+        <h1>Standal–Trandal–Sæbø–Skår–Valderøya–Store Kalvøy</h1>
+      </div>
+    </div>
+    <p class="lede">Trafikkmeldingar frå Fjord1 og neste ferjeavganger, henta live.</p>
+  </header>
+
+  <main id="innhald">
+    <section id="status-banner" class="status-banner" hidden></section>
+
+    <div class="layout">
+      <section class="panel" aria-labelledby="meldingar-title">
+        <div class="panel-head">
+          <h2 id="meldingar-title">Trafikkmeldingar</h2>
+          <p class="meta" id="messages-meta">Hentar frå Fjord1…</p>
+        </div>
+        <div class="filters" role="group" aria-label="Filtrer meldingar">
+          <button type="button" class="chip is-active" data-filter="route" aria-pressed="true">Dette sambandet</button>
+          <button type="button" class="chip" data-filter="all" aria-pressed="false">Alle Fjord1</button>
+          <button type="button" class="chip" data-filter="issues" aria-pressed="false">Berre avvik</button>
+        </div>
+        <div id="messages" class="message-list"></div>
+        <p class="footnote">
+          Kjelde:
+          <a href="https://www.fjord1.no/trafikkmeldingar" rel="noreferrer">fjord1.no/trafikkmeldingar</a>
+          ·
+          <a href="https://www.fjord1.no/kundeservice/foer-du-reiser/SMS-om-trafikken" rel="noreferrer">Få SMS</a>
+        </p>
+      </section>
+
+      <section class="panel" aria-labelledby="avganger-title">
+        <div class="panel-head">
+          <h2 id="avganger-title">Neste avganger</h2>
+          <p class="meta" id="departures-meta">Hentar frå Entur…</p>
+        </div>
+        <div id="stops" class="filters stops" role="group" aria-label="Vel ferjekai"></div>
+        <div id="departures" class="departure-list"></div>
+        <p class="footnote">
+          Rutetider via Entur. Papir-ruteplan:
+          <a href="ruter.pdf">ruter.pdf</a>
+          ·
+          <a href="https://frammr.no/" rel="noreferrer">frammr.no</a>
+        </p>
+      </section>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <p>Operatør Fjord1. Ruteeigar FRAM. M/F Kvernes, tlf. 916 69 340.</p>
+    <p>Nokre turar går berre på signal. Ved jul, nyttår og høgtid: sjå FRAM-appen.</p>
+  </footer>
+
+  <noscript>
+    <p>Slå på JavaScript for live avganger, eller sjå <a href="https://www.fjord1.no/trafikkmeldingar">trafikkmeldingane hos Fjord1</a>.</p>
+  </noscript>
+  <script src="assets/app.js" type="module"></script>
+</body>
+</html>
