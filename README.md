@@ -41,4 +41,6 @@ python3 -m unittest discover -s tests -v
 
 ## GitHub Pages
 
-Slå på Pages under *Settings → Pages* med kjelde **Deploy from a branch**, branch `main`, mappe `/ (root)`.
+Sida vert publisert automatisk til GitHub Pages ved push til `main`, via arbeidsflyten `Publiser til GitHub Pages`. Den slår på Pages for dette repoet sjølv, og påverkar ikkje Pages på andre repo.
+
+URL etter fyrste køyring: `https://teitrand.github.io/fergeruter/`
