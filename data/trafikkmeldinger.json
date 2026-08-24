@@ -1,7 +1,33 @@
 {
   "source": "https://www.fjord1.no/trafikkmeldingar",
-  "fetchedAt": "2026-08-24T19:05:43.079409+00:00",
+  "fetchedAt": "2026-08-24T19:47:03.393486+00:00",
   "messages": [
+    {
+      "id": "RG9tYWluQ29udGVudDoyMTYyMjk1OQ==",
+      "heading": "Eidsdal-Linge",
+      "text": "Rute 1054 Eidsdal - Linge: Det er normal drift i sambandet.",
+      "publishedAt": "2026-08-23T20:00:04+02:00",
+      "validFrom": "2026-08-23T18:00:04+00:00",
+      "validTo": "2026-08-24T17:59:47+00:00",
+      "countyNumber": 15,
+      "connectionNumber": 251,
+      "important": false,
+      "severity": "normal",
+      "isRoute1136": false
+    },
+    {
+      "id": "RG9tYWluQ29udGVudDoyMTYyMjk2MA==",
+      "heading": "Eidsdal-Linge",
+      "text": "Rute 1054 Eidsdal - Linge: Sambandet er åpent, men grunnet trafikksituasjonen på land etter trafikkulykken må det påregnes forsinkelser.",
+      "publishedAt": "2026-08-23T15:40:43+02:00",
+      "validFrom": "2026-08-23T13:40:43+00:00",
+      "validTo": "2026-08-24T13:39:49+00:00",
+      "countyNumber": 15,
+      "connectionNumber": 251,
+      "important": false,
+      "severity": "delay",
+      "isRoute1136": false
+    },
     {
       "id": "RG9tYWluQ29udGVudDoyMTYyMDg5MA==",
       "heading": "Hareid-Sulesund",
