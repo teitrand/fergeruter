@@ -1,0 +1,36 @@
+name: Oppdater trafikkmeldingar
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+  push:
+    paths:
+      - "scripts/fetch_trafikkmeldinger.py"
+      - ".github/workflows/update-trafikkmeldinger.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Hent meldingar frå Fjord1
+        run: python scripts/fetch_trafikkmeldinger.py
+      - name: Commit dersom noko er endra
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/trafikkmeldinger.json
+          if git diff --staged --quiet; then
+            echo "Ingen endringar"
+          else
+            git commit -m "data: oppdater Fjord1-trafikkmeldingar"
+            git push
+          fi
