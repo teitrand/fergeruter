@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Trafikkmeldingar frå Fjord1 og live avganger for ferjesamband 1136 Standal–Trandal–Sæbø–Skår–Valderøya–Store Kalvøy.">
+  <meta name="description" content="Trafikkmeldingar frå Fjord1 og rutetabell for ferjesamband 1136 Standal–Trandal. Tabellen lastast éin gong; byt visning mellom Frå Trandal og Frå Standal.">
   <title>Fergeruter 1136 · Standal–Trandal</title>
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -27,7 +27,7 @@
         <h1>Standal–Trandal–Sæbø–Skår–Valderøya–Store Kalvøy</h1>
       </div>
     </div>
-    <p class="lede">Trafikkmeldingar frå Fjord1 og neste ferjeavganger, henta live.</p>
+    <p class="lede">Trafikkmeldingar frå Fjord1 og rutetabell for Standal–Trandal, lasta ned éin gong.</p>
   </header>
 
   <main id="innhald">
@@ -55,14 +55,14 @@
 
       <section class="panel" aria-labelledby="avganger-title">
         <div class="panel-head">
-          <h2 id="avganger-title">Neste avganger</h2>
-          <p class="meta" id="departures-meta">Hentar frå Entur…</p>
+          <h2 id="avganger-title">Standal-ruta</h2>
+          <p class="meta" id="departures-meta">Lastar rutetabell…</p>
         </div>
-        <div id="stops" class="filters stops" role="group" aria-label="Vel ferjekai"></div>
+        <div id="stops" class="filters stops" role="group" aria-label="Byt visning på Standal-ruta"></div>
         <div id="departures" class="departure-list"></div>
         <p class="footnote">
-          Rutetider via Entur. Papir-ruteplan:
-          <a href="ruter.pdf">ruter.pdf</a>
+          Rutetabellen er lagra lokalt og vert berre henta på nytt når Entur endrar den.
+          Papir-ruteplan: <a href="ruter.pdf">ruter.pdf</a>
           ·
           <a href="https://frammr.no/" target="_blank" rel="noreferrer">frammr.no</a>
         </p>
@@ -76,7 +76,7 @@
   </footer>
 
   <noscript>
-    <p>Slå på JavaScript for live avganger, eller sjå <a href="https://www.fjord1.no/trafikkmeldingar">trafikkmeldingane hos Fjord1</a>.</p>
+    <p>Slå på JavaScript for å sjå rutetabellen, eller opne <a href="https://www.fjord1.no/trafikkmeldingar">trafikkmeldingane hos Fjord1</a>.</p>
   </noscript>
   <script src="assets/app.js" type="module"></script>
 </body>

@@ -1,16 +1,5 @@
-const LINE_ID = "MOR:Line:1136";
-const ENTUR_URL = "https://api.entur.io/journey-planner/v3/graphql";
-const CLIENT_NAME = "teitrand-fergeruter";
 const MESSAGES_URL = "data/trafikkmeldinger.json";
-
-const STOPS = [
-  { id: "NSR:StopPlace:58521", name: "Trandal" },
-  { id: "NSR:StopPlace:39713", name: "Standal" },
-  { id: "NSR:StopPlace:58765", name: "Sæbø" },
-  { id: "NSR:StopPlace:41385", name: "Skår" },
-  { id: "NSR:StopPlace:61752", name: "Valderøya" },
-  { id: "NSR:StopPlace:39770", name: "Store Kalvøy" },
-];
+const ROUTES_URL = "data/ruter.json";
 
 const SEVERITY_LABEL = {
   normal: "Normal drift",
@@ -20,30 +9,11 @@ const SEVERITY_LABEL = {
   info: "Melding",
 };
 
-const DEPARTURE_QUERY = `
-query ($id: String!) {
-  stopPlace(id: $id) {
-    name
-    estimatedCalls(
-      numberOfDepartures: 24
-      timeRange: 86400
-      includeCancelledTrips: true
-      whiteListed: { lines: ["${LINE_ID}"] }
-    ) {
-      aimedDepartureTime
-      expectedDepartureTime
-      realtime
-      cancellation
-      destinationDisplay { frontText }
-    }
-  }
-}
-`;
-
 const state = {
   filter: "route",
-  stopId: STOPS[0].id,
-  payload: null,
+  alternativeId: "fra-trandal",
+  messages: null,
+  routes: null,
 };
 
 function el(tag, className, text) {
@@ -53,12 +23,22 @@ function el(tag, className, text) {
   return node;
 }
 
-function formatClock(iso) {
-  return new Intl.DateTimeFormat("nn-NO", {
+function osloParts(date = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Oslo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
-    timeZone: "Europe/Oslo",
-  }).format(new Date(iso));
+    hourCycle: "h23",
+  }).formatToParts(date);
+  return Object.fromEntries(parts.map((part) => [part.type, part.value]));
+}
+
+function todayIso() {
+  const parts = osloParts();
+  return `${parts.year}-${parts.month}-${parts.day}`;
 }
 
 function formatDateTime(iso) {
@@ -73,13 +53,36 @@ function formatDateTime(iso) {
   }).format(new Date(iso));
 }
 
-function minutesUntil(iso) {
-  const diff = Math.round((new Date(iso) - Date.now()) / 60000);
+function formatDay(isoDate) {
+  return new Intl.DateTimeFormat("nn-NO", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    timeZone: "UTC",
+  }).format(new Date(`${isoDate}T12:00:00Z`));
+}
+
+function clockMinutes(time) {
+  const [hours, minutes] = time.split(":").map(Number);
+  return hours * 60 + minutes;
+}
+
+function nowMinutesOslo() {
+  const parts = osloParts();
+  return Number(parts.hour) * 60 + Number(parts.minute);
+}
+
+function minutesUntilTime(time) {
+  const diff = clockMinutes(time) - nowMinutesOslo();
   if (diff < 1) return "no";
   if (diff < 60) return `om ${diff} min`;
   const hours = Math.floor(diff / 60);
   const minutes = diff % 60;
   return minutes ? `om ${hours} t ${minutes} min` : `om ${hours} t`;
+}
+
+function hhmm(time) {
+  return time ? time.slice(0, 5) : "";
 }
 
 function validMessages(messages) {
@@ -98,33 +101,49 @@ function applyFilter(messages) {
   return messages;
 }
 
+function selectedAlternative() {
+  return (state.routes?.alternatives || []).find(
+    (alt) => alt.id === state.alternativeId
+  );
+}
+
+function tripsToday(alternative) {
+  const today = todayIso();
+  return (alternative?.trips || []).filter((trip) =>
+    (trip.activeDates || []).includes(today)
+  );
+}
+
 function renderMessages() {
   const root = document.getElementById("messages");
   const meta = document.getElementById("messages-meta");
   root.replaceChildren();
-  if (!state.payload) {
+  if (!state.messages) {
     root.append(el("p", "empty", "Fann ikkje trafikkmeldingar."));
     return;
   }
-  const all = validMessages(state.payload.messages || []);
+  const all = validMessages(state.messages.messages || []);
   const filtered = applyFilter(all);
-  meta.textContent = `Sist henta ${formatDateTime(state.payload.fetchedAt)}`;
+  meta.textContent = `Sist henta ${formatDateTime(state.messages.fetchedAt)}`;
   if (!filtered.length) {
-    const empty = el(
-      "p",
-      "empty",
-      state.filter === "route"
-        ? "Ingen gjeldande Fjord1-meldingar for rute 1136."
-        : "Ingen meldingar å vise."
+    root.append(
+      el(
+        "p",
+        "empty",
+        state.filter === "route"
+          ? "Ingen gjeldande Fjord1-meldingar for rute 1136."
+          : "Ingen meldingar å vise."
+      )
     );
-    root.append(empty);
     renderStatus(all);
     return;
   }
   for (const msg of filtered) {
     const card = el("article", `card is-${msg.severity}`);
     const title = el("h3", null, msg.heading || "Trafikkmelding");
-    title.append(el("span", `badge badge-${msg.severity}`, SEVERITY_LABEL[msg.severity] || "Melding"));
+    title.append(
+      el("span", `badge badge-${msg.severity}`, SEVERITY_LABEL[msg.severity] || "Melding")
+    );
     card.append(title, el("p", null, msg.text));
     const when = el("time", null, formatDateTime(msg.publishedAt));
     if (msg.publishedAt) when.dateTime = msg.publishedAt;
@@ -149,61 +168,63 @@ function renderStatus(messages) {
   banner.textContent = latest.text;
 }
 
-function renderStopButtons() {
+function renderAlternativeButtons() {
   const root = document.getElementById("stops");
   root.replaceChildren();
-  for (const stop of STOPS) {
-    const btn = el("button", "chip", stop.name);
+  for (const alt of state.routes?.alternatives || []) {
+    const btn = el("button", "chip", alt.label);
     btn.type = "button";
-    btn.dataset.stopId = stop.id;
-    btn.setAttribute("aria-pressed", String(stop.id === state.stopId));
-    if (stop.id === state.stopId) btn.classList.add("is-active");
+    btn.dataset.alternativeId = alt.id;
+    const active = alt.id === state.alternativeId;
+    btn.setAttribute("aria-pressed", String(active));
+    if (active) btn.classList.add("is-active");
     btn.addEventListener("click", () => {
-      state.stopId = stop.id;
-      renderStopButtons();
-      loadDepartures();
+      state.alternativeId = alt.id;
+      renderAlternativeButtons();
+      renderDepartures();
     });
     root.append(btn);
   }
 }
 
-function renderDepartures(calls, stopName) {
+function renderDepartures() {
   const root = document.getElementById("departures");
   const meta = document.getElementById("departures-meta");
   root.replaceChildren();
-  meta.textContent = stopName ? `Frå ${stopName}` : "Avganger";
-  const upcoming = (calls || []).filter((call) => {
-    const t = new Date(call.expectedDepartureTime || call.aimedDepartureTime);
-    return t.getTime() > Date.now() - 2 * 60 * 1000;
-  });
-  if (!upcoming.length) {
-    root.append(el("p", "empty", "Ingen fleire avganger i dag frå denne kaia."));
+  const alternative = selectedAlternative();
+  if (!state.routes || !alternative) {
+    root.append(el("p", "empty", "Fann ikkje rutetabell."));
     return;
   }
-  for (const call of upcoming.slice(0, 12)) {
-    const expected = call.expectedDepartureTime || call.aimedDepartureTime;
-    const delayed =
-      call.aimedDepartureTime &&
-      expected &&
-      new Date(expected) - new Date(call.aimedDepartureTime) >= 60 * 1000;
-    const row = el("article", `departure${call.cancellation ? " is-cancelled" : ""}`);
-    row.append(el("div", "clock", formatClock(expected)));
+  const trips = tripsToday(alternative);
+  meta.textContent = `${alternative.label} · ${formatDay(todayIso())}`;
+  if (!trips.length) {
+    root.append(el("p", "empty", "Ingen turar i tabellen for i dag."));
+    return;
+  }
+
+  const now = nowMinutesOslo();
+  const next = trips.find((trip) => clockMinutes(trip.departure) > now - 2);
+
+  for (const trip of trips) {
+    const when = clockMinutes(trip.departure);
+    const past = when < now - 2;
+    const isNext = next && trip.id === next.id;
+    const row = el(
+      "article",
+      `departure${past ? " is-past" : ""}${isNext ? " is-next" : ""}`
+    );
+    row.append(el("div", "clock", hhmm(trip.departure)));
     const mid = el("div");
-    mid.append(el("div", "dest", call.destinationDisplay?.frontText || "Ferje"));
+    mid.append(el("div", "dest", alternative.to));
     const sub = el("div", "sub");
-    if (call.cancellation) sub.textContent = "Innstilt";
-    else if (delayed) sub.textContent = `Rutetid ${formatClock(call.aimedDepartureTime)}`;
-    else if (call.realtime) {
-      sub.append(el("span", "live-dot"), document.createTextNode("Sanntid"));
-    } else sub.textContent = "Etter rute";
+    sub.textContent = trip.requestStop
+      ? `På signal · framme ${hhmm(trip.arrival)}`
+      : `Framme ${hhmm(trip.arrival)}`;
     mid.append(sub);
     row.append(mid);
     row.append(
-      el(
-        "div",
-        "eta",
-        call.cancellation ? "Innstilt" : minutesUntil(expected)
-      )
+      el("div", "eta", past ? "Gått" : isNext ? minutesUntilTime(trip.departure) : "")
     );
     root.append(row);
   }
@@ -212,48 +233,35 @@ function renderDepartures(calls, stopName) {
 async function loadMessages() {
   const meta = document.getElementById("messages-meta");
   try {
-    const response = await fetch(`${MESSAGES_URL}?t=${Date.now()}`);
+    const response = await fetch(MESSAGES_URL);
     if (!response.ok) throw new Error(response.statusText);
-    state.payload = await response.json();
+    state.messages = await response.json();
     renderMessages();
   } catch (error) {
     meta.textContent = "Klarte ikkje hente lokale Fjord1-data.";
     document.getElementById("messages").replaceChildren(
-      el(
-        "p",
-        "empty",
-        "Sjå trafikkmeldingane direkte hos Fjord1."
-      )
+      el("p", "empty", "Sjå trafikkmeldingane direkte hos Fjord1.")
     );
     console.error(error);
   }
 }
 
-async function loadDepartures() {
+async function loadRoutes() {
   const meta = document.getElementById("departures-meta");
-  meta.textContent = "Hentar avganger…";
   try {
-    const response = await fetch(ENTUR_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "ET-Client-Name": CLIENT_NAME,
-      },
-      body: JSON.stringify({
-        query: DEPARTURE_QUERY,
-        variables: { id: state.stopId },
-      }),
-    });
+    const response = await fetch(ROUTES_URL);
     if (!response.ok) throw new Error(response.statusText);
-    const payload = await response.json();
-    if (payload.errors) throw new Error(payload.errors[0]?.message || "Entur-feil");
-    const stop = payload.data?.stopPlace;
-    renderDepartures(stop?.estimatedCalls, stop?.name);
+    state.routes = await response.json();
+    if (state.routes.alternatives?.[0] && !selectedAlternative()) {
+      state.alternativeId = state.routes.alternatives[0].id;
+    }
+    renderAlternativeButtons();
+    renderDepartures();
   } catch (error) {
+    meta.textContent = "Feil ved lasting av rutetabell";
     document.getElementById("departures").replaceChildren(
-      el("p", "empty", "Klarte ikkje hente avganger frå Entur nett no.")
+      el("p", "empty", "Rutetabellen er ikkje lasta ned enno.")
     );
-    meta.textContent = "Feil ved henting";
     console.error(error);
   }
 }
@@ -273,8 +281,8 @@ function bindFilters() {
 }
 
 bindFilters();
-renderStopButtons();
 loadMessages();
-loadDepartures();
-setInterval(loadDepartures, 60 * 1000);
-setInterval(loadMessages, 5 * 60 * 1000);
+loadRoutes();
+setInterval(() => {
+  if (state.routes) renderDepartures();
+}, 30 * 1000);

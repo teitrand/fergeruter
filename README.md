@@ -1,23 +1,31 @@
 # Fergeruter 1136
 
-Statisk oversikt over **trafikkmeldingar frå Fjord1** og **neste ferjeavganger** for sambandet Standal–Trandal–Sæbø–Skår–Valderøya–Store Kalvøy (rute 1136).
+Statisk oversikt over **trafikkmeldingar frå Fjord1** og **rutetabellen** for Standal–Trandal (rute 1136).
+
+Rutetabellen blir lasta ned **éin gong** frå Entur. Sida byter berre visning mellom dei to alternativa **Frå Trandal** og **Frå Standal**, utan nye API-kall. Tabellen blir berre henta på nytt når innhaldet faktisk er endra.
 
 ## Kjelder
 
 - Trafikkmeldingar: [fjord1.no/trafikkmeldingar](https://www.fjord1.no/trafikkmeldingar) via Fjord1 sitt GraphQL-endepunkt
-- Avganger i sanntid: [Entur Journey Planner](https://developer.entur.org/)
-- Papir-ruteplan: [`ruter.pdf`](ruter.pdf) (kan vere eldre enn Entur-data)
+- Rutetabell: [Entur Journey Planner](https://developer.entur.org/), lagra i `data/ruter.json`
+- Papir-ruteplan: [`ruter.pdf`](ruter.pdf)
 
-Fjord1 tillèt ikkje CORS frå nettlesaren, så meldingane blir henta av eit skript og lagra i `data/trafikkmeldinger.json`. GitHub Action oppdaterer fila kvart 15. minutt på `main`.
+Fjord1 tillèt ikkje CORS frå nettlesaren, så meldingane blir henta av eit skript til `data/trafikkmeldinger.json`.
 
 ## Køyre lokalt
 
 ```bash
 python3 scripts/fetch_trafikkmeldinger.py
+python3 scripts/fetch_ruter.py
 python3 -m http.server 8080
 ```
 
 Opne [http://localhost:8080](http://localhost:8080).
+
+## Oppdatering
+
+- Trafikkmeldingar: kvart 15. minutt på `main`
+- Rutetabell: éin gong i døgnet, men commit berre om tabellen er endra
 
 ## Testar
 
@@ -27,4 +35,4 @@ python3 -m unittest discover -s tests -v
 
 ## GitHub Pages
 
-Slå på Pages under *Settings → Pages* med kjelde **Deploy from a branch**, branch `main`, mappe `/ (root)`. Etter merge ligg sida på `https://<brukar>.github.io/fergeruter/`.
+Slå på Pages under *Settings → Pages* med kjelde **Deploy from a branch**, branch `main`, mappe `/ (root)`.

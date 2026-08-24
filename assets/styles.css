@@ -263,6 +263,15 @@ h2 { font-size: 1.45rem; }
   background: #fff6f4;
 }
 
+.departure.is-past {
+  opacity: 0.45;
+}
+
+.departure.is-next {
+  border-color: var(--water);
+  box-shadow: inset 0 0 0 1px var(--water);
+}
+
 .live-dot {
   width: 0.55rem;
   height: 0.55rem;
