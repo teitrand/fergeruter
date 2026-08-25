@@ -258,7 +258,10 @@ h2 { font-size: 1.45rem; }
 
 .day-label {
   font-weight: 600;
-  text-transform: capitalize;
+}
+
+.day-label::first-letter {
+  text-transform: uppercase;
 }
 
 .next-summary {
