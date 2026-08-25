@@ -13,7 +13,8 @@
       "connectionNumber": 6,
       "important": false,
       "severity": "capacity",
-      "isRoute1136": false
+      "isRoute1136": false,
+      "isLocal": false
     },
     {
       "id": "RG9tYWluQ29udGVudDoyMTYyMDgwMQ==",
@@ -26,7 +27,8 @@
       "connectionNumber": 1142,
       "important": false,
       "severity": "capacity",
-      "isRoute1136": false
+      "isRoute1136": false,
+      "isLocal": false
     },
     {
       "id": "RG9tYWluQ29udGVudDoyMTYyMDcxNw==",
@@ -39,7 +41,8 @@
       "connectionNumber": 581,
       "important": false,
       "severity": "capacity",
-      "isRoute1136": false
+      "isRoute1136": false,
+      "isLocal": false
     },
     {
       "id": "RG9tYWluQ29udGVudDoyMTYyMDUwOQ==",
@@ -52,7 +55,8 @@
       "connectionNumber": 132,
       "important": false,
       "severity": "normal",
-      "isRoute1136": true
+      "isRoute1136": true,
+      "isLocal": true
     },
     {
       "id": "RG9tYWluQ29udGVudDoyMTU4MzY2Mg==",
@@ -65,7 +69,8 @@
       "connectionNumber": 1143,
       "important": false,
       "severity": "normal",
-      "isRoute1136": false
+      "isRoute1136": false,
+      "isLocal": false
     },
     {
       "id": "RG9tYWluQ29udGVudDoyMTIyMDIyOQ==",
@@ -78,7 +83,8 @@
       "connectionNumber": 1045,
       "important": false,
       "severity": "info",
-      "isRoute1136": false
+      "isRoute1136": false,
+      "isLocal": false
     }
   ]
 }

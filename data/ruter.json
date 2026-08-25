@@ -3,7 +3,16 @@
   "lineId": "MOR:Line:1136",
   "publicCode": "1136",
   "lineName": "Standal-Trandal-Sæbø-Skår-Vald",
-  "fetchedAt": "2026-08-25T05:42:00.728393+00:00",
+  "fetchedAt": "2026-08-25T07:09:06.187139+00:00",
+  "hjorundfjordQuays": [
+    "Standal",
+    "Trandal",
+    "Sæbø",
+    "Skår",
+    "Leknes",
+    "Bjørke",
+    "Urke"
+  ],
   "legs": [
     {
       "id": "MOR:ServiceJourney:1136_102_9150000047474169#0",
@@ -12,6 +21,14 @@
       "departure": "06:45:00",
       "arrival": "07:00:00",
       "requestStop": false,
+      "signal": {
+        "minutesBefore": 60,
+        "text": "Berre på signal min. 1 time før, tlf. 91 66 93 40",
+        "phone": "91 66 93 40"
+      },
+      "notices": [
+        "Berre på signal min. 1 time før, tlf. 91 66 93 40"
+      ],
       "activeDates": [
         "2026-08-24",
         "2026-08-25",
@@ -106,6 +123,14 @@
       "departure": "07:05:00",
       "arrival": "07:20:00",
       "requestStop": false,
+      "signal": {
+        "minutesBefore": 60,
+        "text": "Berre på signal min. 1 time før, tlf. 91 66 93 40",
+        "phone": "91 66 93 40"
+      },
+      "notices": [
+        "Berre på signal min. 1 time før, tlf. 91 66 93 40"
+      ],
       "activeDates": [
         "2026-08-24",
         "2026-08-25",
@@ -200,6 +225,8 @@
       "departure": "07:40:00",
       "arrival": "07:55:00",
       "requestStop": false,
+      "signal": null,
+      "notices": [],
       "activeDates": [
         "2026-08-24",
         "2026-08-25",
@@ -316,6 +343,8 @@
       "departure": "07:40:00",
       "arrival": "08:00:00",
       "requestStop": false,
+      "signal": null,
+      "notices": [],
       "activeDates": [
         "2026-08-29",
         "2026-09-05",
@@ -347,6 +376,8 @@
       "departure": "08:00:00",
       "arrival": "08:30:00",
       "requestStop": false,
+      "signal": null,
+      "notices": [],
       "activeDates": [
         "2026-08-24",
         "2026-08-25",
@@ -463,6 +494,14 @@
       "departure": "08:00:00",
       "arrival": "08:30:00",
       "requestStop": false,
+      "signal": {
+        "minutesBefore": 60,
+        "text": "Berre på signal min. 1 time før, tlf. 91 66 93 40",
+        "phone": "91 66 93 40"
+      },
+      "notices": [
+        "Berre på signal min. 1 time før, tlf. 91 66 93 40"
+      ],
       "activeDates": [
         "2026-08-29",
         "2026-09-05",
@@ -494,6 +533,14 @@
       "departure": "08:35:00",
       "arrival": "08:55:00",
       "requestStop": false,
+      "signal": {
+        "minutesBefore": 60,
+        "text": "Berre på signal min. 1 time før, tlf. 91 66 93 40",
+        "phone": "91 66 93 40"
+      },
+      "notices": [
+        "Berre på signal min. 1 time før, tlf. 91 66 93 40"
+      ],
       "activeDates": [
         "2026-08-26",
         "2026-09-02",
@@ -526,6 +573,14 @@
       "departure": "08:35:00",
       "arrival": "08:55:00",
       "requestStop": false,
+      "signal": {
+        "minutesBefore": 60,
+        "text": "Berre på signal min. 1 time før, tlf. 91 66 93 40",
+        "phone": "91 66 93 40"
+      },
+      "notices": [
+        "Berre på signal min. 1 time før, tlf. 91 66 93 40"
+      ],
       "activeDates": [
         "2026-08-24",
         "2026-08-25",
@@ -620,6 +675,14 @@
       "departure": "08:35:00",
       "arrival": "08:55:00",
       "requestStop": false,
+      "signal": {
+        "minutesBefore": 60,
+        "text": "Berre på signal min. 1 time før, tlf. 91 66 93 40",
+        "phone": "91 66 93 40"
+      },
+      "notices": [
+        "Berre på signal min. 1 time før, tlf. 91 66 93 40"
+      ],
       "activeDates": [
         "2026-08-29",
         "2026-09-05",
@@ -651,6 +714,14 @@
       "departure": "08:55:00",
       "arrival": "09:15:00",
       "requestStop": false,
+      "signal": {
+        "minutesBefore": 60,
+        "text": "Berre på signal min. 1 time før, tlf. 91 66 93 40",
+        "phone": "91 66 93 40"
+      },
+      "notices": [
+        "Berre på signal min. 1 time før, tlf. 91 66 93 40"
+      ],
       "activeDates": [
         "2026-08-24",
         "2026-08-25",
@@ -745,6 +816,14 @@
       "departure": "08:55:00",
       "arrival": "09:15:00",
       "requestStop": false,
+      "signal": {
+        "minutesBefore": 60,
+        "text": "Berre på signal min. 1 time før, tlf. 91 66 93 40",
+        "phone": "91 66 93 40"
+      },
+      "notices": [
+        "Berre på signal min. 1 time før, tlf. 91 66 93 40"
+      ],
       "activeDates": [
         "2026-08-29",
         "2026-09-05",
@@ -776,6 +855,8 @@
       "departure": "09:00:00",
       "arrival": "09:15:00",
       "requestStop": false,
+      "signal": null,
+      "notices": [],
       "activeDates": [
         "2026-08-30",
         "2026-09-06",
@@ -808,6 +889,14 @@
       "departure": "09:20:00",
       "arrival": "09:45:00",
       "requestStop": false,
+      "signal": {
+        "minutesBefore": 60,
+        "text": "Berre på signal min. 1 time før, tlf. 91 66 93 40",
+        "phone": "91 66 93 40"
+      },
+      "notices": [
+        "Berre på signal min. 1 time før, tlf. 91 66 93 40"
+      ],
       "activeDates": [
         "2026-08-24",
         "2026-08-25",
@@ -902,6 +991,14 @@
       "departure": "09:20:00",
       "arrival": "09:45:00",
       "requestStop": false,
+      "signal": {
+        "minutesBefore": 60,
+        "text": "Berre på signal min. 1 time før, tlf. 91 66 93 40",
+        "phone": "91 66 93 40"
+      },
+      "notices": [
+        "Berre på signal min. 1 time før, tlf. 91 66 93 40"
+      ],
       "activeDates": [
         "2026-08-29",
         "2026-09-05",
@@ -933,6 +1030,8 @@
       "departure": "09:20:00",
       "arrival": "09:35:00",
       "requestStop": false,
+      "signal": null,
+      "notices": [],
       "activeDates": [
         "2026-08-30",
         "2026-09-06",
@@ -965,6 +1064,8 @@
       "departure": "09:45:00",
       "arrival": "10:00:00",
       "requestStop": false,
+      "signal": null,
+      "notices": [],
       "activeDates": [
         "2026-08-24",
         "2026-08-25",
@@ -1059,6 +1160,8 @@
       "departure": "09:45:00",
       "arrival": "10:00:00",
       "requestStop": false,
+      "signal": null,
+      "notices": [],
       "activeDates": [
         "2026-08-29",
         "2026-09-05",
@@ -1090,6 +1193,8 @@
       "departure": "10:00:00",
       "arrival": "10:20:00",
       "requestStop": false,
+      "signal": null,
+      "notices": [],
       "activeDates": [
         "2026-08-30",
         "2026-09-06",
@@ -1124,6 +1229,14 @@
       "departure": "10:20:00",
       "arrival": "10:50:00",
       "requestStop": false,
+      "signal": {
+        "minutesBefore": 60,
+        "text": "Berre på signal min. 1 time før, tlf. 91 66 93 40",
+        "phone": "91 66 93 40"
+      },
+      "notices": [
+        "Berre på signal min. 1 time før, tlf. 91 66 93 40"
+      ],
       "activeDates": [
         "2026-08-30",
         "2026-09-06",
@@ -1158,6 +1271,14 @@
       "departure": "10:50:00",
       "arrival": "11:10:00",
       "requestStop": false,
+      "signal": {
+        "minutesBefore": 60,
+        "text": "Berre på signal min. 1 time før, tlf. 91 66 93 40",
+        "phone": "91 66 93 40"
+      },
+      "notices": [
+        "Berre på signal min. 1 time før, tlf. 91 66 93 40"
+      ],
       "activeDates": [
         "2026-08-30",
         "2026-09-06",
@@ -1192,6 +1313,14 @@
       "departure": "11:10:00",
       "arrival": "11:30:00",
       "requestStop": false,
+      "signal": {
+        "minutesBefore": 180,
+        "text": "Berre på signal min. 3 timar før, tlf. 91 66 93 40",
+        "phone": "91 66 93 40"
+      },
+      "notices": [
+        "Berre på signal min. 3 timar før, tlf. 91 66 93 40"
+      ],
       "activeDates": [
         "2026-08-26",
         "2026-09-02",
@@ -1224,6 +1353,14 @@
       "departure": "11:20:00",
       "arrival": "11:40:00",
       "requestStop": false,
+      "signal": {
+        "minutesBefore": 60,
+        "text": "Berre på signal min. 1 time før, tlf. 91 66 93 40",
+        "phone": "91 66 93 40"
+      },
+      "notices": [
+        "Berre på signal min. 1 time før, tlf. 91 66 93 40"
+      ],
       "activeDates": [
         "2026-08-30",
         "2026-09-06",
@@ -1258,6 +1395,14 @@
       "departure": "11:50:00",
       "arrival": "12:15:00",
       "requestStop": false,
+      "signal": {
+        "minutesBefore": 60,
+        "text": "Berre på signal min. 1 time før, tlf. 91 66 93 40",
+        "phone": "91 66 93 40"
+      },
+      "notices": [
+        "Berre på signal min. 1 time før, tlf. 91 66 93 40"
+      ],
       "activeDates": [
         "2026-08-30",
         "2026-09-06",
@@ -1292,6 +1437,14 @@
       "departure": "12:10:00",
       "arrival": "12:30:00",
       "requestStop": false,
+      "signal": {
+        "minutesBefore": 180,
+        "text": "Berre på signal min. 3 timar før, tlf. 91 66 93 40",
+        "phone": "91 66 93 40"
+      },
+      "notices": [
+        "Berre på signal min. 3 timar før, tlf. 91 66 93 40"
+      ],
       "activeDates": [
         "2026-08-26",
         "2026-09-02",
@@ -1324,6 +1477,14 @@
       "departure": "12:15:00",
       "arrival": "12:35:00",
       "requestStop": false,
+      "signal": {
+        "minutesBefore": 180,
+        "text": "Berre på signal min. 3 timar før, tlf. 91 66 93 40",
+        "phone": "91 66 93 40"
+      },
+      "notices": [
+        "Berre på signal min. 3 timar før, tlf. 91 66 93 40"
+      ],
       "activeDates": [
         "2026-08-29",
         "2026-09-05",
@@ -1355,6 +1516,8 @@
       "departure": "12:15:00",
       "arrival": "12:30:00",
       "requestStop": false,
+      "signal": null,
+      "notices": [],
       "activeDates": [
         "2026-08-30",
         "2026-09-06",
@@ -1389,6 +1552,8 @@
       "departure": "13:10:00",
       "arrival": "13:25:00",
       "requestStop": false,
+      "signal": null,
+      "notices": [],
       "activeDates": [
         "2026-08-24",
         "2026-08-25",
@@ -1483,6 +1648,14 @@
       "departure": "13:15:00",
       "arrival": "13:35:00",
       "requestStop": false,
+      "signal": {
+        "minutesBefore": 180,
+        "text": "Berre på signal min. 3 timar før, tlf. 91 66 93 40",
+        "phone": "91 66 93 40"
+      },
+      "notices": [
+        "Berre på signal min. 3 timar før, tlf. 91 66 93 40"
+      ],
       "activeDates": [
         "2026-08-29",
         "2026-09-05",
@@ -1514,6 +1687,8 @@
       "departure": "14:25:00",
       "arrival": "14:50:00",
       "requestStop": false,
+      "signal": null,
+      "notices": [],
       "activeDates": [
         "2026-08-24",
         "2026-08-25",
@@ -1608,6 +1783,8 @@
       "departure": "14:40:00",
       "arrival": "14:55:00",
       "requestStop": false,
+      "signal": null,
+      "notices": [],
       "activeDates": [
         "2026-08-26",
         "2026-09-02",
@@ -1640,6 +1817,8 @@
       "departure": "14:50:00",
       "arrival": "15:10:00",
       "requestStop": false,
+      "signal": null,
+      "notices": [],
       "activeDates": [
         "2026-08-24",
         "2026-08-25",
@@ -1734,6 +1913,8 @@
       "departure": "15:00:00",
       "arrival": "15:25:00",
       "requestStop": false,
+      "signal": null,
+      "notices": [],
       "activeDates": [
         "2026-08-26",
         "2026-09-02",
@@ -1766,6 +1947,8 @@
       "departure": "15:15:00",
       "arrival": "15:30:00",
       "requestStop": false,
+      "signal": null,
+      "notices": [],
       "activeDates": [
         "2026-08-24",
         "2026-08-25",
@@ -1860,6 +2043,8 @@
       "departure": "15:25:00",
       "arrival": "15:45:00",
       "requestStop": false,
+      "signal": null,
+      "notices": [],
       "activeDates": [
         "2026-08-26",
         "2026-09-02",
@@ -1892,6 +2077,8 @@
       "departure": "15:30:00",
       "arrival": "15:45:00",
       "requestStop": false,
+      "signal": null,
+      "notices": [],
       "activeDates": [
         "2026-08-30",
         "2026-09-06",
@@ -1926,6 +2113,8 @@
       "departure": "15:45:00",
       "arrival": "16:00:00",
       "requestStop": false,
+      "signal": null,
+      "notices": [],
       "activeDates": [
         "2026-08-24",
         "2026-08-25",
@@ -2020,6 +2209,8 @@
       "departure": "15:50:00",
       "arrival": "16:05:00",
       "requestStop": false,
+      "signal": null,
+      "notices": [],
       "activeDates": [
         "2026-08-26",
         "2026-09-02",
@@ -2052,6 +2243,8 @@
       "departure": "15:50:00",
       "arrival": "16:05:00",
       "requestStop": false,
+      "signal": null,
+      "notices": [],
       "activeDates": [
         "2026-08-30",
         "2026-09-06",
@@ -2086,6 +2279,8 @@
       "departure": "16:05:00",
       "arrival": "16:20:00",
       "requestStop": false,
+      "signal": null,
+      "notices": [],
       "activeDates": [
         "2026-08-29",
         "2026-09-05",
@@ -2117,6 +2312,8 @@
       "departure": "16:10:00",
       "arrival": "16:25:00",
       "requestStop": false,
+      "signal": null,
+      "notices": [],
       "activeDates": [
         "2026-08-26",
         "2026-09-02",
@@ -2149,6 +2346,14 @@
       "departure": "16:25:00",
       "arrival": "16:50:00",
       "requestStop": false,
+      "signal": {
+        "minutesBefore": 60,
+        "text": "Berre på signal min. 1 time før, tlf. 91 66 93 40",
+        "phone": "91 66 93 40"
+      },
+      "notices": [
+        "Berre på signal min. 1 time før, tlf. 91 66 93 40"
+      ],
       "activeDates": [
         "2026-08-24",
         "2026-08-25",
@@ -2243,6 +2448,14 @@
       "departure": "16:25:00",
       "arrival": "16:50:00",
       "requestStop": false,
+      "signal": {
+        "minutesBefore": 60,
+        "text": "Berre på signal min. 1 time før, tlf. 91 66 93 40",
+        "phone": "91 66 93 40"
+      },
+      "notices": [
+        "Berre på signal min. 1 time før, tlf. 91 66 93 40"
+      ],
       "activeDates": [
         "2026-08-29",
         "2026-09-05",
@@ -2274,6 +2487,8 @@
       "departure": "16:30:00",
       "arrival": "16:45:00",
       "requestStop": false,
+      "signal": null,
+      "notices": [],
       "activeDates": [
         "2026-08-26",
         "2026-09-02",
@@ -2306,6 +2521,14 @@
       "departure": "16:50:00",
       "arrival": "17:10:00",
       "requestStop": false,
+      "signal": {
+        "minutesBefore": 60,
+        "text": "Berre på signal min. 1 time før, tlf. 91 66 93 40",
+        "phone": "91 66 93 40"
+      },
+      "notices": [
+        "Berre på signal min. 1 time før, tlf. 91 66 93 40"
+      ],
       "activeDates": [
         "2026-08-24",
         "2026-08-25",
@@ -2400,6 +2623,14 @@
       "departure": "16:50:00",
       "arrival": "17:10:00",
       "requestStop": false,
+      "signal": {
+        "minutesBefore": 60,
+        "text": "Berre på signal min. 1 time før, tlf. 91 66 93 40",
+        "phone": "91 66 93 40"
+      },
+      "notices": [
+        "Berre på signal min. 1 time før, tlf. 91 66 93 40"
+      ],
       "activeDates": [
         "2026-08-29",
         "2026-09-05",
@@ -2431,6 +2662,8 @@
       "departure": "16:55:00",
       "arrival": "17:15:00",
       "requestStop": false,
+      "signal": null,
+      "notices": [],
       "activeDates": [
         "2026-08-30",
         "2026-09-06",
@@ -2463,6 +2696,14 @@
       "departure": "17:10:00",
       "arrival": "17:35:00",
       "requestStop": false,
+      "signal": {
+        "minutesBefore": 60,
+        "text": "Berre på signal min. 1 time før, tlf. 91 66 93 40",
+        "phone": "91 66 93 40"
+      },
+      "notices": [
+        "Berre på signal min. 1 time før, tlf. 91 66 93 40"
+      ],
       "activeDates": [
         "2026-08-24",
         "2026-08-25",
@@ -2557,6 +2798,14 @@
       "departure": "17:10:00",
       "arrival": "17:35:00",
       "requestStop": false,
+      "signal": {
+        "minutesBefore": 60,
+        "text": "Berre på signal min. 1 time før, tlf. 91 66 93 40",
+        "phone": "91 66 93 40"
+      },
+      "notices": [
+        "Berre på signal min. 1 time før, tlf. 91 66 93 40"
+      ],
       "activeDates": [
         "2026-08-29",
         "2026-09-05",
@@ -2588,6 +2837,14 @@
       "departure": "17:15:00",
       "arrival": "17:50:00",
       "requestStop": false,
+      "signal": {
+        "minutesBefore": 60,
+        "text": "Berre på signal min. 1 time før, tlf. 91 66 93 40",
+        "phone": "91 66 93 40"
+      },
+      "notices": [
+        "Berre på signal min. 1 time før, tlf. 91 66 93 40"
+      ],
       "activeDates": [
         "2026-08-30",
         "2026-09-06",
@@ -2620,6 +2877,14 @@
       "departure": "17:45:00",
       "arrival": "18:10:00",
       "requestStop": false,
+      "signal": {
+        "minutesBefore": 60,
+        "text": "Berre på signal min. 1 time før, tlf. 91 66 93 40",
+        "phone": "91 66 93 40"
+      },
+      "notices": [
+        "Berre på signal min. 1 time før, tlf. 91 66 93 40"
+      ],
       "activeDates": [
         "2026-08-24",
         "2026-08-25",
@@ -2714,6 +2979,14 @@
       "departure": "17:45:00",
       "arrival": "18:10:00",
       "requestStop": false,
+      "signal": {
+        "minutesBefore": 60,
+        "text": "Berre på signal min. 1 time før, tlf. 91 66 93 40",
+        "phone": "91 66 93 40"
+      },
+      "notices": [
+        "Berre på signal min. 1 time før, tlf. 91 66 93 40"
+      ],
       "activeDates": [
         "2026-08-29",
         "2026-09-05",
@@ -2745,6 +3018,14 @@
       "departure": "17:50:00",
       "arrival": "18:10:00",
       "requestStop": false,
+      "signal": {
+        "minutesBefore": 60,
+        "text": "Berre på signal min. 1 time før, tlf. 91 66 93 40",
+        "phone": "91 66 93 40"
+      },
+      "notices": [
+        "Berre på signal min. 1 time før, tlf. 91 66 93 40"
+      ],
       "activeDates": [
         "2026-08-30",
         "2026-09-06",
@@ -2777,6 +3058,8 @@
       "departure": "18:10:00",
       "arrival": "18:25:00",
       "requestStop": false,
+      "signal": null,
+      "notices": [],
       "activeDates": [
         "2026-08-24",
         "2026-08-25",
@@ -2871,6 +3154,8 @@
       "departure": "18:10:00",
       "arrival": "18:30:00",
       "requestStop": false,
+      "signal": null,
+      "notices": [],
       "activeDates": [
         "2026-08-29",
         "2026-09-05",
@@ -2902,6 +3187,14 @@
       "departure": "18:15:00",
       "arrival": "18:35:00",
       "requestStop": false,
+      "signal": {
+        "minutesBefore": 60,
+        "text": "Berre på signal min. 1 time før, tlf. 91 66 93 40",
+        "phone": "91 66 93 40"
+      },
+      "notices": [
+        "Berre på signal min. 1 time før, tlf. 91 66 93 40"
+      ],
       "activeDates": [
         "2026-08-30",
         "2026-09-06",
@@ -2934,6 +3227,14 @@
       "departure": "18:35:00",
       "arrival": "19:00:00",
       "requestStop": false,
+      "signal": {
+        "minutesBefore": 60,
+        "text": "Berre på signal min. 1 time før, tlf. 91 66 93 40",
+        "phone": "91 66 93 40"
+      },
+      "notices": [
+        "Berre på signal min. 1 time før, tlf. 91 66 93 40"
+      ],
       "activeDates": [
         "2026-08-30",
         "2026-09-06",
@@ -2966,6 +3267,8 @@
       "departure": "18:45:00",
       "arrival": "19:00:00",
       "requestStop": false,
+      "signal": null,
+      "notices": [],
       "activeDates": [
         "2026-08-24",
         "2026-08-25",
@@ -3060,6 +3363,8 @@
       "departure": "18:45:00",
       "arrival": "19:05:00",
       "requestStop": false,
+      "signal": null,
+      "notices": [],
       "activeDates": [
         "2026-08-29",
         "2026-09-05",
@@ -3091,6 +3396,14 @@
       "departure": "19:00:00",
       "arrival": "19:20:00",
       "requestStop": false,
+      "signal": {
+        "minutesBefore": 180,
+        "text": "Berre på signal min. 3 timar før, tlf. 91 66 93 40",
+        "phone": "91 66 93 40"
+      },
+      "notices": [
+        "Berre på signal min. 3 timar før, tlf. 91 66 93 40"
+      ],
       "activeDates": [
         "2026-08-26",
         "2026-09-02",
@@ -3123,6 +3436,8 @@
       "departure": "19:00:00",
       "arrival": "19:15:00",
       "requestStop": false,
+      "signal": null,
+      "notices": [],
       "activeDates": [
         "2026-08-30",
         "2026-09-06",
@@ -3155,6 +3470,14 @@
       "departure": "19:25:00",
       "arrival": "19:45:00",
       "requestStop": false,
+      "signal": {
+        "minutesBefore": 180,
+        "text": "Berre på signal min. 3 timar før, tlf. 91 66 93 40",
+        "phone": "91 66 93 40"
+      },
+      "notices": [
+        "Berre på signal min. 3 timar før, tlf. 91 66 93 40"
+      ],
       "activeDates": [
         "2026-08-26",
         "2026-09-02",
@@ -3187,6 +3510,8 @@
       "departure": "19:40:00",
       "arrival": "19:55:00",
       "requestStop": false,
+      "signal": null,
+      "notices": [],
       "activeDates": [
         "2026-08-24",
         "2026-08-25",
@@ -3281,6 +3606,8 @@
       "departure": "19:40:00",
       "arrival": "20:00:00",
       "requestStop": false,
+      "signal": null,
+      "notices": [],
       "activeDates": [
         "2026-08-29",
         "2026-09-05",
@@ -3312,6 +3639,14 @@
       "departure": "20:00:00",
       "arrival": "20:15:00",
       "requestStop": false,
+      "signal": {
+        "minutesBefore": 60,
+        "text": "Berre på signal min. 1 time før, tlf. 91 66 93 40",
+        "phone": "91 66 93 40"
+      },
+      "notices": [
+        "Berre på signal min. 1 time før, tlf. 91 66 93 40"
+      ],
       "activeDates": [
         "2026-08-24",
         "2026-08-25",
@@ -3406,6 +3741,14 @@
       "departure": "20:00:00",
       "arrival": "20:20:00",
       "requestStop": false,
+      "signal": {
+        "minutesBefore": 60,
+        "text": "Berre på signal min. 1 time før, tlf. 91 66 93 40",
+        "phone": "91 66 93 40"
+      },
+      "notices": [
+        "Berre på signal min. 1 time før, tlf. 91 66 93 40"
+      ],
       "activeDates": [
         "2026-08-29",
         "2026-09-05",
@@ -3437,6 +3780,14 @@
       "departure": "20:00:00",
       "arrival": "20:15:00",
       "requestStop": false,
+      "signal": {
+        "minutesBefore": 60,
+        "text": "Berre på signal min. 1 time før, tlf. 91 66 93 40",
+        "phone": "91 66 93 40"
+      },
+      "notices": [
+        "Berre på signal min. 1 time før, tlf. 91 66 93 40"
+      ],
       "activeDates": [
         "2026-08-30",
         "2026-09-06",
@@ -3469,6 +3820,14 @@
       "departure": "20:20:00",
       "arrival": "20:35:00",
       "requestStop": false,
+      "signal": {
+        "minutesBefore": 60,
+        "text": "Berre på signal min. 1 time før, tlf. 91 66 93 40",
+        "phone": "91 66 93 40"
+      },
+      "notices": [
+        "Berre på signal min. 1 time før, tlf. 91 66 93 40"
+      ],
       "activeDates": [
         "2026-08-24",
         "2026-08-25",
@@ -3563,6 +3922,14 @@
       "departure": "20:20:00",
       "arrival": "20:40:00",
       "requestStop": false,
+      "signal": {
+        "minutesBefore": 60,
+        "text": "Berre på signal min. 1 time før, tlf. 91 66 93 40",
+        "phone": "91 66 93 40"
+      },
+      "notices": [
+        "Berre på signal min. 1 time før, tlf. 91 66 93 40"
+      ],
       "activeDates": [
         "2026-08-29",
         "2026-09-05",
@@ -3594,6 +3961,14 @@
       "departure": "20:20:00",
       "arrival": "20:35:00",
       "requestStop": false,
+      "signal": {
+        "minutesBefore": 60,
+        "text": "Berre på signal min. 1 time før, tlf. 91 66 93 40",
+        "phone": "91 66 93 40"
+      },
+      "notices": [
+        "Berre på signal min. 1 time før, tlf. 91 66 93 40"
+      ],
       "activeDates": [
         "2026-08-30",
         "2026-09-06",
@@ -3626,6 +4001,14 @@
       "departure": "20:40:00",
       "arrival": "20:55:00",
       "requestStop": false,
+      "signal": {
+        "minutesBefore": 60,
+        "text": "Berre på signal min. 1 time før, tlf. 91 66 93 40",
+        "phone": "91 66 93 40"
+      },
+      "notices": [
+        "Berre på signal min. 1 time før, tlf. 91 66 93 40"
+      ],
       "activeDates": [
         "2026-08-30",
         "2026-09-06",
@@ -3658,6 +4041,14 @@
       "departure": "21:00:00",
       "arrival": "21:15:00",
       "requestStop": false,
+      "signal": {
+        "minutesBefore": 60,
+        "text": "Berre på signal min. 1 time før, tlf. 91 66 93 40",
+        "phone": "91 66 93 40"
+      },
+      "notices": [
+        "Berre på signal min. 1 time før, tlf. 91 66 93 40"
+      ],
       "activeDates": [
         "2026-08-30",
         "2026-09-06",

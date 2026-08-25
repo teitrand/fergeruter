@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Trafikkmeldingar frå Fjord1 og rutetabell for ferjesamband 1136 Standal–Trandal. Tabellen lastast éin gong; byt visning mellom Frå Trandal og Frå Standal.">
+  <meta name="description" content="Trafikkmeldingar frå Fjord1 og seilingsplan for ferjesamband 1136 Standal–Trandal–Sæbø–Skår. Alle anløp i rekkjefølgje, med status for kvar ferja er akkurat no.">
   <title>Fergeruter 1136 · Standal–Trandal</title>
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -27,7 +27,7 @@
         <h1>Standal–Trandal–Sæbø–Skår–Valderøya–Store Kalvøy</h1>
       </div>
     </div>
-    <p class="lede">Trafikkmeldingar frå Fjord1 og rutetabell for Standal–Trandal, lasta ned éin gong.</p>
+    <p class="lede" id="lede-status" hidden></p>
   </header>
 
   <main id="innhald">
@@ -40,8 +40,8 @@
           <p class="meta" id="messages-meta">Hentar frå Fjord1…</p>
         </div>
         <div class="filters" role="group" aria-label="Filtrer meldingar">
-          <button type="button" class="chip is-active" data-filter="route" aria-pressed="true">Dette sambandet</button>
-          <button type="button" class="chip" data-filter="all" aria-pressed="false">Alle Fjord1</button>
+          <button type="button" class="chip is-active" data-filter="local" aria-pressed="true">Hjørundfjorden</button>
+          <button type="button" class="chip" data-filter="route" aria-pressed="false">Rute 1136</button>
           <button type="button" class="chip" data-filter="issues" aria-pressed="false">Berre avvik</button>
         </div>
         <div id="messages" class="message-list"></div>
@@ -55,13 +55,22 @@
 
       <section class="panel" aria-labelledby="avganger-title">
         <div class="panel-head">
-          <h2 id="avganger-title">Ferja i dag</h2>
+          <h2 id="avganger-title">Ferja</h2>
           <p class="meta" id="departures-meta">Lastar rutetabell…</p>
         </div>
+        <div class="daynav" role="group" aria-label="Vel dag">
+          <button type="button" id="day-prev" class="daybtn" aria-label="Førre dag">‹</button>
+          <span id="day-label" class="day-label"></span>
+          <button type="button" id="day-next" class="daybtn" aria-label="Neste dag">›</button>
+          <button type="button" id="day-today" class="daybtn daybtn-today">I dag</button>
+        </div>
         <div id="next-summary" class="next-summary"></div>
+        <div id="stop-filter" class="filters stops" role="group" aria-label="Filtrer på stoppestad"></div>
+        <div id="timeline-reveal"></div>
         <div id="departures" class="timeline"></div>
         <p class="footnote">
           Posisjonen er rekna ut frå rutetabellen, ikkje frå GPS.
+          Signalturar må tingast på telefon innan fristen.
           Rutetabellen lastast berre ned att når han er endra.
           <span id="timetable-updated"></span>
           Papir-ruteplan: <a href="ruter.pdf">ruter.pdf</a>
