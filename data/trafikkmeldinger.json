@@ -1,6 +1,6 @@
 {
   "source": "https://www.fjord1.no/trafikkmeldingar",
-  "fetchedAt": "2026-08-25T04:55:54.274811+00:00",
+  "fetchedAt": "2026-08-25T05:38:52.774568+00:00",
   "messages": [
     {
       "id": "RG9tYWluQ29udGVudDoyMTYyMDg5MA==",
@@ -78,19 +78,6 @@
       "connectionNumber": 1140,
       "important": false,
       "severity": "capacity",
-      "isRoute1136": false
-    },
-    {
-      "id": "RG9tYWluQ29udGVudDoyMTYxOTUxMA==",
-      "heading": "Stårheim-Isane",
-      "text": "Rute 1038 Stårheim - Isane: Det er normal drift, men en på påregne noe forsinkelser fram til 0820 i dag. Mvh Fjord1 på vegner av Skyss.",
-      "publishedAt": "2026-08-24T06:58:26+02:00",
-      "validFrom": "2026-08-24T04:58:26+00:00",
-      "validTo": "2026-08-25T04:57:56+00:00",
-      "countyNumber": 14,
-      "connectionNumber": 814,
-      "important": false,
-      "severity": "delay",
       "isRoute1136": false
     },
     {
