@@ -181,11 +181,16 @@ function ferryStatus(legs) {
   if (now < clockMinutes(first.departure)) {
     return {
       at: clockMinutes(first.departure) - 1,
+      short: `Ferja ligg til kai på ${first.from}`,
       text: `Ferja ligg til kai på ${first.from}. Fyrste avgang ${hhmm(first.departure)}.`,
     };
   }
   if (now >= clockMinutes(last.arrival)) {
-    return { at: 1441, text: `Ferja er ferdig for dagen på ${last.to}.` };
+    return {
+      at: 1441,
+      short: `Ferja er ferdig for dagen på ${last.to}`,
+      text: `Ferja er ferdig for dagen på ${last.to}.`,
+    };
   }
 
   for (let i = 0; i < legs.length; i += 1) {
@@ -376,6 +381,30 @@ function renderDayNav() {
   if (todayBtn) todayBtn.disabled = isToday();
 }
 
+/** Kort status øvst, alltid om i dag, uansett kva dag som er vald nedanfor. */
+function renderLedeStatus() {
+  const lede = document.getElementById("lede-status");
+  if (!lede) return;
+  const legs = legsForDate(todayIso());
+  if (!legs.length) {
+    lede.hidden = false;
+    lede.textContent = "Ingen turar i rutetabellen i dag.";
+    return;
+  }
+  const status = ferryStatus(legs);
+  const now = nowMinutes();
+  const next = legs.find((leg) => clockMinutes(leg.departure) >= now);
+  const parts = [];
+  if (status) parts.push(status.short || status.text.replace(/\.$/, ""));
+  if (next) {
+    parts.push(
+      `Neste avgang ${hhmm(next.departure)} frå ${next.from}, ${countdown(clockMinutes(next.departure))}`
+    );
+  }
+  lede.hidden = false;
+  lede.textContent = `${parts.join(". ")}.`;
+}
+
 function renderTimeline() {
   const root = document.getElementById("departures");
   const meta = document.getElementById("departures-meta");
@@ -533,6 +562,7 @@ async function loadRoutes() {
     if (!response.ok) throw new Error(response.statusText);
     state.routes = await response.json();
     renderTimeline();
+    renderLedeStatus();
     const updated = document.getElementById("timetable-updated");
     if (updated && state.routes.fetchedAt) {
       updated.textContent = `Sist lasta ned ${formatDateOnly(state.routes.fetchedAt)}. `;
@@ -577,6 +607,8 @@ bindControls();
 loadMessages();
 loadRoutes();
 setInterval(() => {
-  if (state.routes) renderTimeline();
+  if (!state.routes) return;
+  renderTimeline();
+  renderLedeStatus();
 }, 30 * 1000);
 setInterval(loadMessages, 3 * 60 * 1000);
