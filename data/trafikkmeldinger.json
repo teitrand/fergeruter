@@ -1,6 +1,6 @@
 {
   "source": "https://www.fjord1.no/trafikkmeldingar",
-  "fetchedAt": "2026-08-25T03:04:54.886439+00:00",
+  "fetchedAt": "2026-08-25T04:02:05.357116+00:00",
   "messages": [
     {
       "id": "RG9tYWluQ29udGVudDoyMTYyMDg5MA==",
@@ -91,19 +91,6 @@
       "connectionNumber": 814,
       "important": false,
       "severity": "delay",
-      "isRoute1136": false
-    },
-    {
-      "id": "RG9tYWluQ29udGVudDoyMTYxOTM4MQ==",
-      "heading": "Stårheim-Isane",
-      "text": "Rute 1038 Stårheim - Isane: Grunna driftsproblem vert følgjande avgangar innstilt: 0600 fra Stårheim, 0620 fra Isane Mvh Fjord1 på vegner av Skyss.",
-      "publishedAt": "2026-08-24T05:54:52+02:00",
-      "validFrom": "2026-08-24T03:54:52+00:00",
-      "validTo": "2026-08-25T03:54:38+00:00",
-      "countyNumber": 14,
-      "connectionNumber": 814,
-      "important": false,
-      "severity": "cancelled",
       "isRoute1136": false
     },
     {
