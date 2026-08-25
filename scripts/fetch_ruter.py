@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Hent rutetabellen for samband 1136 frå Entur.
 
-Køyr berre når rutetabellen er endra. Nettlesaren les den lagra fila og byter
-visning mellom dei to Standal-alternativa utan nye API-kall.
+Køyr berre når rutetabellen er endra. Nettlesaren les den lagra fila og byggjer
+seilingsplanen for dagen utan nye API-kall.
 """
 
 from __future__ import annotations
@@ -18,8 +18,7 @@ ENTUR_URL = "https://api.entur.io/journey-planner/v3/graphql"
 LINE_ID = "MOR:Line:1136"
 CLIENT_NAME = "teitrand-fergeruter"
 
-STANDAL = "Standal"
-TRANDAL = "Trandal"
+QUAY_SUFFIXES = (" ferjekai", " kai")
 
 QUERY = """
 {
@@ -41,26 +40,15 @@ QUERY = """
 }
 """
 
-ALTERNATIVES = (
-    {
-        "id": "fra-trandal",
-        "label": "Frå Trandal",
-        "from": TRANDAL,
-        "to": STANDAL,
-    },
-    {
-        "id": "fra-standal",
-        "label": "Frå Standal",
-        "from": STANDAL,
-        "to": TRANDAL,
-    },
-)
-
 
 def quay_place(name: str | None) -> str:
     if not name:
         return ""
-    return name.removesuffix(" ferjekai").strip()
+    place = name.strip()
+    for suffix in QUAY_SUFFIXES:
+        if place.endswith(suffix):
+            return place[: -len(suffix)].strip()
+    return place
 
 
 def clock(value: str | None) -> str | None:
@@ -69,42 +57,49 @@ def clock(value: str | None) -> str | None:
     return value[:8]
 
 
-def trip_from_journey(journey: dict, origin: str, destination: str) -> dict | None:
+def passing_departure(point: dict) -> str | None:
+    return clock((point.get("departure") or {}).get("time"))
+
+
+def passing_arrival(point: dict) -> str | None:
+    return clock((point.get("arrival") or {}).get("time")) or passing_departure(point)
+
+
+def legs_from_journey(journey: dict) -> list[dict]:
+    """Ein del per strekning mellom to påfølgjande anløp."""
     times = journey.get("passingTimes") or []
     if len(times) < 2:
-        return None
-    first, last = times[0], times[-1]
-    if quay_place(first.get("quay", {}).get("name")) != origin:
-        return None
-    if quay_place(last.get("quay", {}).get("name")) != destination:
-        return None
-    departure = clock((first.get("departure") or {}).get("time"))
-    arrival = clock((last.get("arrival") or {}).get("time")) or clock(
-        (last.get("departure") or {}).get("time")
-    )
-    if not departure:
-        return None
+        return []
     dates = sorted(set(journey.get("activeDates") or []))
-    return {
-        "id": journey.get("id"),
-        "departure": departure,
-        "arrival": arrival,
-        "requestStop": bool(first.get("requestStop")),
-        "activeDates": dates,
-    }
+    journey_id = journey.get("id") or ""
+    legs = []
+    for index, (start, end) in enumerate(zip(times, times[1:])):
+        departure = passing_departure(start)
+        arrival = passing_arrival(end)
+        origin = quay_place(start.get("quay", {}).get("name"))
+        destination = quay_place(end.get("quay", {}).get("name"))
+        if not departure or not origin or not destination:
+            continue
+        legs.append(
+            {
+                "id": f"{journey_id}#{index}",
+                "from": origin,
+                "to": destination,
+                "departure": departure,
+                "arrival": arrival,
+                "requestStop": bool(start.get("requestStop")),
+                "activeDates": dates,
+            }
+        )
+    return legs
 
 
-def build_alternatives(journeys: list[dict]) -> list[dict]:
-    alternatives = []
-    for spec in ALTERNATIVES:
-        trips = []
-        for journey in journeys:
-            trip = trip_from_journey(journey, spec["from"], spec["to"])
-            if trip:
-                trips.append(trip)
-        trips.sort(key=lambda item: (item["departure"], item["id"] or ""))
-        alternatives.append({**spec, "trips": trips})
-    return alternatives
+def build_legs(journeys: list[dict]) -> list[dict]:
+    legs = []
+    for journey in journeys:
+        legs.extend(legs_from_journey(journey))
+    legs.sort(key=lambda leg: (leg["departure"], leg["id"]))
+    return legs
 
 
 def timetable_body(payload: dict) -> dict:
@@ -133,14 +128,13 @@ def fetch_line(timeout: int = 60) -> dict:
 
 
 def build_payload(line: dict, fetched_at: str | None = None) -> dict:
-    journeys = line.get("serviceJourneys") or []
     return {
         "source": ENTUR_URL,
         "lineId": line.get("id") or LINE_ID,
         "publicCode": line.get("publicCode") or "1136",
         "lineName": line.get("name") or "Standal-Trandal",
         "fetchedAt": fetched_at or datetime.now(timezone.utc).isoformat(),
-        "alternatives": build_alternatives(journeys),
+        "legs": build_legs(line.get("serviceJourneys") or []),
     }
 
 
@@ -168,11 +162,11 @@ def main() -> int:
         print(f"Kunne ikkje hente rutetabell: {exc}", file=sys.stderr)
         return 1
     changed = write_if_changed(payload, output)
-    trips = sum(len(alt["trips"]) for alt in payload["alternatives"])
+    count = len(payload["legs"])
     if changed:
-        print(f"Skreiv {trips} turar til {output}")
+        print(f"Skreiv {count} strekningar til {output}")
     else:
-        print(f"Rutetabellen er uendra ({trips} turar)")
+        print(f"Rutetabellen er uendra ({count} strekningar)")
     return 0
 
 

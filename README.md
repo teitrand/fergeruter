@@ -1,8 +1,10 @@
 # Fergeruter 1136
 
-Statisk oversikt over **trafikkmeldingar frå Fjord1** og **rutetabellen** for Standal–Trandal (rute 1136).
+Statisk oversikt over **trafikkmeldingar frå Fjord1** og **seilingsplanen** for rute 1136 Standal–Trandal–Sæbø–Skår–Valderøya–Store Kalvøy.
 
-Rutetabellen blir lasta ned **éin gong** frå Entur. Sida byter berre visning mellom dei to alternativa **Frå Trandal** og **Frå Standal**, utan nye API-kall. Tabellen blir berre henta på nytt når innhaldet faktisk er endra.
+Sida viser heile dagen som ei samanhengande tidslinje med alle anløpa i rekkjefølgje, og ei **Nå**-linje som fortel om ferja ligg til kai eller er på veg. Posisjonen er rekna ut frå rutetabellen, ikkje frå GPS.
+
+Rutetabellen blir lasta ned frå Entur og lagra i `data/ruter.json`. Han blir berre henta på nytt når innhaldet faktisk er endra, og nettlesaren gjer ingen API-kall.
 
 ## Kjelder
 

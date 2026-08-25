@@ -227,58 +227,160 @@ h2 { font-size: 1.45rem; }
 .badge-cancelled { background: #f8d4d0; color: var(--stop); }
 .badge-info { background: #dceaf5; color: var(--info); }
 
-.departure {
+.next-summary {
   display: grid;
-  grid-template-columns: 5.2rem 1fr auto;
-  gap: 0.7rem;
-  align-items: center;
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  padding: 0.7rem 0.85rem;
-  background: #fff;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+  margin-bottom: 1rem;
 }
 
-.clock {
+.next-item {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 0.6rem 0.75rem;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.next-label {
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.next-time {
   font-family: Fraunces, Georgia, serif;
-  font-size: 1.45rem;
+  font-size: 1.6rem;
+  line-height: 1.1;
   font-variant-numeric: tabular-nums;
 }
 
-.dest { font-weight: 600; }
-.sub { color: var(--muted); font-size: 0.85rem; }
-.eta {
-  font-size: 0.85rem;
+.next-sub {
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.timeline {
+  display: flex;
+  flex-direction: column;
+  border-left: 2px solid var(--line);
+  padding-left: 0.9rem;
+  margin-left: 0.35rem;
+}
+
+.stop {
+  display: grid;
+  grid-template-columns: 3.6rem 1fr auto;
+  gap: 0.7rem;
+  align-items: baseline;
+  padding: 0.3rem 0;
+  position: relative;
+}
+
+.stop::before {
+  content: "";
+  position: absolute;
+  left: -1.24rem;
+  top: 0.72rem;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--water);
+}
+
+.stop-arr::before {
+  background: #fff;
+  border: 2px solid var(--line);
+  width: 0.4rem;
+  height: 0.4rem;
+  left: -1.17rem;
+}
+
+.stop-time {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--fjord);
+}
+
+.stop-dep .stop-name { font-weight: 600; }
+
+.stop-arr {
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.stop-arr .stop-time { font-weight: 400; color: var(--muted); }
+
+.stop-tag {
+  margin-left: 0.4rem;
+  font-size: 0.75rem;
+  color: var(--delay);
+  border: 1px solid #f0d6b4;
+  border-radius: 999px;
+  padding: 0.02rem 0.4rem;
+  white-space: nowrap;
+}
+
+.stop-state {
+  font-size: 0.82rem;
   color: var(--water);
   font-weight: 600;
   text-align: right;
+  white-space: nowrap;
 }
 
-.departure.is-cancelled .clock,
-.departure.is-cancelled .dest {
-  text-decoration: line-through;
-  color: var(--stop);
+.stop.is-past { opacity: 0.42; }
+.stop.is-past .stop-state { color: var(--muted); font-weight: 400; }
+
+.now {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.45rem 0 0.45rem -0.35rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 12px;
+  background: #e7f3ef;
+  border: 1px solid #bcdcd2;
+  position: relative;
 }
 
-.departure.is-cancelled {
-  background: #fff6f4;
+.now.is-underway {
+  background: #e2eefa;
+  border-color: #b8d3ee;
 }
 
-.departure.is-past {
-  opacity: 0.45;
-}
-
-.departure.is-next {
-  border-color: var(--water);
-  box-shadow: inset 0 0 0 1px var(--water);
-}
-
-.live-dot {
-  width: 0.55rem;
-  height: 0.55rem;
+.now::before {
+  content: "";
+  position: absolute;
+  left: -1.05rem;
+  width: 0.7rem;
+  height: 0.7rem;
   border-radius: 50%;
   background: var(--ok);
-  display: inline-block;
-  margin-right: 0.3rem;
+  box-shadow: 0 0 0 4px rgba(31, 122, 108, 0.18);
+}
+
+.now.is-underway::before {
+  background: var(--water);
+  box-shadow: 0 0 0 4px rgba(26, 107, 138, 0.18);
+}
+
+.now-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ok);
+}
+
+.now.is-underway .now-label { color: var(--water); }
+
+.now-text {
+  font-weight: 600;
+  line-height: 1.3;
 }
 
 .footnote {
@@ -303,6 +405,7 @@ h2 { font-size: 1.45rem; }
 
 @media (max-width: 640px) {
   .panel-head { flex-direction: column; gap: 0.2rem; }
-  .departure { grid-template-columns: 4.6rem 1fr; }
-  .eta { grid-column: 2; text-align: left; }
+  .stop { grid-template-columns: 3.2rem 1fr auto; gap: 0.5rem; }
+  .stop-state { font-size: 0.78rem; }
+  .next-summary { grid-template-columns: 1fr; }
 }
