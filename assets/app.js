@@ -14,11 +14,14 @@ const HOME_QUAYS = ["Trandal", "Standal"];
 const state = {
   messageFilter: "local",
   stopFilter: null,
-  dayOffset: 0,
+  date: null,
   showPast: false,
   messages: null,
   routes: null,
 };
+
+let renderedDate = null;
+let tickTimer = null;
 
 function el(tag, className, text) {
   const node = document.createElement(tag);
@@ -35,9 +38,29 @@ function osloParts(date = new Date()) {
     day: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
+    second: "2-digit",
     hourCycle: "h23",
   }).formatToParts(date);
   return Object.fromEntries(parts.map((part) => [part.type, part.value]));
+}
+
+function osloSecondsOfDay() {
+  const parts = osloParts();
+  return Number(parts.hour) * 3600 + Number(parts.minute) * 60 + Number(parts.second);
+}
+
+function clockSeconds(time) {
+  const [hours, minutes, seconds = 0] = time.split(":").map(Number);
+  return hours * 3600 + minutes * 60 + seconds;
+}
+
+/** Minutt att, alltid runda ned, så vi aldri lovar meir tid enn det er. */
+function minutesLeft(time) {
+  return Math.floor((clockSeconds(time) - osloSecondsOfDay()) / 60);
+}
+
+function hasPassed(time) {
+  return clockSeconds(time) <= osloSecondsOfDay();
 }
 
 function todayIso() {
@@ -52,11 +75,13 @@ function shiftIso(iso, days) {
 }
 
 function selectedDate() {
-  return shiftIso(todayIso(), state.dayOffset);
+  // Lagra som dato, ikkje som forskyving, slik at ei sida som står open
+  // over midnatt held fram med å vise den dagen du faktisk ser på.
+  return state.date || todayIso();
 }
 
 function isToday() {
-  return state.dayOffset === 0;
+  return selectedDate() === todayIso();
 }
 
 function nowMinutes() {
@@ -136,8 +161,8 @@ function durationText(minutes) {
   return rest ? `${hours} t ${rest} min` : `${hours} t`;
 }
 
-function countdown(targetMinutes) {
-  return `om ${durationText(targetMinutes - nowMinutes())}`;
+function countdown(time) {
+  return `om ${durationText(minutesLeft(time))}`;
 }
 
 function legsForDate(date) {
@@ -218,10 +243,7 @@ function ferryStatus(legs) {
 }
 
 function nextDepartureFrom(legs, quay) {
-  const now = nowMinutes();
-  return legs.find(
-    (leg) => leg.from === quay && (!isToday() || clockMinutes(leg.departure) >= now)
-  );
+  return legs.find((leg) => leg.from === quay && (!isToday() || !hasPassed(leg.departure)));
 }
 
 function renderNextSummary(legs) {
@@ -234,7 +256,7 @@ function renderNextSummary(legs) {
     item.append(el("span", "next-label", `Neste frå ${quay}`));
     item.append(el("span", "next-time", leg ? hhmm(leg.departure) : "—"));
     const sub = leg
-      ? `mot ${leg.to}${isToday() ? ` · ${countdown(clockMinutes(leg.departure))}` : ""}`
+      ? `mot ${leg.to}${isToday() ? ` · ${countdown(leg.departure)}` : ""}`
       : "ingen fleire denne dagen";
     item.append(el("span", "next-sub", sub));
     root.append(item);
@@ -255,10 +277,10 @@ function signalNote(leg) {
     note.append(document.createTextNode(label));
   }
   if (isToday()) {
-    const now = nowMinutes();
-    if (now < deadline) {
-      note.append(el("span", "stop-left", `${countdown(deadline)} igjen å tinge`));
-    } else if (now < clockMinutes(leg.departure)) {
+    const deadlineClock = `${minutesToClock(deadline)}:00`;
+    if (!hasPassed(deadlineClock)) {
+      note.append(el("span", "stop-left", `${countdown(deadlineClock)} igjen å tinge`));
+    } else if (!hasPassed(leg.departure)) {
       note.append(el("span", "stop-expired", "fristen er ute"));
     }
   }
@@ -276,12 +298,8 @@ function departureRow(leg, past) {
   const note = signalNote(leg);
   if (note) body.append(note);
   row.append(body);
-  const state_ = past
-    ? "Gått"
-    : isToday()
-      ? countdown(clockMinutes(leg.departure))
-      : "";
-  row.append(el("span", "stop-state", state_));
+  const remaining = past ? "Gått" : isToday() ? countdown(leg.departure) : "";
+  row.append(el("span", "stop-state", remaining));
   return row;
 }
 
@@ -392,20 +410,42 @@ function renderLedeStatus() {
     return;
   }
   const status = ferryStatus(legs);
-  const now = nowMinutes();
-  const next = legs.find((leg) => clockMinutes(leg.departure) >= now);
+  const next = legs.find((leg) => !hasPassed(leg.departure));
   const parts = [];
   if (status) parts.push(status.short || status.text.replace(/\.$/, ""));
   if (next) {
     parts.push(
-      `Neste avgang ${hhmm(next.departure)} frå ${next.from}, ${countdown(clockMinutes(next.departure))}`
+      `Neste avgang ${hhmm(next.departure)} frå ${next.from}, ${countdown(next.departure)}`
     );
   }
   lede.hidden = false;
   lede.textContent = `${parts.join(". ")}.`;
 }
 
-function renderTimeline() {
+/** Knappen ligg utanfor lista, så minuttoppdateringa ikkje stel fokus. */
+function renderReveal(pastCount) {
+  const wrap = document.getElementById("timeline-reveal");
+  if (!pastCount) {
+    wrap.replaceChildren();
+    return;
+  }
+  let button = wrap.querySelector("button");
+  if (!button) {
+    button = el("button", "reveal");
+    button.type = "button";
+    button.addEventListener("click", () => {
+      state.showPast = !state.showPast;
+      renderLive();
+    });
+    wrap.replaceChildren(button);
+  }
+  button.textContent = state.showPast
+    ? "Skjul tidlegare anløp"
+    : `Vis ${pastCount} tidlegare anløp`;
+}
+
+/** Alt som endrar seg med klokka. Køyrer kvart minutt utan å byggje om resten. */
+function renderLive() {
   const root = document.getElementById("departures");
   const meta = document.getElementById("departures-meta");
   root.replaceChildren();
@@ -415,11 +455,11 @@ function renderTimeline() {
   }
   const legs = legsForDate(selectedDate());
   renderDayNav();
-  renderStopFilter(legs);
   renderNextSummary(legs);
   meta.textContent = isToday() ? "I dag" : formatDay(selectedDate());
 
   if (!legs.length) {
+    renderReveal(0);
     root.append(el("p", "empty", "Ingen turar i tabellen denne dagen."));
     return;
   }
@@ -434,36 +474,20 @@ function renderTimeline() {
   const now = nowMinutes();
   const isPast = (event) => isToday() && !event.status && event.at <= now;
   const pastCount = events.filter(isPast).length;
-
-  if (pastCount && !state.showPast) {
-    const toggle = el(
-      "button",
-      "reveal",
-      `Vis ${pastCount} tidlegare ${pastCount === 1 ? "anløp" : "anløp"}`
-    );
-    toggle.type = "button";
-    toggle.addEventListener("click", () => {
-      state.showPast = true;
-      renderTimeline();
-    });
-    root.append(toggle);
-  }
+  renderReveal(pastCount);
 
   for (const event of events) {
     const past = isPast(event);
     if (past && !state.showPast) continue;
     root.append(event.build(past));
   }
+}
 
-  if (pastCount && state.showPast) {
-    const toggle = el("button", "reveal", "Skjul tidlegare anløp");
-    toggle.type = "button";
-    toggle.addEventListener("click", () => {
-      state.showPast = false;
-      renderTimeline();
-    });
-    root.append(toggle);
-  }
+/** Full oppbygging: brukast når data, dag eller filter endrar seg. */
+function renderTimeline() {
+  renderedDate = selectedDate();
+  renderStopFilter(legsForDate(renderedDate));
+  renderLive();
 }
 
 function validMessages(messages) {
@@ -576,10 +600,39 @@ async function loadRoutes() {
   }
 }
 
-function goToDay(offset) {
-  state.dayOffset = offset;
+function goToDay(days) {
+  state.date = days === 0 ? todayIso() : shiftIso(selectedDate(), days);
   state.showPast = false;
   renderTimeline();
+}
+
+/**
+ * Nedteljinga blir oppdatert på minuttskiftet, ikkje kvart 60. sekund frå
+ * lasting, så ho aldri driv frå klokka. Etter kvar tikk blir neste planlagd
+ * på nytt, og vi tikkar òg når fana blir synleg att etter dvale.
+ */
+function tick() {
+  if (!state.routes) return;
+  if (selectedDate() !== renderedDate) {
+    renderTimeline();
+  } else {
+    renderLive();
+  }
+  renderLedeStatus();
+}
+
+function scheduleTick() {
+  clearTimeout(tickTimer);
+  const untilNextMinute = 60000 - (Date.now() % 60000) + 200;
+  tickTimer = setTimeout(() => {
+    tick();
+    scheduleTick();
+  }, untilNextMinute);
+}
+
+function wake() {
+  tick();
+  scheduleTick();
 }
 
 function bindControls() {
@@ -594,21 +647,19 @@ function bindControls() {
       renderMessages();
     });
   });
-  document
-    .getElementById("day-prev")
-    .addEventListener("click", () => goToDay(state.dayOffset - 1));
-  document
-    .getElementById("day-next")
-    .addEventListener("click", () => goToDay(state.dayOffset + 1));
+  document.getElementById("day-prev").addEventListener("click", () => goToDay(-1));
+  document.getElementById("day-next").addEventListener("click", () => goToDay(1));
   document.getElementById("day-today").addEventListener("click", () => goToDay(0));
+
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) wake();
+  });
+  window.addEventListener("pageshow", wake);
+  window.addEventListener("focus", wake);
 }
 
 bindControls();
 loadMessages();
 loadRoutes();
-setInterval(() => {
-  if (!state.routes) return;
-  renderTimeline();
-  renderLedeStatus();
-}, 30 * 1000);
+scheduleTick();
 setInterval(loadMessages, 3 * 60 * 1000);
