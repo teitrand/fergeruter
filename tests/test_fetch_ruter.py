@@ -19,46 +19,90 @@ assert spec.loader is not None
 spec.loader.exec_module(mod)
 
 
-def journey(origin: str, dest: str, dep: str, arr: str, dates: list[str], sid="sj-1"):
+def point(quay: str, dep: str | None, arr: str | None, request_stop=False):
     return {
-        "id": sid,
-        "passingTimes": [
-            {
-                "requestStop": False,
-                "quay": {"id": "q1", "name": f"{origin} ferjekai"},
-                "departure": {"time": dep},
-                "arrival": {"time": None},
-            },
-            {
-                "requestStop": False,
-                "quay": {"id": "q2", "name": f"{dest} ferjekai"},
-                "departure": {"time": arr},
-                "arrival": {"time": arr},
-            },
-        ],
-        "activeDates": dates,
+        "requestStop": request_stop,
+        "quay": {"id": quay, "name": f"{quay} ferjekai"},
+        "departure": {"time": dep} if dep else None,
+        "arrival": {"time": arr} if arr else None,
     }
 
 
-class GroupingTests(unittest.TestCase):
-    def test_splits_standal_route_into_two_alternatives(self):
+def journey(points: list[dict], dates: list[str], sid="sj-1"):
+    return {"id": sid, "passingTimes": points, "activeDates": dates}
+
+
+class QuayNameTests(unittest.TestCase):
+    def test_strips_quay_suffixes(self):
+        self.assertEqual(mod.quay_place("Trandal ferjekai"), "Trandal")
+        self.assertEqual(mod.quay_place("Store Kalvøy kai"), "Store Kalvøy")
+        self.assertEqual(mod.quay_place("Sæbø"), "Sæbø")
+
+
+class LegTests(unittest.TestCase):
+    def test_two_stop_journey_gives_one_leg(self):
+        j = journey(
+            [
+                point("Trandal", "07:05:00", None),
+                point("Standal", None, "07:20:00"),
+            ],
+            ["2026-08-25"],
+        )
+        legs = mod.legs_from_journey(j)
+        self.assertEqual(len(legs), 1)
+        self.assertEqual(legs[0]["from"], "Trandal")
+        self.assertEqual(legs[0]["to"], "Standal")
+        self.assertEqual(legs[0]["departure"], "07:05:00")
+        self.assertEqual(legs[0]["arrival"], "07:20:00")
+
+    def test_multi_stop_journey_is_split_per_leg(self):
+        j = journey(
+            [
+                point("Standal", "08:00:00", None),
+                point("Trandal", "08:20:00", "08:15:00"),
+                point("Sæbø", None, "08:45:00"),
+            ],
+            ["2026-08-25"],
+        )
+        legs = mod.legs_from_journey(j)
+        self.assertEqual([(l["from"], l["to"]) for l in legs], [("Standal", "Trandal"), ("Trandal", "Sæbø")])
+        self.assertEqual(legs[0]["arrival"], "08:15:00")
+        self.assertEqual(legs[1]["departure"], "08:20:00")
+
+    def test_request_stop_is_kept(self):
+        j = journey(
+            [
+                point("Trandal", "07:05:00", None, request_stop=True),
+                point("Standal", None, "07:20:00"),
+            ],
+            ["2026-08-25"],
+        )
+        self.assertTrue(mod.legs_from_journey(j)[0]["requestStop"])
+
+
+class PayloadTests(unittest.TestCase):
+    def test_legs_are_sorted_by_departure(self):
         line = {
             "id": "MOR:Line:1136",
             "publicCode": "1136",
             "name": "Standal-Trandal",
             "serviceJourneys": [
-                journey("Standal", "Trandal", "07:40:00", "07:55:00", ["2026-08-24"], "a"),
-                journey("Trandal", "Standal", "09:45:00", "10:00:00", ["2026-08-24"], "b"),
-                journey("Sæbø", "Skår", "11:00:00", "11:20:00", ["2026-08-24"], "c"),
+                journey(
+                    [point("Sæbø", "09:20:00", None), point("Trandal", None, "09:45:00")],
+                    ["2026-08-25"],
+                    "b",
+                ),
+                journey(
+                    [point("Standal", "06:45:00", None), point("Trandal", None, "07:00:00")],
+                    ["2026-08-25"],
+                    "a",
+                ),
             ],
         }
-        payload = mod.build_payload(line, fetched_at="2026-08-24T00:00:00+00:00")
-        by_id = {alt["id"]: alt for alt in payload["alternatives"]}
-        self.assertEqual(list(by_id), ["fra-trandal", "fra-standal"])
-        self.assertEqual(by_id["fra-standal"]["trips"][0]["departure"], "07:40:00")
-        self.assertEqual(by_id["fra-trandal"]["trips"][0]["arrival"], "10:00:00")
-        self.assertEqual(len(by_id["fra-standal"]["trips"]), 1)
-        self.assertEqual(len(by_id["fra-trandal"]["trips"]), 1)
+        payload = mod.build_payload(line, fetched_at="2026-08-25T00:00:00+00:00")
+        self.assertEqual(
+            [leg["departure"] for leg in payload["legs"]], ["06:45:00", "09:20:00"]
+        )
 
     def test_write_skipped_when_timetable_unchanged(self):
         line = {
@@ -66,17 +110,20 @@ class GroupingTests(unittest.TestCase):
             "publicCode": "1136",
             "name": "Standal-Trandal",
             "serviceJourneys": [
-                journey("Trandal", "Standal", "09:45:00", "10:00:00", ["2026-08-24"]),
+                journey(
+                    [point("Trandal", "09:45:00", None), point("Standal", None, "10:00:00")],
+                    ["2026-08-25"],
+                )
             ],
         }
-        first = mod.build_payload(line, fetched_at="2026-08-24T00:00:00+00:00")
-        second = mod.build_payload(line, fetched_at="2026-08-25T00:00:00+00:00")
+        first = mod.build_payload(line, fetched_at="2026-08-25T00:00:00+00:00")
+        second = mod.build_payload(line, fetched_at="2026-08-26T00:00:00+00:00")
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "ruter.json"
             self.assertTrue(mod.write_if_changed(first, path))
             self.assertFalse(mod.write_if_changed(second, path))
             stored = json.loads(path.read_text(encoding="utf-8"))
-            self.assertEqual(stored["fetchedAt"], "2026-08-24T00:00:00+00:00")
+            self.assertEqual(stored["fetchedAt"], "2026-08-25T00:00:00+00:00")
 
 
 class FetchTests(unittest.TestCase):
@@ -88,7 +135,13 @@ class FetchTests(unittest.TestCase):
                     "publicCode": "1136",
                     "name": "Standal-Trandal",
                     "serviceJourneys": [
-                        journey("Standal", "Trandal", "07:40:00", "07:55:00", ["2026-08-24"]),
+                        journey(
+                            [
+                                point("Standal", "07:40:00", None),
+                                point("Trandal", None, "07:55:00"),
+                            ],
+                            ["2026-08-25"],
+                        )
                     ],
                 }
             }
@@ -110,8 +163,8 @@ class FetchTests(unittest.TestCase):
                 with patch.object(sys, "argv", ["fetch_ruter.py", str(out)]):
                     self.assertEqual(mod.main(), 0)
             data = json.loads(out.read_text(encoding="utf-8"))
-            self.assertEqual(data["alternatives"][1]["id"], "fra-standal")
-            self.assertEqual(len(data["alternatives"][1]["trips"]), 1)
+            self.assertEqual(len(data["legs"]), 1)
+            self.assertEqual(data["legs"][0]["to"], "Trandal")
 
 
 if __name__ == "__main__":
