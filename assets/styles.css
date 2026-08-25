@@ -227,6 +227,40 @@ h2 { font-size: 1.45rem; }
 .badge-cancelled { background: #f8d4d0; color: var(--stop); }
 .badge-info { background: #dceaf5; color: var(--info); }
 
+.daynav {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.9rem;
+}
+
+.daybtn {
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--fjord);
+  border-radius: 10px;
+  min-width: 2.1rem;
+  height: 2.1rem;
+  padding: 0 0.6rem;
+  font: inherit;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.daybtn:hover:not(:disabled) { border-color: var(--water); }
+
+.daybtn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.daybtn-today { margin-left: auto; font-size: 0.9rem; }
+
+.day-label {
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
 .next-summary {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -278,6 +312,59 @@ h2 { font-size: 1.45rem; }
   align-items: baseline;
   padding: 0.3rem 0;
   position: relative;
+}
+
+.stop-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.stop-head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.stop-note {
+  font-size: 0.8rem;
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.stop-phone { color: var(--water); }
+
+.stop-left { color: var(--delay); font-weight: 600; }
+.stop-expired { color: var(--stop); font-weight: 600; }
+
+.stop-transfer {
+  color: var(--muted);
+  font-size: 0.92rem;
+  font-style: italic;
+}
+
+.stop-transfer::before {
+  background: #fff;
+  border: 2px dashed var(--line);
+  width: 0.4rem;
+  height: 0.4rem;
+  left: -1.17rem;
+}
+
+.reveal {
+  align-self: flex-start;
+  margin: 0.2rem 0 0.5rem;
+  border: none;
+  background: none;
+  color: var(--water);
+  font: inherit;
+  font-size: 0.9rem;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0.2rem 0;
 }
 
 .stop::before {

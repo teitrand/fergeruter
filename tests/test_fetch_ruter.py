@@ -28,8 +28,72 @@ def point(quay: str, dep: str | None, arr: str | None, request_stop=False):
     }
 
 
-def journey(points: list[dict], dates: list[str], sid="sj-1"):
-    return {"id": sid, "passingTimes": points, "activeDates": dates}
+def journey(points: list[dict], dates: list[str], sid="sj-1", notices=None):
+    return {
+        "id": sid,
+        "passingTimes": points,
+        "activeDates": dates,
+        "notices": [{"text": t} for t in (notices or [])],
+    }
+
+
+class SignalTests(unittest.TestCase):
+    def test_one_hour_notice(self):
+        signal = mod.parse_signal(
+            [{"text": "Berre på signal min. 1 time før, tlf. 91 66 93 40"}]
+        )
+        self.assertEqual(signal["minutesBefore"], 60)
+        self.assertEqual(signal["phone"], "91 66 93 40")
+
+    def test_three_hour_notice(self):
+        signal = mod.parse_signal([{"text": "Berre på signal min. 3 timar før"}])
+        self.assertEqual(signal["minutesBefore"], 180)
+        self.assertIsNone(signal["phone"])
+
+    def test_minutes_notice(self):
+        signal = mod.parse_signal([{"text": "Berre på signal min. 45 minutt før"}])
+        self.assertEqual(signal["minutesBefore"], 45)
+
+    def test_unrelated_notice_is_ignored(self):
+        self.assertIsNone(mod.parse_signal([{"text": "God tur"}]))
+        self.assertIsNone(mod.parse_signal([]))
+
+    def test_signal_lands_on_every_leg_of_the_journey(self):
+        j = journey(
+            [
+                point("Standal", "08:00:00", None),
+                point("Trandal", "08:20:00", "08:15:00"),
+                point("Sæbø", None, "08:45:00"),
+            ],
+            ["2026-08-25"],
+            notices=["Berre på signal min. 1 time før, tlf. 91 66 93 40"],
+        )
+        legs = mod.legs_from_journey(j)
+        self.assertEqual(len(legs), 2)
+        for leg in legs:
+            self.assertEqual(leg["signal"]["minutesBefore"], 60)
+
+    def test_journey_without_notice_has_no_signal(self):
+        j = journey(
+            [point("Trandal", "07:05:00", None), point("Standal", None, "07:20:00")],
+            ["2026-08-25"],
+        )
+        self.assertIsNone(mod.legs_from_journey(j)[0]["signal"])
+
+
+class AreaTests(unittest.TestCase):
+    def test_hjorundfjord_quays(self):
+        self.assertTrue(mod.is_hjorundfjord("Trandal"))
+        self.assertTrue(mod.is_hjorundfjord("Sæbø"))
+        self.assertFalse(mod.is_hjorundfjord("Valderøya"))
+        self.assertFalse(mod.is_hjorundfjord("Store Kalvøy"))
+
+    def test_payload_exposes_quay_list(self):
+        payload = mod.build_payload(
+            {"id": "x", "publicCode": "1136", "name": "n", "serviceJourneys": []},
+            fetched_at="2026-08-25T00:00:00+00:00",
+        )
+        self.assertIn("Trandal", payload["hjorundfjordQuays"])
 
 
 class QuayNameTests(unittest.TestCase):

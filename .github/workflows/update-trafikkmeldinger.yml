@@ -2,7 +2,9 @@ name: Oppdater trafikkmeldingar
 
 on:
   schedule:
-    - cron: "*/15 * * * *"
+    # Fem minutt er det tettaste GitHub tillèt. Køyringane kan bli forseinka
+    # ved høg last, så dette er "så nær sanntid som Actions kjem".
+    - cron: "*/5 * * * *"
   workflow_dispatch:
   push:
     paths:

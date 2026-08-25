@@ -1,6 +1,6 @@
 {
   "source": "https://www.fjord1.no/trafikkmeldingar",
-  "fetchedAt": "2026-08-25T05:38:52.774568+00:00",
+  "fetchedAt": "2026-08-25T07:09:07.091376+00:00",
   "messages": [
     {
       "id": "RG9tYWluQ29udGVudDoyMTYyMDg5MA==",
@@ -13,7 +13,8 @@
       "connectionNumber": 6,
       "important": false,
       "severity": "capacity",
-      "isRoute1136": false
+      "isRoute1136": false,
+      "isLocal": false
     },
     {
       "id": "RG9tYWluQ29udGVudDoyMTYyMDgwMQ==",
@@ -26,7 +27,8 @@
       "connectionNumber": 1142,
       "important": false,
       "severity": "capacity",
-      "isRoute1136": false
+      "isRoute1136": false,
+      "isLocal": false
     },
     {
       "id": "RG9tYWluQ29udGVudDoyMTYyMDcxNw==",
@@ -39,7 +41,8 @@
       "connectionNumber": 581,
       "important": false,
       "severity": "capacity",
-      "isRoute1136": false
+      "isRoute1136": false,
+      "isLocal": false
     },
     {
       "id": "RG9tYWluQ29udGVudDoyMTYyMDUwOQ==",
@@ -52,33 +55,8 @@
       "connectionNumber": 132,
       "important": false,
       "severity": "normal",
-      "isRoute1136": true
-    },
-    {
-      "id": "RG9tYWluQ29udGVudDoyMTYxOTg1MA==",
-      "heading": "Standal-Trandal-Valderøya-Store Kalvøy",
-      "text": "Rute 1136 Standal-Trandal-Valderøya-Store Kalvøy: Pga ein feil i rutesøket på sambandet i dag vise at det er innstilt, men det er normal drift.",
-      "publishedAt": "2026-08-24T08:57:01+02:00",
-      "validFrom": "2026-08-24T06:57:01+00:00",
-      "validTo": "2026-08-25T06:56:15+00:00",
-      "countyNumber": 15,
-      "connectionNumber": 132,
-      "important": false,
-      "severity": "normal",
-      "isRoute1136": true
-    },
-    {
-      "id": "RG9tYWluQ29udGVudDoyMTYxOTgwNA==",
-      "heading": "Ranavik - Skjersholmane",
-      "text": "Rute 1032 Ranavik - Skjersholmane: Grunna transport av farlig last vert det redusert kapasistet (maks 12 passasjerar) på avgang frå Skjersholmame kl 09:55, 24.08.26 Mvh Fjord1 på vegne av Skyss.",
-      "publishedAt": "2026-08-24T08:42:09+02:00",
-      "validFrom": "2026-08-24T06:42:09+00:00",
-      "validTo": "2026-08-25T06:41:14+00:00",
-      "countyNumber": 12,
-      "connectionNumber": 1140,
-      "important": false,
-      "severity": "capacity",
-      "isRoute1136": false
+      "isRoute1136": true,
+      "isLocal": true
     },
     {
       "id": "RG9tYWluQ29udGVudDoyMTU4MzY2Mg==",
@@ -91,7 +69,8 @@
       "connectionNumber": 1143,
       "important": false,
       "severity": "normal",
-      "isRoute1136": false
+      "isRoute1136": false,
+      "isLocal": false
     },
     {
       "id": "RG9tYWluQ29udGVudDoyMTIyMDIyOQ==",
@@ -104,7 +83,8 @@
       "connectionNumber": 1045,
       "important": false,
       "severity": "info",
-      "isRoute1136": false
+      "isRoute1136": false,
+      "isLocal": false
     }
   ]
 }

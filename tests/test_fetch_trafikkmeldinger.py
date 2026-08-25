@@ -70,6 +70,46 @@ class RouteDetectionTests(unittest.TestCase):
         )
 
 
+class LocalAreaTests(unittest.TestCase):
+    def test_route_1136_is_local(self):
+        self.assertTrue(
+            mod.is_local("Standal-Trandal", "Rute 1136 Standal-Trandal", 132)
+        )
+
+    def test_saebo_leknes_is_local(self):
+        self.assertTrue(mod.is_local("Sæbø - Leknes", "Rute 1135 Sæbø - Leknes", 900))
+
+    def test_festoy_hundeidvika_is_local(self):
+        self.assertTrue(
+            mod.is_local("Festøya - Hundeidvika", "Rute 1049 Festøya - Hundeidvika", 901)
+        )
+
+    def test_far_away_routes_are_not_local(self):
+        for heading, text, conn in [
+            ("Eidsdal-Linge", "Rute 1054 Eidsdal - Linge: normal drift", 251),
+            ("Drag - Kjøpsvik", "Rute 1071 Drag - Kjøpsvik", 700),
+            ("Jondal - Tørvikbygd", "Rute 1026 Jondal - Tørvikbygd", 1143),
+            ("Hareid-Sulesund", "Rute 1010 Hareid - Sulesund", 500),
+        ]:
+            self.assertFalse(mod.is_local(heading, text, conn), heading)
+
+    def test_local_flag_on_normalized_message(self):
+        node = {
+            "id": "1",
+            "heading": "Festøya - Hundeidvika",
+            "countyNumber": 15,
+            "connectionNumber": 901,
+            "date": "25.08.2026 08:00:00",
+            "content": "Rute 1049 Festøya - Hundeidvika: normal drift.",
+            "importantMessage": False,
+            "validFrom": {"timestamp": 1787568366},
+            "validTo": {"timestamp": 1787654704},
+        }
+        msg = mod.normalize_node(node)
+        self.assertTrue(msg["isLocal"])
+        self.assertFalse(msg["isRoute1136"])
+
+
 class ParseTests(unittest.TestCase):
     def test_parse_published_oslo(self):
         iso = mod.parse_published("24.08.2026 12:46:06", None)

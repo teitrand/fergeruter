@@ -40,8 +40,8 @@
           <p class="meta" id="messages-meta">Hentar frå Fjord1…</p>
         </div>
         <div class="filters" role="group" aria-label="Filtrer meldingar">
-          <button type="button" class="chip is-active" data-filter="route" aria-pressed="true">Dette sambandet</button>
-          <button type="button" class="chip" data-filter="all" aria-pressed="false">Alle Fjord1</button>
+          <button type="button" class="chip is-active" data-filter="local" aria-pressed="true">Hjørundfjorden</button>
+          <button type="button" class="chip" data-filter="route" aria-pressed="false">Rute 1136</button>
           <button type="button" class="chip" data-filter="issues" aria-pressed="false">Berre avvik</button>
         </div>
         <div id="messages" class="message-list"></div>
@@ -55,13 +55,21 @@
 
       <section class="panel" aria-labelledby="avganger-title">
         <div class="panel-head">
-          <h2 id="avganger-title">Ferja i dag</h2>
+          <h2 id="avganger-title">Ferja</h2>
           <p class="meta" id="departures-meta">Lastar rutetabell…</p>
         </div>
+        <div class="daynav" role="group" aria-label="Vel dag">
+          <button type="button" id="day-prev" class="daybtn" aria-label="Førre dag">‹</button>
+          <span id="day-label" class="day-label"></span>
+          <button type="button" id="day-next" class="daybtn" aria-label="Neste dag">›</button>
+          <button type="button" id="day-today" class="daybtn daybtn-today">I dag</button>
+        </div>
         <div id="next-summary" class="next-summary"></div>
+        <div id="stop-filter" class="filters stops" role="group" aria-label="Filtrer på stoppestad"></div>
         <div id="departures" class="timeline"></div>
         <p class="footnote">
           Posisjonen er rekna ut frå rutetabellen, ikkje frå GPS.
+          Signalturar må tingast på telefon innan fristen.
           Rutetabellen lastast berre ned att når han er endra.
           <span id="timetable-updated"></span>
           Papir-ruteplan: <a href="ruter.pdf">ruter.pdf</a>

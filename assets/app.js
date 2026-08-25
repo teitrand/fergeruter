@@ -12,7 +12,10 @@ const SEVERITY_LABEL = {
 const HOME_QUAYS = ["Trandal", "Standal"];
 
 const state = {
-  filter: "route",
+  messageFilter: "local",
+  stopFilter: null,
+  dayOffset: 0,
+  showPast: false,
   messages: null,
   routes: null,
 };
@@ -42,6 +45,20 @@ function todayIso() {
   return `${parts.year}-${parts.month}-${parts.day}`;
 }
 
+function shiftIso(iso, days) {
+  const date = new Date(`${iso}T12:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+function selectedDate() {
+  return shiftIso(todayIso(), state.dayOffset);
+}
+
+function isToday() {
+  return state.dayOffset === 0;
+}
+
 function nowMinutes() {
   const parts = osloParts();
   return Number(parts.hour) * 60 + Number(parts.minute);
@@ -52,55 +69,106 @@ function clockMinutes(time) {
   return hours * 60 + minutes;
 }
 
+function minutesToClock(total) {
+  const wrapped = ((total % 1440) + 1440) % 1440;
+  const hours = String(Math.floor(wrapped / 60)).padStart(2, "0");
+  const minutes = String(wrapped % 60).padStart(2, "0");
+  return `${hours}:${minutes}`;
+}
+
 function hhmm(time) {
   return time ? time.slice(0, 5) : "";
 }
 
-function formatDateTime(iso) {
-  if (!iso) return "";
-  return new Intl.DateTimeFormat("nn-NO", {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone: "Europe/Oslo",
-  }).format(new Date(iso));
+// Skrivne ut for hand: nettlesarar utan nynorsk i ICU fell tilbake til engelsk.
+const WEEKDAYS = [
+  "søndag",
+  "måndag",
+  "tysdag",
+  "onsdag",
+  "torsdag",
+  "fredag",
+  "laurdag",
+];
+const MONTHS = [
+  "januar",
+  "februar",
+  "mars",
+  "april",
+  "mai",
+  "juni",
+  "juli",
+  "august",
+  "september",
+  "oktober",
+  "november",
+  "desember",
+];
+
+function weekdayOf(isoDate) {
+  return WEEKDAYS[new Date(`${isoDate}T12:00:00Z`).getUTCDay()];
+}
+
+function formatDay(isoDate) {
+  const [year, month, day] = isoDate.split("-").map(Number);
+  return `${weekdayOf(isoDate)} ${day}. ${MONTHS[month - 1]}`;
 }
 
 function formatDateOnly(iso) {
   if (!iso) return "";
-  return new Intl.DateTimeFormat("nn-NO", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-    timeZone: "Europe/Oslo",
-  }).format(new Date(iso));
+  const parts = osloParts(new Date(iso));
+  return `${Number(parts.day)}. ${MONTHS[Number(parts.month) - 1]} ${parts.year}`;
 }
 
-function formatDay(isoDate) {
-  return new Intl.DateTimeFormat("nn-NO", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    timeZone: "UTC",
-  }).format(new Date(`${isoDate}T12:00:00Z`));
+function formatDateTime(iso) {
+  if (!iso) return "";
+  const parts = osloParts(new Date(iso));
+  const date = `${parts.year}-${parts.month}-${parts.day}`;
+  const month = MONTHS[Number(parts.month) - 1].slice(0, 3);
+  return `${weekdayOf(date)} ${Number(parts.day)}. ${month}. ${parts.hour}:${parts.minute}`;
 }
 
-function minutesUntil(time) {
-  const diff = clockMinutes(time) - nowMinutes();
-  if (diff < 1) return "no";
-  if (diff < 60) return `om ${diff} min`;
-  const hours = Math.floor(diff / 60);
-  const minutes = diff % 60;
-  return minutes ? `om ${hours} t ${minutes} min` : `om ${hours} t`;
+function durationText(minutes) {
+  if (minutes < 1) return "no";
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return rest ? `${hours} t ${rest} min` : `${hours} t`;
 }
 
-function legsToday() {
-  const today = todayIso();
+function countdown(targetMinutes) {
+  return `om ${durationText(targetMinutes - nowMinutes())}`;
+}
+
+function legsForDate(date) {
   return (state.routes?.legs || [])
-    .filter((leg) => (leg.activeDates || []).includes(today))
+    .filter((leg) => (leg.activeDates || []).includes(date))
     .sort((a, b) => a.departure.localeCompare(b.departure));
+}
+
+function hjorundfjordQuays() {
+  return state.routes?.hjorundfjordQuays || [];
+}
+
+function crossesArea(from, to) {
+  const inside = hjorundfjordQuays();
+  if (!inside.length) return false;
+  return inside.includes(from) !== inside.includes(to);
+}
+
+function quaysInDay(legs) {
+  const seen = [];
+  for (const leg of legs) {
+    for (const quay of [leg.from, leg.to]) {
+      if (!seen.includes(quay)) seen.push(quay);
+    }
+  }
+  return seen;
+}
+
+function bookingDeadline(leg) {
+  if (!leg.signal) return null;
+  return clockMinutes(leg.departure) - leg.signal.minutesBefore;
 }
 
 /** Kvar ferja er akkurat no, rekna ut frå rutetabellen. */
@@ -112,29 +180,33 @@ function ferryStatus(legs) {
 
   if (now < clockMinutes(first.departure)) {
     return {
-      index: 0,
+      at: clockMinutes(first.departure) - 1,
       text: `Ferja ligg til kai på ${first.from}. Fyrste avgang ${hhmm(first.departure)}.`,
     };
   }
   if (now >= clockMinutes(last.arrival)) {
-    return {
-      index: legs.length,
-      text: `Ferja er ferdig for dagen på ${last.to}.`,
-    };
+    return { at: 1441, text: `Ferja er ferdig for dagen på ${last.to}.` };
   }
 
   for (let i = 0; i < legs.length; i += 1) {
     const leg = legs[i];
     if (now >= clockMinutes(leg.departure) && now < clockMinutes(leg.arrival)) {
-      return { index: i, underway: true, text: `Ferja er på veg mot ${leg.to}` };
+      return {
+        at: clockMinutes(leg.departure) + 0.5,
+        underway: true,
+        text: `Ferja er på veg mot ${leg.to}`,
+      };
     }
     const next = legs[i + 1];
     if (next && now >= clockMinutes(leg.arrival) && now < clockMinutes(next.departure)) {
-      const text =
-        leg.to === next.from
-          ? `Ferja ligg til kai på ${leg.to}`
-          : `Ferja ligg til kai på ${leg.to}. Neste avgang går frå ${next.from}.`;
-      return { index: i + 1, text };
+      const moving = leg.to !== next.from;
+      return {
+        at: clockMinutes(leg.arrival) + 0.5,
+        underway: moving,
+        text: moving
+          ? `Ferja går til ${next.from} utan passasjerar`
+          : `Ferja ligg til kai på ${leg.to}`,
+      };
     }
   }
   return null;
@@ -142,7 +214,9 @@ function ferryStatus(legs) {
 
 function nextDepartureFrom(legs, quay) {
   const now = nowMinutes();
-  return legs.find((leg) => leg.from === quay && clockMinutes(leg.departure) >= now);
+  return legs.find(
+    (leg) => leg.from === quay && (!isToday() || clockMinutes(leg.departure) >= now)
+  );
 }
 
 function renderNextSummary(legs) {
@@ -153,24 +227,56 @@ function renderNextSummary(legs) {
     const leg = nextDepartureFrom(legs, quay);
     const item = el("div", "next-item");
     item.append(el("span", "next-label", `Neste frå ${quay}`));
-    item.append(
-      el("span", "next-time", leg ? hhmm(leg.departure) : "—")
-    );
-    item.append(
-      el("span", "next-sub", leg ? `mot ${leg.to} · ${minutesUntil(leg.departure)}` : "ingen fleire i dag")
-    );
+    item.append(el("span", "next-time", leg ? hhmm(leg.departure) : "—"));
+    const sub = leg
+      ? `mot ${leg.to}${isToday() ? ` · ${countdown(clockMinutes(leg.departure))}` : ""}`
+      : "ingen fleire denne dagen";
+    item.append(el("span", "next-sub", sub));
     root.append(item);
   }
+}
+
+function signalNote(leg) {
+  const deadline = bookingDeadline(leg);
+  if (deadline == null) return null;
+  const note = el("span", "stop-note");
+  const phone = leg.signal.phone;
+  const label = `Ring innan ${minutesToClock(deadline)}`;
+  if (phone) {
+    const link = el("a", "stop-phone", `${label} · ${phone}`);
+    link.href = `tel:+47${phone.replace(/\s+/g, "")}`;
+    note.append(link);
+  } else {
+    note.append(document.createTextNode(label));
+  }
+  if (isToday()) {
+    const now = nowMinutes();
+    if (now < deadline) {
+      note.append(el("span", "stop-left", `${countdown(deadline)} igjen å tinge`));
+    } else if (now < clockMinutes(leg.departure)) {
+      note.append(el("span", "stop-expired", "fristen er ute"));
+    }
+  }
+  return note;
 }
 
 function departureRow(leg, past) {
   const row = el("div", `stop stop-dep${past ? " is-past" : ""}`);
   row.append(el("span", "stop-time", hhmm(leg.departure)));
   const body = el("span", "stop-body");
-  body.append(el("span", "stop-name", `Frå ${leg.from}`));
-  if (leg.requestStop) body.append(el("span", "stop-tag", "på signal"));
+  const head = el("span", "stop-head");
+  head.append(el("span", "stop-name", `Frå ${leg.from}`));
+  if (leg.signal) head.append(el("span", "stop-tag", "På signal"));
+  body.append(head);
+  const note = signalNote(leg);
+  if (note) body.append(note);
   row.append(body);
-  row.append(el("span", "stop-state", past ? "Gått" : minutesUntil(leg.departure)));
+  const state_ = past
+    ? "Gått"
+    : isToday()
+      ? countdown(clockMinutes(leg.departure))
+      : "";
+  row.append(el("span", "stop-state", state_));
   return row;
 }
 
@@ -184,11 +290,90 @@ function arrivalRow(leg, past) {
   return row;
 }
 
+function transferRow(from, to, past) {
+  const row = el("div", `stop stop-transfer${past ? " is-past" : ""}`);
+  row.append(el("span", "stop-time", ""));
+  const body = el("span", "stop-body");
+  body.append(el("span", "stop-name", `Ferja flyttar seg til ${to}`));
+  body.append(
+    el(
+      "span",
+      "stop-note",
+      crossesArea(from, to)
+        ? `Ikkje persontrafikk mellom ${from} og ${to}`
+        : "Utan passasjerar"
+    )
+  );
+  row.append(body);
+  row.append(el("span", "stop-state", ""));
+  return row;
+}
+
 function statusRow(status) {
   const row = el("div", `now${status.underway ? " is-underway" : " is-moored"}`);
   row.append(el("span", "now-label", "Nå"));
   row.append(el("span", "now-text", status.text));
   return row;
+}
+
+function matchesStop(quays) {
+  if (!state.stopFilter) return true;
+  return quays.includes(state.stopFilter);
+}
+
+function buildEvents(legs) {
+  const events = [];
+  legs.forEach((leg, index) => {
+    events.push({
+      at: clockMinutes(leg.departure),
+      quays: [leg.from],
+      build: (past) => departureRow(leg, past),
+    });
+    events.push({
+      at: clockMinutes(leg.arrival) + 0.1,
+      quays: [leg.to],
+      build: (past) => arrivalRow(leg, past),
+    });
+    const next = legs[index + 1];
+    if (next && leg.to !== next.from) {
+      events.push({
+        at: clockMinutes(leg.arrival) + 0.2,
+        quays: [leg.to, next.from],
+        build: (past) => transferRow(leg.to, next.from, past),
+      });
+    }
+  });
+  return events;
+}
+
+function renderStopFilter(legs) {
+  const root = document.getElementById("stop-filter");
+  root.replaceChildren();
+  const quays = quaysInDay(legs);
+  if (quays.length < 2) return;
+  if (state.stopFilter && !quays.includes(state.stopFilter)) state.stopFilter = null;
+  const options = [{ value: null, label: "Alle stopp" }].concat(
+    quays.map((quay) => ({ value: quay, label: quay }))
+  );
+  for (const option of options) {
+    const btn = el("button", "chip", option.label);
+    btn.type = "button";
+    const active = state.stopFilter === option.value;
+    btn.setAttribute("aria-pressed", String(active));
+    if (active) btn.classList.add("is-active");
+    btn.addEventListener("click", () => {
+      state.stopFilter = option.value;
+      renderTimeline();
+    });
+    root.append(btn);
+  }
+}
+
+function renderDayNav() {
+  const label = document.getElementById("day-label");
+  if (label) label.textContent = formatDay(selectedDate());
+  const todayBtn = document.getElementById("day-today");
+  if (todayBtn) todayBtn.disabled = isToday();
 }
 
 function renderTimeline() {
@@ -199,30 +384,56 @@ function renderTimeline() {
     root.append(el("p", "empty", "Fann ikkje rutetabell."));
     return;
   }
-  const legs = legsToday();
-  meta.textContent = formatDay(todayIso());
+  const legs = legsForDate(selectedDate());
+  renderDayNav();
+  renderStopFilter(legs);
   renderNextSummary(legs);
+  meta.textContent = isToday() ? "I dag" : formatDay(selectedDate());
+
   if (!legs.length) {
-    root.append(el("p", "empty", "Ingen turar i tabellen for i dag."));
+    root.append(el("p", "empty", "Ingen turar i tabellen denne dagen."));
     return;
   }
 
-  const status = ferryStatus(legs);
+  const events = buildEvents(legs).filter((event) => matchesStop(event.quays));
+  const status = isToday() ? ferryStatus(legs) : null;
+  if (status) {
+    events.push({ at: status.at, status: true, build: () => statusRow(status) });
+  }
+  events.sort((a, b) => a.at - b.at);
+
   const now = nowMinutes();
+  const isPast = (event) => isToday() && !event.status && event.at <= now;
+  const pastCount = events.filter(isPast).length;
 
-  legs.forEach((leg, index) => {
-    if (status && status.index === index && !status.underway) {
-      root.append(statusRow(status));
-    }
-    root.append(departureRow(leg, clockMinutes(leg.departure) <= now));
-    if (status && status.index === index && status.underway) {
-      root.append(statusRow(status));
-    }
-    root.append(arrivalRow(leg, clockMinutes(leg.arrival) <= now));
-  });
+  if (pastCount && !state.showPast) {
+    const toggle = el(
+      "button",
+      "reveal",
+      `Vis ${pastCount} tidlegare ${pastCount === 1 ? "anløp" : "anløp"}`
+    );
+    toggle.type = "button";
+    toggle.addEventListener("click", () => {
+      state.showPast = true;
+      renderTimeline();
+    });
+    root.append(toggle);
+  }
 
-  if (status && status.index >= legs.length) {
-    root.append(statusRow(status));
+  for (const event of events) {
+    const past = isPast(event);
+    if (past && !state.showPast) continue;
+    root.append(event.build(past));
+  }
+
+  if (pastCount && state.showPast) {
+    const toggle = el("button", "reveal", "Skjul tidlegare anløp");
+    toggle.type = "button";
+    toggle.addEventListener("click", () => {
+      state.showPast = false;
+      renderTimeline();
+    });
+    root.append(toggle);
   }
 }
 
@@ -234,12 +445,15 @@ function validMessages(messages) {
   });
 }
 
-function applyFilter(messages) {
-  if (state.filter === "route") return messages.filter((msg) => msg.isRoute1136);
-  if (state.filter === "issues") {
-    return messages.filter((msg) => msg.severity !== "normal");
+function applyMessageFilter(messages) {
+  const local = messages.filter((msg) => msg.isLocal);
+  if (state.messageFilter === "route") {
+    return messages.filter((msg) => msg.isRoute1136);
   }
-  return messages;
+  if (state.messageFilter === "issues") {
+    return local.filter((msg) => msg.severity !== "normal");
+  }
+  return local;
 }
 
 function renderMessages() {
@@ -251,19 +465,19 @@ function renderMessages() {
     return;
   }
   const all = validMessages(state.messages.messages || []);
-  const filtered = applyFilter(all);
+  const filtered = applyMessageFilter(all);
   meta.textContent = `Sist henta ${formatDateTime(state.messages.fetchedAt)}`;
   if (!filtered.length) {
     root.append(
       el(
         "p",
         "empty",
-        state.filter === "route"
-          ? "Ingen gjeldande Fjord1-meldingar for rute 1136."
-          : "Ingen meldingar å vise."
+        state.messageFilter === "issues"
+          ? "Ingen avvik i området no."
+          : "Ingen gjeldande meldingar for området."
       )
     );
-    renderStatus(all);
+    renderBanner(all);
     return;
   }
   for (const msg of filtered) {
@@ -278,10 +492,10 @@ function renderMessages() {
     card.append(when);
     root.append(card);
   }
-  renderStatus(all);
+  renderBanner(all);
 }
 
-function renderStatus(messages) {
+function renderBanner(messages) {
   const banner = document.getElementById("status-banner");
   const routeMsgs = messages.filter((msg) => msg.isRoute1136);
   if (!routeMsgs.length) {
@@ -299,7 +513,7 @@ function renderStatus(messages) {
 async function loadMessages() {
   const meta = document.getElementById("messages-meta");
   try {
-    const response = await fetch(MESSAGES_URL);
+    const response = await fetch(`${MESSAGES_URL}?t=${Date.now()}`);
     if (!response.ok) throw new Error(response.statusText);
     state.messages = await response.json();
     renderMessages();
@@ -332,10 +546,16 @@ async function loadRoutes() {
   }
 }
 
-function bindFilters() {
+function goToDay(offset) {
+  state.dayOffset = offset;
+  state.showPast = false;
+  renderTimeline();
+}
+
+function bindControls() {
   document.querySelectorAll("[data-filter]").forEach((btn) => {
     btn.addEventListener("click", () => {
-      state.filter = btn.dataset.filter;
+      state.messageFilter = btn.dataset.filter;
       document.querySelectorAll("[data-filter]").forEach((other) => {
         const active = other === btn;
         other.classList.toggle("is-active", active);
@@ -344,11 +564,19 @@ function bindFilters() {
       renderMessages();
     });
   });
+  document
+    .getElementById("day-prev")
+    .addEventListener("click", () => goToDay(state.dayOffset - 1));
+  document
+    .getElementById("day-next")
+    .addEventListener("click", () => goToDay(state.dayOffset + 1));
+  document.getElementById("day-today").addEventListener("click", () => goToDay(0));
 }
 
-bindFilters();
+bindControls();
 loadMessages();
 loadRoutes();
 setInterval(() => {
   if (state.routes) renderTimeline();
 }, 30 * 1000);
+setInterval(loadMessages, 3 * 60 * 1000);

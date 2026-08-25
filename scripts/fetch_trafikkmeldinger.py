@@ -16,6 +16,13 @@ GRAPHQL_URL = "https://www.fjord1.no/graphql"
 SOURCE_URL = "https://www.fjord1.no/trafikkmeldingar"
 OSLO = ZoneInfo("Europe/Oslo")
 ROUTE_RE = re.compile(r"\b1136\b|trandal|standal|valderøy|store kalvøy|sæbø|skår", re.I)
+# Hjørundfjorden (1136 Standal-Trandal-Sæbø-Skår, 1135 Sæbø-Leknes) pluss
+# 1049 Festøya-Hundeidvika, som er vegen ut av fjorden.
+LOCAL_ROUTE_RE = re.compile(r"\b(1136|1135|1049)\b", re.I)
+LOCAL_PLACE_RE = re.compile(
+    r"trandal|standal|sæbø|skår|store kalvøy|valderøy|bjørke|urke|festøy|hundeidvik",
+    re.I,
+)
 NORMAL_RE = re.compile(r"normal drift", re.I)
 CANCEL_RE = re.compile(r"innstilt|innstilling", re.I)
 DELAY_RE = re.compile(r"forsink", re.I)
@@ -76,6 +83,14 @@ def is_route_1136(heading: str, text: str, connection_number: int | None) -> boo
     return bool(ROUTE_RE.search(blob))
 
 
+def is_local(heading: str, text: str, connection_number: int | None) -> bool:
+    """Meldingar frå Hjørundfjorden og Festøya-Hundeidvika."""
+    if is_route_1136(heading, text, connection_number):
+        return True
+    blob = f"{heading or ''} {text or ''}"
+    return bool(LOCAL_ROUTE_RE.search(blob) or LOCAL_PLACE_RE.search(blob))
+
+
 def parse_published(date_str: str, fallback_ts: int | None) -> str | None:
     if date_str:
         try:
@@ -120,6 +135,7 @@ def normalize_node(node: dict) -> dict:
         "important": bool(node.get("importantMessage")),
         "severity": classify(text),
         "isRoute1136": is_route_1136(heading, text, connection),
+        "isLocal": is_local(heading, text, connection),
     }
 
 
