@@ -1,6 +1,6 @@
 {
   "source": "https://www.fjord1.no/trafikkmeldingar",
-  "fetchedAt": "2026-08-25T10:14:41.967463+00:00",
+  "fetchedAt": "2026-08-25T10:50:01.002988+00:00",
   "messages": [
     {
       "id": "RG9tYWluQ29udGVudDoyMTYyMDg5MA==",
@@ -43,20 +43,6 @@
       "severity": "capacity",
       "isRoute1136": false,
       "isLocal": false
-    },
-    {
-      "id": "RG9tYWluQ29udGVudDoyMTYyMDUwOQ==",
-      "heading": "Standal-Trandal-Valderøya-Store Kalvøy",
-      "text": "Rute 1136 Standal-Trandal-Valderøya-Store Kalvøy: Fortsatt normal drift i sambandet. Rutesøk er nå utbedra og i orden.",
-      "publishedAt": "2026-08-24T12:46:06+02:00",
-      "validFrom": "2026-08-24T10:46:06+00:00",
-      "validTo": "2026-08-25T10:45:04+00:00",
-      "countyNumber": 15,
-      "connectionNumber": 132,
-      "important": false,
-      "severity": "normal",
-      "isRoute1136": true,
-      "isLocal": true
     },
     {
       "id": "RG9tYWluQ29udGVudDoyMTU4MzY2Mg==",
