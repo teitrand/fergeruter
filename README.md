@@ -2,14 +2,16 @@
 
 Statisk oversikt over **trafikkmeldingar frå Fjord1** og **seilingsplanen** for rute 1136 Standal–Trandal–Sæbø–Skår–Valderøya–Store Kalvøy.
 
-Sida viser heile dagen som ei samanhengande tidslinje med alle anløpa i rekkjefølgje, og ei **Nå**-linje som fortel om ferja ligg til kai eller er på veg. Posisjonen er rekna ut frå rutetabellen, ikkje frå GPS.
+Sida viser heile dagen som ei samanhengande tidslinje med alle anløpa i rekkjefølgje, og ei **Nå**-linje som fortel om ferja ligg til kai eller er på veg. Posisjonen er i utgangspunktet rekna ut frå rutetabellen. Når Entur sender køyretøyposisjon for rute 1136, visest den som sanntid. Etter siste passasjertur (t.d. onsdag på Valderøya) reknar sida med at ferja går tilbake til Standal utan passasjerar og ligg der over natta — den turen står ikkje i Entur.
 
-Rutetabellen blir lasta ned frå Entur og lagra i `data/ruter.json`. Han blir berre henta på nytt når innhaldet faktisk er endra, og nettlesaren gjer ingen API-kall.
+Rutetabellen blir lasta ned frå Entur og lagra i `data/ruter.json`. Han blir berre henta på nytt når innhaldet faktisk er endra. Trafikkmeldingar og rutetabell kjem frå lokale JSON-filer; nettlesaren kallar Entur berre for valfri køyretøyposisjon (CORS er open).
 
 ## Kjelder
 
 - Trafikkmeldingar: [fjord1.no/trafikkmeldingar](https://www.fjord1.no/trafikkmeldingar) via Fjord1 sitt GraphQL-endepunkt
 - Rutetabell: [Entur Journey Planner](https://developer.entur.org/), lagra i `data/ruter.json`
+- Sanntidsposisjon: [Entur SIRI VM](https://developer.entur.no/open-data/realtime) (`datasetId=MOR`, `LineRef=MOR:Line:1136`) når ferja rapporterer. Små ferjer som 1136 kan vere utan køyretøy i straumen, særleg utanom rutetid.
+- AIS-kart: [NAIS / Kystverket](https://nais.kystverket.no/) for M/F Kvernes (MMSI 257297400). BarentsWatch sitt AIS-API er gratis under NLOD, men krev innlogging med klient-id og hemmelegheit, så det passar ikkje på ei statisk GitHub Pages-side.
 - Papir-ruteplan: [`ruter.pdf`](ruter.pdf)
 
 Fjord1 tillèt ikkje CORS frå nettlesaren, så meldingane blir henta av eit skript til `data/trafikkmeldinger.json`.
@@ -39,6 +41,7 @@ eller køyr GitHub Action **Oppdater rutetabell** manuelt. Det er ingen dagleg/a
 
 ```bash
 python3 -m unittest discover -s tests -v
+node --test tests/test_status.mjs
 ```
 
 ## GitHub Pages
