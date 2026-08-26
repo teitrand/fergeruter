@@ -111,6 +111,13 @@ h1 {
   border-left: 8px solid var(--ok);
 }
 
+.status-banner.is-quiet {
+  padding: 0.55rem 0.9rem;
+  font-size: 0.9rem;
+  color: var(--muted);
+  border-left-width: 5px;
+}
+
 .status-banner.is-cancelled { border-left-color: var(--stop); }
 .status-banner.is-delay { border-left-color: var(--delay); }
 .status-banner.is-capacity { border-left-color: var(--delay); }
@@ -125,6 +132,7 @@ h1 {
 
 @media (min-width: 860px) {
   .layout { grid-template-columns: 1.05fr 0.95fr; }
+  .layout.is-single { grid-template-columns: minmax(0, 34rem); justify-content: center; }
 }
 
 .panel {
@@ -265,9 +273,6 @@ h2 { font-size: 1.45rem; }
 }
 
 .next-summary {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.6rem;
   margin-bottom: 1rem;
 }
 
@@ -497,5 +502,4 @@ h2 { font-size: 1.45rem; }
   .panel-head { flex-direction: column; gap: 0.2rem; }
   .stop { grid-template-columns: 3.2rem 1fr auto; gap: 0.5rem; }
   .stop-state { font-size: 0.78rem; }
-  .next-summary { grid-template-columns: 1fr; }
 }
