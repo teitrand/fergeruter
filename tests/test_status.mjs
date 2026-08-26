@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  buildEvents,
+  compareTimelineEvents,
   delayMinutes,
   ferryStatus,
   homeQuay,
@@ -146,4 +148,23 @@ test("liveStatus krev fersk data", () => {
   assert.match(status.text, /sanntid frå Entur/);
   assert.match(status.text, /Trandal/);
   assert.match(status.text, /2 min forsinka/);
+});
+
+test("ankomst kjem før avgang når klokka er den same", () => {
+  const events = buildEvents(wednesday, null).sort(compareTimelineEvents);
+  const sameTime = events.filter((event) => event.at === 15 * 60 + 25);
+  assert.deepEqual(
+    sameTime.map((event) => event.kind),
+    ["arr", "dep"]
+  );
+  assert.deepEqual(sameTime.map((event) => event.quays[0]), ["Sæbø", "Sæbø"]);
+});
+
+test("flytting kjem etter ankomst, før neste avgang", () => {
+  const events = buildEvents(wednesday, null).sort(compareTimelineEvents);
+  const afterLast = events.filter((event) => event.at === 19 * 60 + 45);
+  assert.deepEqual(
+    afterLast.map((event) => event.kind),
+    ["arr", "transfer"]
+  );
 });

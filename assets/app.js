@@ -603,23 +603,33 @@ function matchesStop(quays) {
   return quays.includes(state.stopFilter);
 }
 
+const EVENT_SEQ = { arr: 0, transfer: 1, dep: 2, status: 3 };
+
+function compareTimelineEvents(a, b) {
+  const seq = (event) => EVENT_SEQ[event.kind] ?? 0;
+  return a.at - b.at || seq(a) - seq(b);
+}
+
 function buildEvents(legs, connections) {
   const events = [];
   legs.forEach((leg, index) => {
     events.push({
       at: clockMinutes(leg.departure),
+      kind: "dep",
       quays: [leg.from],
       build: (past) => departureRow(leg, past, connections),
     });
     events.push({
-      at: clockMinutes(leg.arrival) + 0.1,
+      at: clockMinutes(leg.arrival),
+      kind: "arr",
       quays: [leg.to],
       build: (past) => arrivalRow(leg, past, connections),
     });
     const next = legs[index + 1];
     if (next && leg.to !== next.from) {
       events.push({
-        at: clockMinutes(leg.arrival) + 0.2,
+        at: clockMinutes(leg.arrival),
+        kind: "transfer",
         quays: [leg.to, next.from],
         build: (past) => transferRow(leg.to, next.from, past),
       });
@@ -629,7 +639,8 @@ function buildEvents(legs, connections) {
   const home = homeQuay(legs);
   if (last && last.to !== home) {
     events.push({
-      at: clockMinutes(last.arrival) + 0.2,
+      at: clockMinutes(last.arrival),
+      kind: "transfer",
       quays: [last.to, home],
       build: (past) => transferRow(last.to, home, past),
     });
@@ -790,9 +801,14 @@ function renderLive() {
   );
   const status = isToday() ? currentStatus(legs) : null;
   if (status) {
-    events.push({ at: status.at, status: true, build: () => statusRow(status) });
+    events.push({
+      at: status.at,
+      kind: "status",
+      status: true,
+      build: () => statusRow(status),
+    });
   }
-  events.sort((a, b) => a.at - b.at);
+  events.sort(compareTimelineEvents);
 
   const now = nowMinutes();
   const isPast = (event) => isToday() && !event.status && event.at <= now;
@@ -1015,6 +1031,8 @@ function bindControls() {
 }
 
 export {
+  buildEvents,
+  compareTimelineEvents,
   currentStatus,
   delayMinutes,
   ferryStatus,
