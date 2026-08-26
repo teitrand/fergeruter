@@ -1,5 +1,6 @@
 const MESSAGES_URL = "data/trafikkmeldinger.json";
 const ROUTES_URL = "data/ruter.json";
+const CONNECTIONS_URL = "data/korrespondanse.json";
 
 const SEVERITY_LABEL = {
   normal: "Normal drift",
@@ -16,6 +17,8 @@ const state = {
   showPast: false,
   messages: null,
   routes: null,
+  connection: null,
+  connections: null,
 };
 
 let renderedDate = null;
@@ -288,6 +291,63 @@ function renderNextSummary(legs) {
   root.append(item);
 }
 
+/**
+ * Turane over Storfjorden som gjeld den valde dagen, delte etter retning.
+ * Reisevegen avgjer kva veg det korresponderer: skal du inn fjorden treng du
+ * ei ferje som er framme på knutepunktet i tide, skal du ut treng du ei som
+ * går derifrå etterpå.
+ */
+function connectionIndex(date) {
+  const data = state.connections;
+  if (!data || !state.connection) return null;
+  const line = data.lines.find((candidate) => candidate.id === state.connection);
+  if (!line) return null;
+  const runsToday = (trip) => (data.calendars[trip.cal] || []).includes(date);
+  const trips = line.trips.filter(runsToday);
+  return {
+    hub: data.hub,
+    roadTo: data.roadTo,
+    buffer: (data.driveMinutes || 0) + (data.marginMinutes || 0),
+    toHub: trips
+      .filter((trip) => trip.to === data.hub)
+      .sort((a, b) => a.arrival.localeCompare(b.arrival)),
+    fromHub: trips
+      .filter((trip) => trip.from === data.hub)
+      .sort((a, b) => a.departure.localeCompare(b.departure)),
+  };
+}
+
+function inboundConnection(index, departure) {
+  const latest = clockMinutes(departure) - index.buffer;
+  let found = null;
+  for (const trip of index.toHub) {
+    if (clockMinutes(trip.arrival) <= latest) found = trip;
+    else break;
+  }
+  return found;
+}
+
+function outboundConnection(index, arrival) {
+  const earliest = clockMinutes(arrival) + index.buffer;
+  return index.fromHub.find((trip) => clockMinutes(trip.departure) >= earliest) || null;
+}
+
+function connectionNote(index, kind, leg) {
+  if (!index) return null;
+  const quay = kind === "dep" ? leg.from : leg.to;
+  if (quay !== index.roadTo) return null;
+  if (kind === "dep") {
+    const trip = inboundConnection(index, leg.departure);
+    return trip
+      ? `Ta ferja ${hhmm(trip.departure)} frå ${trip.from} for å rekke denne`
+      : `Ingen korresponderande ferje frå ${index.hub}-sida`;
+  }
+  const trip = outboundConnection(index, leg.arrival);
+  return trip
+    ? `Vidare ${hhmm(trip.departure)} frå ${index.hub} mot ${trip.to}`
+    : `Ingen korresponderande ferje frå ${index.hub} etterpå`;
+}
+
 function signalNote(leg) {
   const deadline = bookingDeadline(leg);
   if (deadline == null) return null;
@@ -312,7 +372,7 @@ function signalNote(leg) {
   return note;
 }
 
-function departureRow(leg, past) {
+function departureRow(leg, past, index) {
   const row = el("div", `stop stop-dep${past ? " is-past" : ""}`);
   row.append(el("span", "stop-time", hhmm(leg.departure)));
   const body = el("span", "stop-body");
@@ -322,17 +382,21 @@ function departureRow(leg, past) {
   body.append(head);
   const note = signalNote(leg);
   if (note) body.append(note);
+  const connection = connectionNote(index, "dep", leg);
+  if (connection) body.append(el("span", "stop-note stop-conn", connection));
   row.append(body);
   const remaining = past ? "Gått" : isToday() ? countdown(leg.departure) : "";
   row.append(el("span", "stop-state", remaining));
   return row;
 }
 
-function arrivalRow(leg, past) {
+function arrivalRow(leg, past, index) {
   const row = el("div", `stop stop-arr${past ? " is-past" : ""}`);
   row.append(el("span", "stop-time", hhmm(leg.arrival)));
   const body = el("span", "stop-body");
   body.append(el("span", "stop-name", `Ankomst ${leg.to}`));
+  const connection = connectionNote(index, "arr", leg);
+  if (connection) body.append(el("span", "stop-note stop-conn", connection));
   row.append(body);
   row.append(el("span", "stop-state", ""));
   return row;
@@ -369,18 +433,18 @@ function matchesStop(quays) {
   return quays.includes(state.stopFilter);
 }
 
-function buildEvents(legs) {
+function buildEvents(legs, connections) {
   const events = [];
   legs.forEach((leg, index) => {
     events.push({
       at: clockMinutes(leg.departure),
       quays: [leg.from],
-      build: (past) => departureRow(leg, past),
+      build: (past) => departureRow(leg, past, connections),
     });
     events.push({
       at: clockMinutes(leg.arrival) + 0.1,
       quays: [leg.to],
-      build: (past) => arrivalRow(leg, past),
+      build: (past) => arrivalRow(leg, past, connections),
     });
     const next = legs[index + 1];
     if (next && leg.to !== next.from) {
@@ -415,6 +479,50 @@ function renderStopFilter(legs) {
     });
     root.append(btn);
   }
+}
+
+function renderConnectionFilter() {
+  const root = document.getElementById("conn-filter");
+  const note = document.getElementById("connection-note");
+  root.replaceChildren();
+  const options = [{ value: null, label: "Ingen" }].concat(
+    (state.connections?.lines || [
+      { id: "solavagen", label: "Solavågen" },
+      { id: "hundeidvika", label: "Hundeidvika" },
+    ]).map((line) => ({ value: line.id, label: line.label }))
+  );
+  for (const option of options) {
+    const btn = el("button", "chip chip-small", option.label);
+    btn.type = "button";
+    const active = state.connection === option.value;
+    btn.setAttribute("aria-pressed", String(active));
+    if (active) btn.classList.add("is-active");
+    btn.addEventListener("click", () => selectConnection(option.value));
+    root.append(btn);
+  }
+  const data = state.connections;
+  note.textContent =
+    state.connection && data
+      ? `Korrespondansen reknar ${data.driveMinutes} min køyring ${data.hub}–${data.roadTo} pluss ${data.marginMinutes} min margin.`
+      : "";
+}
+
+async function selectConnection(id) {
+  state.connection = id;
+  if (id && !state.connections) {
+    try {
+      const response = await fetch(CONNECTIONS_URL);
+      if (!response.ok) throw new Error(response.statusText);
+      state.connections = await response.json();
+    } catch (error) {
+      state.connection = null;
+      document.getElementById("connection-note").textContent =
+        "Klarte ikkje hente korresponderande ruter.";
+      console.error(error);
+    }
+  }
+  renderConnectionFilter();
+  renderLive();
 }
 
 function renderDayNav() {
@@ -489,7 +597,9 @@ function renderLive() {
     return;
   }
 
-  const events = buildEvents(legs).filter((event) => matchesStop(event.quays));
+  const events = buildEvents(legs, connectionIndex(selectedDate())).filter((event) =>
+    matchesStop(event.quays)
+  );
   const status = isToday() ? ferryStatus(legs) : null;
   if (status) {
     events.push({ at: status.at, status: true, build: () => statusRow(status) });
@@ -512,6 +622,7 @@ function renderLive() {
 function renderTimeline() {
   renderedDate = selectedDate();
   renderStopFilter(legsForDate(renderedDate));
+  renderConnectionFilter();
   renderLive();
 }
 
