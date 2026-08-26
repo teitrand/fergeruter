@@ -1,6 +1,6 @@
 {
   "source": "https://www.fjord1.no/trafikkmeldingar",
-  "fetchedAt": "2026-08-26T16:54:48.536974+00:00",
+  "fetchedAt": "2026-08-26T18:31:26.045045+00:00",
   "messages": [
     {
       "id": "RG9tYWluQ29udGVudDoyMTYzOTk4MQ==",
@@ -13,20 +13,6 @@
       "connectionNumber": 814,
       "important": false,
       "severity": "capacity",
-      "isRoute1136": false,
-      "isLocal": false
-    },
-    {
-      "id": "RG9tYWluQ29udGVudDoyMTYzMjI4OQ==",
-      "heading": "Langevåg - Buavåg",
-      "text": "Rute 1030 Langevåg - Buavåg: Det vert normal drift i sambandet frå kl. 20:00 Mvh Fjord1 på vegner av Skyss.",
-      "publishedAt": "2026-08-25T19:13:46+02:00",
-      "validFrom": "2026-08-25T17:13:46+00:00",
-      "validTo": "2026-08-26T17:13:16+00:00",
-      "countyNumber": 12,
-      "connectionNumber": 1126,
-      "important": false,
-      "severity": "normal",
       "isRoute1136": false,
       "isLocal": false
     },
