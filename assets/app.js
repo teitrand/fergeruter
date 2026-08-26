@@ -1,6 +1,11 @@
 const MESSAGES_URL = "data/trafikkmeldinger.json";
 const ROUTES_URL = "data/ruter.json";
 const CONNECTIONS_URL = "data/korrespondanse.json";
+const LIVE_VM_URL =
+  "https://api.entur.io/realtime/v1/rest/vm?datasetId=MOR&LineRef=MOR:Line:1136";
+const ENTUR_CLIENT = "teitrand-fergeruter";
+const HOME_QUAY = "Standal";
+const LIVE_MAX_AGE_MS = 3 * 60 * 1000;
 
 const SEVERITY_LABEL = {
   normal: "Normal drift",
@@ -19,6 +24,8 @@ const state = {
   routes: null,
   connection: null,
   connections: null,
+  live: null,
+  liveFetchedAt: 0,
 };
 
 let renderedDate = null;
@@ -197,12 +204,148 @@ function bookingDeadline(leg) {
   return clockMinutes(leg.departure) - leg.signal.minutesBefore;
 }
 
+function quayPlace(name) {
+  if (!name) return "";
+  return String(name).replace(/\s+(ferjekai|kai)$/i, "").trim();
+}
+
+function unwrapSiri(value) {
+  if (value == null) return "";
+  if (typeof value === "string" || typeof value === "number") return String(value);
+  if (Array.isArray(value)) return unwrapSiri(value[0]);
+  if (typeof value === "object") return unwrapSiri(value.value ?? value["#text"]);
+  return "";
+}
+
+function delayMinutes(value) {
+  if (value == null || value === "") return null;
+  if (typeof value === "number") return Math.floor(value / 60);
+  const text = String(value);
+  const iso = text.match(/^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+(?:\.\d+)?)S)?$/i);
+  if (iso) {
+    const hours = Number(iso[1] || 0);
+    const minutes = Number(iso[2] || 0);
+    const seconds = Number(iso[3] || 0);
+    return Math.floor(hours * 60 + minutes + seconds / 60);
+  }
+  const numeric = Number(text);
+  return Number.isFinite(numeric) ? Math.floor(numeric / 60) : null;
+}
+
+function homeQuay(legs) {
+  return legs[0]?.from || HOME_QUAY;
+}
+
+/** Kortaste hol mellom to kaier i tabellen, t.d. Valderøya 12:30 → Standal 14:40. */
+function minDeadheadMinutes(allLegs, fromQuay, toQuay) {
+  const byDate = new Map();
+  for (const leg of allLegs || []) {
+    for (const date of leg.activeDates || []) {
+      if (!byDate.has(date)) byDate.set(date, []);
+      byDate.get(date).push(leg);
+    }
+  }
+  let shortest = null;
+  for (const dayLegs of byDate.values()) {
+    dayLegs.sort((a, b) => a.departure.localeCompare(b.departure));
+    for (let i = 0; i < dayLegs.length - 1; i += 1) {
+      const leg = dayLegs[i];
+      const next = dayLegs[i + 1];
+      if (leg.to !== fromQuay || next.from !== toQuay) continue;
+      const gap = clockMinutes(next.departure) - clockMinutes(leg.arrival);
+      if (gap > 0 && (shortest == null || gap < shortest)) shortest = gap;
+    }
+  }
+  return shortest;
+}
+
+function parseVehicleMonitoring(data) {
+  const deliveries = data?.Siri?.ServiceDelivery?.VehicleMonitoringDelivery;
+  const list = Array.isArray(deliveries) ? deliveries : deliveries ? [deliveries] : [];
+  const activities = [];
+  for (const delivery of list) {
+    const items = delivery?.VehicleActivity;
+    if (!items) continue;
+    activities.push(...(Array.isArray(items) ? items : [items]));
+  }
+  if (!activities.length) return null;
+  const activity = activities[0];
+  const journey = activity.MonitoredVehicleJourney || {};
+  const location = journey.VehicleLocation || {};
+  const recorded = activity.RecordedAtTime || activity.ValidUntilTime;
+  return {
+    destination: quayPlace(unwrapSiri(journey.DestinationName)),
+    origin: quayPlace(unwrapSiri(journey.OriginName)),
+    delayMinutes: delayMinutes(journey.Delay),
+    latitude: location.Latitude ?? location.latitude,
+    longitude: location.Longitude ?? location.longitude,
+    monitored: journey.Monitored,
+    validUntil: activity.ValidUntilTime,
+    recordedAt: recorded,
+  };
+}
+
+function isLiveFresh(live) {
+  if (!live) return false;
+  if (live.validUntil) {
+    const until = Date.parse(live.validUntil);
+    if (Number.isFinite(until)) return until > Date.now();
+  }
+  if (live.recordedAt) {
+    const recorded = Date.parse(live.recordedAt);
+    if (Number.isFinite(recorded)) return Date.now() - recorded < LIVE_MAX_AGE_MS;
+  }
+  return false;
+}
+
+function liveStatus(live) {
+  if (!isLiveFresh(live)) return null;
+  const dest = live.destination;
+  const delay = live.delayMinutes;
+  const parts = [];
+  if (dest) parts.push(`Ferja er på veg mot ${dest}`);
+  else parts.push("Ferja er i rute");
+  if (delay >= 1) parts.push(`om lag ${delay} min forsinka`);
+  return {
+    underway: true,
+    live: true,
+    short: dest ? `Ferja er på veg mot ${dest}` : "Ferja er i rute",
+    text: `${parts.join(", ")} (sanntid frå Entur).`,
+  };
+}
+
+function overnightStatus(last, home, now, allLegs) {
+  const deadhead = minDeadheadMinutes(allLegs, last.to, home);
+  const since = now - clockMinutes(last.arrival);
+  if (deadhead != null && since < deadhead) {
+    return {
+      at: clockMinutes(last.arrival) + 0.5,
+      underway: true,
+      short: `Ferja går tilbake til ${home} utan passasjerar`,
+      text: `Siste passasjertur er framme på ${last.to}. Ferja går tilbake til ${home} utan passasjerar.`,
+    };
+  }
+  if (deadhead == null) {
+    return {
+      at: 1441,
+      short: `Ferja går tilbake til ${home} utan passasjerar`,
+      text: `Siste passasjertur er framme på ${last.to}. Ferja går tilbake til ${home} utan passasjerar og ligg der over natta.`,
+    };
+  }
+  return {
+    at: 1441,
+    short: `Ferja ligg til kai på ${home}`,
+    text: `Ferja er ferdig for dagen og ligg til kai på ${home}.`,
+  };
+}
+
 /** Kvar ferja er akkurat no, rekna ut frå rutetabellen. */
-function ferryStatus(legs) {
+function ferryStatus(legs, now = nowMinutes(), allLegs = null) {
   if (!legs.length) return null;
-  const now = nowMinutes();
   const first = legs[0];
   const last = legs[legs.length - 1];
+  const home = homeQuay(legs);
+  const catalog = allLegs || state.routes?.legs || legs;
 
   if (now < clockMinutes(first.departure)) {
     return {
@@ -212,11 +355,14 @@ function ferryStatus(legs) {
     };
   }
   if (now >= clockMinutes(last.arrival)) {
-    return {
-      at: 1441,
-      short: `Ferja er ferdig for dagen på ${last.to}`,
-      text: `Ferja er ferdig for dagen på ${last.to}.`,
-    };
+    if (last.to === home) {
+      return {
+        at: 1441,
+        short: `Ferja er ferdig for dagen på ${home}`,
+        text: `Ferja er ferdig for dagen på ${home}.`,
+      };
+    }
+    return overnightStatus(last, home, now, catalog);
   }
 
   for (let i = 0; i < legs.length; i += 1) {
@@ -241,6 +387,14 @@ function ferryStatus(legs) {
     }
   }
   return null;
+}
+
+function currentStatus(legs) {
+  const planned = ferryStatus(legs);
+  const live = liveStatus(state.live);
+  if (!planned) return live;
+  if (!live) return planned;
+  return { ...planned, ...live, at: planned.at };
 }
 
 function nextDepartureFrom(legs, quay) {
@@ -471,6 +625,15 @@ function buildEvents(legs, connections) {
       });
     }
   });
+  const last = legs[legs.length - 1];
+  const home = homeQuay(legs);
+  if (last && last.to !== home) {
+    events.push({
+      at: clockMinutes(last.arrival) + 0.2,
+      quays: [last.to, home],
+      build: (past) => transferRow(last.to, home, past),
+    });
+  }
   return events;
 }
 
@@ -558,7 +721,7 @@ function renderLedeStatus() {
     lede.textContent = "Ingen turar i rutetabellen i dag.";
     return;
   }
-  const status = ferryStatus(legs);
+  const status = currentStatus(legs);
   const next = legs.find((leg) => !hasPassed(leg.departure));
   const parts = [];
   if (status) parts.push(status.short || status.text.replace(/\.$/, ""));
@@ -569,6 +732,15 @@ function renderLedeStatus() {
   }
   lede.hidden = false;
   lede.textContent = `${parts.join(". ")}.`;
+  renderPositionNote();
+}
+
+function renderPositionNote() {
+  const note = document.getElementById("position-note");
+  if (!note) return;
+  note.textContent = liveStatus(state.live)
+    ? "Posisjonen kjem frå Entur sanntid no."
+    : "Posisjonen er rekna ut frå rutetabellen når Entur ikkje sender køyretøyposisjon.";
 }
 
 /** Knappen ligg utanfor lista, så minuttoppdateringa ikkje stel fokus. */
@@ -616,7 +788,7 @@ function renderLive() {
   const events = buildEvents(legs, connectionIndex(selectedDate())).filter((event) =>
     matchesStop(event.quays)
   );
-  const status = isToday() ? ferryStatus(legs) : null;
+  const status = isToday() ? currentStatus(legs) : null;
   if (status) {
     events.push({ at: status.at, status: true, build: () => statusRow(status) });
   }
@@ -741,6 +913,24 @@ async function loadMessages() {
   }
 }
 
+async function loadLivePosition() {
+  if (Date.now() - (state.liveFetchedAt || 0) < 55 * 1000) return;
+  state.liveFetchedAt = Date.now();
+  try {
+    const response = await fetch(LIVE_VM_URL, {
+      headers: {
+        "ET-Client-Name": ENTUR_CLIENT,
+        Accept: "application/json",
+      },
+    });
+    if (!response.ok) throw new Error(response.statusText);
+    state.live = parseVehicleMonitoring(await response.json());
+  } catch (error) {
+    state.live = null;
+    console.error(error);
+  }
+}
+
 async function loadRoutes() {
   const meta = document.getElementById("departures-meta");
   try {
@@ -753,6 +943,9 @@ async function loadRoutes() {
     if (updated && state.routes.fetchedAt) {
       updated.textContent = `Sist lasta ned ${formatDateOnly(state.routes.fetchedAt)}. `;
     }
+    await loadLivePosition();
+    renderLive();
+    renderLedeStatus();
   } catch (error) {
     meta.textContent = "Feil ved lasting av rutetabell";
     document.getElementById("departures").replaceChildren(
@@ -773,8 +966,9 @@ function goToDay(days) {
  * lasting, så ho aldri driv frå klokka. Etter kvar tikk blir neste planlagd
  * på nytt, og vi tikkar òg når fana blir synleg att etter dvale.
  */
-function tick() {
+async function tick() {
   if (!state.routes) return;
+  await loadLivePosition();
   if (selectedDate() !== renderedDate) {
     renderTimeline();
   } else {
@@ -820,8 +1014,22 @@ function bindControls() {
   window.addEventListener("focus", wake);
 }
 
-bindControls();
-loadMessages();
-loadRoutes();
-scheduleTick();
-setInterval(loadMessages, 3 * 60 * 1000);
+export {
+  currentStatus,
+  delayMinutes,
+  ferryStatus,
+  homeQuay,
+  isLiveFresh,
+  liveStatus,
+  minDeadheadMinutes,
+  parseVehicleMonitoring,
+  quayPlace,
+};
+
+if (typeof document !== "undefined") {
+  bindControls();
+  loadMessages();
+  loadRoutes();
+  scheduleTick();
+  setInterval(loadMessages, 3 * 60 * 1000);
+}
