@@ -9,8 +9,6 @@ const SEVERITY_LABEL = {
   info: "Melding",
 };
 
-const HOME_QUAYS = ["Trandal", "Standal"];
-
 const state = {
   messageFilter: "local",
   stopFilter: null,
@@ -246,21 +244,48 @@ function nextDepartureFrom(legs, quay) {
   return legs.find((leg) => leg.from === quay && (!isToday() || !hasPassed(leg.departure)));
 }
 
+/** Fyrste avgangen på ein seinare dag, så boksen ikkje står tom om kvelden. */
+function lookAhead(fromDate, matches, maxDays = 7) {
+  for (let step = 1; step <= maxDays; step += 1) {
+    const date = shiftIso(fromDate, step);
+    const leg = legsForDate(date).find(matches);
+    if (leg) return { date, leg };
+  }
+  return null;
+}
+
+function dayPrefix(date) {
+  if (date === shiftIso(todayIso(), 1)) return "i morgon";
+  return formatDay(date);
+}
+
+/** Éin boks, for kaia du har valt. Utan val: den neste avgangen som helst. */
 function renderNextSummary(legs) {
   const root = document.getElementById("next-summary");
   root.replaceChildren();
-  if (!legs.length) return;
-  for (const quay of HOME_QUAYS) {
-    const leg = nextDepartureFrom(legs, quay);
-    const item = el("div", "next-item");
-    item.append(el("span", "next-label", `Neste frå ${quay}`));
-    item.append(el("span", "next-time", leg ? hhmm(leg.departure) : "—"));
-    const sub = leg
-      ? `mot ${leg.to}${isToday() ? ` · ${countdown(leg.departure)}` : ""}`
-      : "ingen fleire denne dagen";
-    item.append(el("span", "next-sub", sub));
-    root.append(item);
+  const quay = state.stopFilter;
+  const matches = (leg) => !quay || leg.from === quay;
+
+  let leg = legs.find((candidate) => matches(candidate) && (!isToday() || !hasPassed(candidate.departure)));
+  let prefix = "";
+  if (!leg) {
+    const ahead = lookAhead(selectedDate(), matches);
+    if (ahead) {
+      leg = ahead.leg;
+      prefix = dayPrefix(ahead.date);
+    }
   }
+  if (!leg) return;
+
+  const item = el("div", "next-item");
+  item.append(el("span", "next-label", `Neste frå ${quay || leg.from}`));
+  item.append(el("span", "next-time", hhmm(leg.departure)));
+  const bits = [];
+  if (prefix) bits.push(prefix);
+  bits.push(`mot ${leg.to}`);
+  if (!prefix && isToday()) bits.push(countdown(leg.departure));
+  item.append(el("span", "next-sub", bits.join(" · ")));
+  root.append(item);
 }
 
 function signalNote(leg) {
@@ -512,12 +537,23 @@ function applyMessageFilter(messages) {
 function renderMessages() {
   const root = document.getElementById("messages");
   const meta = document.getElementById("messages-meta");
+  const panel = document.getElementById("messages-panel");
+  const layout = document.getElementById("layout");
   root.replaceChildren();
   if (!state.messages) {
-    root.append(el("p", "empty", "Fann ikkje trafikkmeldingar."));
+    panel.hidden = true;
+    layout.classList.add("is-single");
     return;
   }
   const all = validMessages(state.messages.messages || []);
+  // Utan noko i området er banneret øvst nok. Panelet ville berre teke plass.
+  const hasLocal = all.some((msg) => msg.isLocal);
+  panel.hidden = !hasLocal;
+  layout.classList.toggle("is-single", !hasLocal);
+  if (!hasLocal) {
+    renderBanner(all);
+    return;
+  }
   const filtered = applyMessageFilter(all);
   meta.textContent = `Sist henta ${formatDateTime(state.messages.fetchedAt)}`;
   if (!filtered.length) {
@@ -550,15 +586,14 @@ function renderMessages() {
 
 function renderBanner(messages) {
   const banner = document.getElementById("status-banner");
-  const routeMsgs = messages.filter((msg) => msg.isRoute1136);
-  if (!routeMsgs.length) {
-    banner.hidden = false;
-    banner.className = "status-banner is-normal";
-    banner.textContent = "Ingen aktive Fjord1-trafikkmeldingar for rute 1136.";
+  const local = messages.filter((msg) => msg.isLocal);
+  banner.hidden = false;
+  if (!local.length) {
+    banner.className = "status-banner is-normal is-quiet";
+    banner.textContent = "Ingen trafikkmeldingar i Hjørundfjorden no.";
     return;
   }
-  const latest = routeMsgs[0];
-  banner.hidden = false;
+  const latest = local[0];
   banner.className = `status-banner is-${latest.severity}`;
   banner.textContent = latest.text;
 }
