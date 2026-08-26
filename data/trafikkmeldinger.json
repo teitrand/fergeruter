@@ -1,6 +1,6 @@
 {
   "source": "https://www.fjord1.no/trafikkmeldingar",
-  "fetchedAt": "2026-08-26T12:04:34.082453+00:00",
+  "fetchedAt": "2026-08-26T13:09:19.067592+00:00",
   "messages": [
     {
       "id": "RG9tYWluQ29udGVudDoyMTYzMjI4OQ==",
@@ -27,34 +27,6 @@
       "connectionNumber": 1126,
       "important": false,
       "severity": "cancelled",
-      "isRoute1136": false,
-      "isLocal": false
-    },
-    {
-      "id": "RG9tYWluQ29udGVudDoyMTYyOTgwMA==",
-      "heading": "Bognes – Skarberget",
-      "text": "Rute 201109 Bognes - Skarberget: Grunna transport av farlig last vert det redusert kapasitet (maks 12 passasjerer) på avgang fra Bognes kl 1840 den 25 august",
-      "publishedAt": "2026-08-25T14:39:28+02:00",
-      "validFrom": "2026-08-25T12:39:28+00:00",
-      "validTo": "2026-08-26T12:38:54+00:00",
-      "countyNumber": 18,
-      "connectionNumber": 611,
-      "important": false,
-      "severity": "capacity",
-      "isRoute1136": false,
-      "isLocal": false
-    },
-    {
-      "id": "RG9tYWluQ29udGVudDoyMTYyOTU2Mg==",
-      "heading": "Stårheim-Isane",
-      "text": "Rute 1038 Stårheim - Isane: Grunna transport av farleg last vert det redusert kapasitet (maks. 12 passasjerar) på avgang i morgon (26.8) frå Stårheim kl 13.00. Mvh Fjord1 på vegner av Skyss.",
-      "publishedAt": "2026-08-25T14:11:44+02:00",
-      "validFrom": "2026-08-25T12:11:44+00:00",
-      "validTo": "2026-08-26T12:10:32+00:00",
-      "countyNumber": 14,
-      "connectionNumber": 814,
-      "important": false,
-      "severity": "capacity",
       "isRoute1136": false,
       "isLocal": false
     },
