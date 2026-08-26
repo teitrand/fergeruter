@@ -18,11 +18,13 @@ jobs:
           python-version: "3.12"
       - name: Last ned rutetabell frå Entur
         run: python scripts/fetch_ruter.py
+      - name: Last ned korresponderande ruter
+        run: python scripts/fetch_korrespondanse.py
       - name: Commit berre ved endring i tabellen
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/ruter.json
+          git add data/ruter.json data/korrespondanse.json
           if git diff --staged --quiet; then
             echo "Rutetabellen er uendra"
           else

@@ -286,6 +286,13 @@ h2 { font-size: 1.45rem; }
   gap: 0.1rem;
 }
 
+.next-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
 .next-label {
   font-size: 0.78rem;
   letter-spacing: 0.04em;
@@ -361,6 +368,30 @@ h2 { font-size: 1.45rem; }
   height: 0.4rem;
   left: -1.17rem;
 }
+
+.conn-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: -0.4rem 0 0.9rem;
+}
+
+.conn-label {
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.conn-row .filters { margin-bottom: 0; }
+
+.chip-small {
+  font-size: 0.84rem;
+  padding: 0.24rem 0.6rem;
+}
+
+.stop-conn { color: var(--info); }
 
 .reveal {
   align-self: flex-start;
