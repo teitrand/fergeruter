@@ -1,7 +1,21 @@
 {
   "source": "https://www.fjord1.no/trafikkmeldingar",
-  "fetchedAt": "2026-08-26T13:09:19.067592+00:00",
+  "fetchedAt": "2026-08-26T14:01:29.118071+00:00",
   "messages": [
+    {
+      "id": "RG9tYWluQ29udGVudDoyMTYzOTk4MQ==",
+      "heading": "Stårheim-Isane",
+      "text": "Rute 1038 Stårheim - Isane: Grunna transport av farleg last vert det redusert kapasitet (maks. 12 passasjerar) på avgang frå Stårheim kl. 16.00 i dag. Mvh Fjord1 på vegner av Skyss.",
+      "publishedAt": "2026-08-26T15:23:59+02:00",
+      "validFrom": "2026-08-26T13:23:59+00:00",
+      "validTo": "2026-08-27T13:23:37+00:00",
+      "countyNumber": 14,
+      "connectionNumber": 814,
+      "important": false,
+      "severity": "capacity",
+      "isRoute1136": false,
+      "isLocal": false
+    },
     {
       "id": "RG9tYWluQ29udGVudDoyMTYzMjI4OQ==",
       "heading": "Langevåg - Buavåg",
