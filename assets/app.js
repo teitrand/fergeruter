@@ -270,24 +270,36 @@ function renderNextSummary(legs) {
   const matches = (leg) => !quay || leg.from === quay;
 
   let leg = legs.find((candidate) => matches(candidate) && (!isToday() || !hasPassed(candidate.departure)));
+  let legDate = selectedDate();
   let prefix = "";
   if (!leg) {
     const ahead = lookAhead(selectedDate(), matches);
     if (ahead) {
       leg = ahead.leg;
+      legDate = ahead.date;
       prefix = dayPrefix(ahead.date);
     }
   }
   if (!leg) return;
 
+  const live = legDate === todayIso();
   const item = el("div", "next-item");
-  item.append(el("span", "next-label", `Neste frå ${quay || leg.from}`));
+  const head = el("span", "next-head");
+  head.append(el("span", "next-label", `Neste frå ${quay || leg.from}`));
+  if (leg.signal) head.append(el("span", "stop-tag", "På signal"));
+  item.append(head);
   item.append(el("span", "next-time", hhmm(leg.departure)));
+
   const bits = [];
   if (prefix) bits.push(prefix);
   bits.push(`mot ${leg.to}`);
-  if (!prefix && isToday()) bits.push(countdown(leg.departure));
+  if (live) bits.push(countdown(leg.departure));
   item.append(el("span", "next-sub", bits.join(" · ")));
+
+  const note = signalNote(leg, live);
+  if (note) item.append(note);
+  const connection = connectionNote(connectionIndex(legDate), "dep", leg);
+  if (connection) item.append(el("span", "stop-note stop-conn", connection));
   root.append(item);
 }
 
@@ -348,7 +360,11 @@ function connectionNote(index, kind, leg) {
     : `Ingen korresponderande ferje frå ${index.hub} etterpå`;
 }
 
-function signalNote(leg) {
+/**
+ * `live` seier om fristen skal teljast mot klokka. Gjeld turen ein annan dag
+ * enn i dag, ville ei nedteljing mot dagens klokke vore feil.
+ */
+function signalNote(leg, live) {
   const deadline = bookingDeadline(leg);
   if (deadline == null) return null;
   const note = el("span", "stop-note");
@@ -361,7 +377,7 @@ function signalNote(leg) {
   } else {
     note.append(document.createTextNode(label));
   }
-  if (isToday()) {
+  if (live) {
     const deadlineClock = `${minutesToClock(deadline)}:00`;
     if (!hasPassed(deadlineClock)) {
       note.append(el("span", "stop-left", `${countdown(deadlineClock)} igjen å tinge`));
@@ -380,7 +396,7 @@ function departureRow(leg, past, index) {
   head.append(el("span", "stop-name", `Frå ${leg.from}`));
   if (leg.signal) head.append(el("span", "stop-tag", "På signal"));
   body.append(head);
-  const note = signalNote(leg);
+  const note = signalNote(leg, isToday());
   if (note) body.append(note);
   const connection = connectionNote(index, "dep", leg);
   if (connection) body.append(el("span", "stop-note stop-conn", connection));
