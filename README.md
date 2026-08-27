@@ -26,6 +26,18 @@ python3 -m http.server 8080
 
 Opne [http://localhost:8080](http://localhost:8080).
 
+## Språk
+
+Sida er på **nynorsk**, **engelsk** og **tysk**. Vel språk øvst til høgre; valet blir hugsa i nettlesaren. Fyrste gongen gjettar sida ut frå språket i nettlesaren (tysk og engelsk), elles nynorsk.
+
+Stadnamn og trafikkmeldingane frå Fjord1 står på originalspråket.
+
+## Installerbar app (PWA)
+
+Sida kan installerast på telefonen frå nettlesaren (Chrome: **Installer app**, Safari på iOS: Del → **Legg til på heimeskjerm**). Då opnast ho som ei eiga app utan adressefelt, og rutetabellen verkar òg utan nett.
+
+**Google Play:** Ein PWA kan pakkast inn som Trusted Web Activity (t.d. med [PWABuilder](https://www.pwabuilder.com/) / Bubblewrap) og lastast opp til Play. Det er eige utgjevararbeid: Google Play-utviklarkonto, personvernerklæring, skjermbilete, innhaldsvurdering og Digital Asset Links på domenet. Sjølve koden her er klar for det; Play-butikken krev framleis den manuelle publiseringa.
+
 ## Oppdatering
 
 - Trafikkmeldingar: kvart 15. minutt på `main`
@@ -41,5 +53,5 @@ eller køyr GitHub Action **Oppdater rutetabell** manuelt. Det er ingen dagleg/a
 
 ```bash
 python3 -m unittest discover -s tests -v
-node --test tests/test_status.mjs
+node --test --test-concurrency=1 tests/test_status.mjs tests/test_i18n.mjs
 ```

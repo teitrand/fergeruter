@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { beforeEach, test } from "node:test";
 import {
   buildEvents,
   compareTimelineEvents,
@@ -15,6 +15,9 @@ import {
   parseVehicleMonitoring,
   quayPlace,
 } from "../assets/app.js";
+import { setLang } from "../assets/i18n.js";
+
+beforeEach(() => setLang("nn"));
 
 function leg(from, to, departure, arrival, dates = ["2026-08-26"]) {
   return { from, to, departure, arrival, activeDates: dates };
