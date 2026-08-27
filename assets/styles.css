@@ -63,10 +63,64 @@ main,
   color: var(--foam);
 }
 
+.header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.header-tools {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.45rem;
+  flex: none;
+}
+
+.lang-switch {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.lang-btn,
+.install-btn {
+  border: 1px solid rgba(215, 238, 234, 0.35);
+  background: transparent;
+  color: var(--foam);
+  border-radius: 999px;
+  padding: 0.28rem 0.7rem;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+
+.lang-btn:hover,
+.install-btn:hover,
+.lang-btn:focus-visible,
+.install-btn:focus-visible {
+  border-color: var(--foam);
+  outline: none;
+}
+
+.lang-btn.is-active {
+  background: var(--foam);
+  color: var(--fjord);
+  border-color: var(--foam);
+}
+
+@media (display-mode: standalone) {
+  .install-btn { display: none !important; }
+}
+
 .brand {
   display: flex;
   gap: 1rem;
   align-items: flex-start;
+  min-width: 0;
 }
 
 .brand-mark {
@@ -541,6 +595,7 @@ h2.day-label {
 }
 
 @media (max-width: 640px) {
+  .header-top { flex-wrap: wrap; }
   .panel-head { flex-direction: column; gap: 0.2rem; }
   .stop, .next-row { grid-template-columns: 3.2rem 1fr auto; gap: 0.5rem; }
   .stop-state, .next-state { font-size: 0.78rem; }

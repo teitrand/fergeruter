@@ -1,3 +1,14 @@
+import {
+  applyStaticTranslations,
+  detectLang,
+  getLang,
+  months,
+  monthsShort,
+  setLang,
+  t,
+  weekdays,
+} from "./i18n.js";
+
 const MESSAGES_URL = "data/trafikkmeldinger.json";
 const ROUTES_URL = "data/ruter.json";
 const CONNECTIONS_URL = "data/korrespondanse.json";
@@ -6,14 +17,6 @@ const LIVE_VM_URL =
 const ENTUR_CLIENT = "teitrand-fergeruter";
 const HOME_QUAY = "Standal";
 const LIVE_MAX_AGE_MS = 3 * 60 * 1000;
-
-const SEVERITY_LABEL = {
-  normal: "Normal drift",
-  delay: "Forsinking",
-  cancelled: "Innstilt",
-  capacity: "Kapasitet",
-  info: "Melding",
-};
 
 const state = {
   messageFilter: "local",
@@ -113,38 +116,17 @@ function hhmm(time) {
   return time ? time.slice(0, 5) : "";
 }
 
-// Skrivne ut for hand: nettlesarar utan nynorsk i ICU fell tilbake til engelsk.
-const WEEKDAYS = [
-  "søndag",
-  "måndag",
-  "tysdag",
-  "onsdag",
-  "torsdag",
-  "fredag",
-  "laurdag",
-];
-const MONTHS = [
-  "januar",
-  "februar",
-  "mars",
-  "april",
-  "mai",
-  "juni",
-  "juli",
-  "august",
-  "september",
-  "oktober",
-  "november",
-  "desember",
-];
-
 function weekdayOf(isoDate) {
-  return WEEKDAYS[new Date(`${isoDate}T12:00:00Z`).getUTCDay()];
+  return weekdays()[new Date(`${isoDate}T12:00:00Z`).getUTCDay()];
 }
 
 function formatDay(isoDate) {
-  const [year, month, day] = isoDate.split("-").map(Number);
-  return `${weekdayOf(isoDate)} ${day}. ${MONTHS[month - 1]}`;
+  const [, month, day] = isoDate.split("-").map(Number);
+  return t("date.full", {
+    weekday: weekdayOf(isoDate),
+    day: String(day),
+    month: months()[month - 1],
+  });
 }
 
 function headingDay(isoDate) {
@@ -155,27 +137,40 @@ function headingDay(isoDate) {
 function formatDateOnly(iso) {
   if (!iso) return "";
   const parts = osloParts(new Date(iso));
-  return `${Number(parts.day)}. ${MONTHS[Number(parts.month) - 1]} ${parts.year}`;
+  return t("date.only", {
+    day: String(Number(parts.day)),
+    month: months()[Number(parts.month) - 1],
+    year: parts.year,
+  });
 }
 
 function formatDateTime(iso) {
   if (!iso) return "";
   const parts = osloParts(new Date(iso));
   const date = `${parts.year}-${parts.month}-${parts.day}`;
-  const month = MONTHS[Number(parts.month) - 1].slice(0, 3);
-  return `${weekdayOf(date)} ${Number(parts.day)}. ${month}. ${parts.hour}:${parts.minute}`;
+  return t("date.time", {
+    weekday: weekdayOf(date),
+    day: String(Number(parts.day)),
+    month: monthsShort()[Number(parts.month) - 1],
+    hour: parts.hour,
+    minute: parts.minute,
+  });
 }
 
 function durationText(minutes) {
-  if (minutes < 1) return "no";
-  if (minutes < 60) return `${minutes} min`;
+  if (minutes < 1) return t("duration.now");
+  if (minutes < 60) return t("duration.minutes", { n: minutes });
   const hours = Math.floor(minutes / 60);
   const rest = minutes % 60;
-  return rest ? `${hours} t ${rest} min` : `${hours} t`;
+  return rest
+    ? t("duration.hoursMinutes", { n: hours, m: rest })
+    : t("duration.hours", { n: hours });
 }
 
 function countdown(time) {
-  return `om ${durationText(minutesLeft(time))}`;
+  const minutes = minutesLeft(time);
+  if (minutes < 1) return t("duration.now");
+  return t("countdown.in", { duration: durationText(minutes) });
 }
 
 function legsForDate(date) {
@@ -337,7 +332,7 @@ function isLiveFresh(live) {
 }
 
 function delayBit(minutes) {
-  if (minutes >= 1) return `om lag ${minutes} min forsinka`;
+  if (minutes >= 1) return t("delay.about", { n: minutes });
   return "";
 }
 
@@ -347,14 +342,14 @@ function withSanntid(base, live) {
   return {
     live: true,
     short,
-    text: `${short} (sanntid frå Entur).`,
+    text: t("live.fromEntur", { text: short }),
   };
 }
 
 function liveStatus(live) {
   if (!isLiveFresh(live)) return null;
   const dest = firstKnownQuay(live.destination);
-  const base = dest ? `Ferja er på veg mot ${dest}` : "Ferja er i rute";
+  const base = dest ? t("status.underwayTo", { dest }) : t("status.onSchedule");
   return { underway: true, ...withSanntid(base, live) };
 }
 
@@ -365,21 +360,21 @@ function overnightStatus(last, home, now, allLegs) {
     return {
       at: clockMinutes(last.arrival) + 0.5,
       underway: true,
-      short: `Ferja går tilbake til ${home} utan passasjerar`,
-      text: `Siste passasjertur er framme på ${last.to}. Ferja går tilbake til ${home} utan passasjerar.`,
+      short: t("status.backEmpty", { home }),
+      text: t("status.backEmptyText", { to: last.to, home }),
     };
   }
   if (deadhead == null) {
     return {
       at: 1441,
-      short: `Ferja går tilbake til ${home} utan passasjerar`,
-      text: `Siste passasjertur er framme på ${last.to}. Ferja går tilbake til ${home} utan passasjerar og ligg der over natta.`,
+      short: t("status.backEmpty", { home }),
+      text: t("status.backOvernightText", { to: last.to, home }),
     };
   }
   return {
     at: 1441,
-    short: `Ferja ligg til kai på ${home}`,
-    text: `Ferja er ferdig for dagen og ligg til kai på ${home}.`,
+    short: t("status.mooredAt", { quay: home }),
+    text: t("status.doneMoored", { home }),
   };
 }
 
@@ -394,16 +389,16 @@ function ferryStatus(legs, now = nowMinutes(), allLegs = null) {
   if (now < clockMinutes(first.departure)) {
     return {
       at: clockMinutes(first.departure) - 1,
-      short: `Ferja ligg til kai på ${first.from}`,
-      text: `Ferja ligg til kai på ${first.from}. Fyrste avgang ${hhmm(first.departure)}.`,
+      short: t("status.mooredAt", { quay: first.from }),
+      text: t("status.firstDeparture", { from: first.from, time: hhmm(first.departure) }),
     };
   }
   if (now >= clockMinutes(last.arrival)) {
     if (last.to === home) {
       return {
         at: 1441,
-        short: `Ferja er ferdig for dagen på ${home}`,
-        text: `Ferja er ferdig for dagen på ${home}.`,
+        short: t("status.doneAt", { home }),
+        text: t("status.doneAtPeriod", { home }),
       };
     }
     return overnightStatus(last, home, now, catalog);
@@ -415,7 +410,7 @@ function ferryStatus(legs, now = nowMinutes(), allLegs = null) {
       return {
         at: clockMinutes(leg.departure) + 0.5,
         underway: true,
-        text: `Ferja er på veg mot ${leg.to}`,
+        text: t("status.underwayTo", { dest: leg.to }),
       };
     }
     const next = legs[i + 1];
@@ -425,8 +420,8 @@ function ferryStatus(legs, now = nowMinutes(), allLegs = null) {
         at: clockMinutes(leg.arrival) + 0.5,
         underway: moving,
         text: moving
-          ? `Ferja går til ${next.from} utan passasjerar`
-          : `Ferja ligg til kai på ${leg.to}`,
+          ? t("status.repositionTo", { quay: next.from })
+          : t("status.mooredAt", { quay: leg.to }),
       };
     }
   }
@@ -469,7 +464,7 @@ function lookAhead(fromDate, matches, maxDays = 7) {
 }
 
 function dayPrefix(date) {
-  if (date === shiftIso(todayIso(), 1)) return "i morgon";
+  if (date === shiftIso(todayIso(), 1)) return t("day.tomorrow");
   return formatDay(date);
 }
 
@@ -492,7 +487,7 @@ function buildNextRow(row) {
   node.append(el("span", "next-time", hhmm(row.time)));
   const body = el("span", "next-body");
   const name = el("span", "next-name", row.name);
-  if (row.leg.signal) name.append(el("span", "stop-tag", "På signal"));
+  if (row.leg.signal) name.append(el("span", "stop-tag", t("signal.onRequest")));
   body.append(name);
   const note = signalNote(row.leg, row.live);
   if (note) body.append(note);
@@ -530,7 +525,7 @@ function renderNextSummary(legs) {
     rows.push({
       sort: `${depHit.date}T${depHit.leg.departure}`,
       time: depHit.leg.departure,
-      name: `Frå ${depHit.leg.from} til ${depHit.leg.to}`,
+      name: t("next.fromTo", { from: depHit.leg.from, to: depHit.leg.to }),
       state: overviewState(depHit.prefix, depHit.leg.departure, live),
       live,
       leg: depHit.leg,
@@ -543,7 +538,7 @@ function renderNextSummary(legs) {
     rows.push({
       sort: `${arrHit.date}T${arrHit.leg.arrival}`,
       time: arrHit.leg.arrival,
-      name: `Ankomst ${arrHit.leg.to}`,
+      name: t("next.arrival", { to: arrHit.leg.to }),
       state: overviewState(arrHit.prefix, arrHit.leg.arrival, live),
       live,
       leg: arrHit.leg,
@@ -606,13 +601,13 @@ function connectionNote(index, kind, leg) {
   if (kind === "dep") {
     const trip = inboundConnection(index, leg.departure);
     return trip
-      ? `Ta ferja ${hhmm(trip.departure)} frå ${trip.from} for å rekke denne`
-      : `Ingen korresponderande ferje frå ${index.hub}-sida`;
+      ? t("conn.takeFerry", { time: hhmm(trip.departure), from: trip.from })
+      : t("conn.noInbound", { hub: index.hub });
   }
   const trip = outboundConnection(index, leg.arrival);
   return trip
-    ? `Vidare ${hhmm(trip.departure)} frå ${index.hub} mot ${trip.to}`
-    : `Ingen korresponderande ferje frå ${index.hub} etterpå`;
+    ? t("conn.onward", { time: hhmm(trip.departure), hub: index.hub, to: trip.to })
+    : t("conn.noOutbound", { hub: index.hub });
 }
 
 /**
@@ -624,7 +619,7 @@ function signalNote(leg, live) {
   if (deadline == null) return null;
   const note = el("span", "stop-note");
   const phone = leg.signal.phone;
-  const label = `Ring innan ${minutesToClock(deadline)}`;
+  const label = t("signal.callBy", { time: minutesToClock(deadline) });
   if (phone) {
     const link = el("a", "stop-phone", `${label} · ${phone}`);
     link.href = `tel:+47${phone.replace(/\s+/g, "")}`;
@@ -635,9 +630,15 @@ function signalNote(leg, live) {
   if (live) {
     const deadlineClock = `${minutesToClock(deadline)}:00`;
     if (!hasPassed(deadlineClock)) {
-      note.append(el("span", "stop-left", `${countdown(deadlineClock)} igjen å tinge`));
+      note.append(
+        el(
+          "span",
+          "stop-left",
+          t("signal.leftToBook", { duration: durationText(minutesLeft(deadlineClock)) })
+        )
+      );
     } else if (!hasPassed(leg.departure)) {
-      note.append(el("span", "stop-expired", "fristen er ute"));
+      note.append(el("span", "stop-expired", t("signal.expired")));
     }
   }
   return note;
@@ -648,15 +649,15 @@ function departureRow(leg, past, index) {
   row.append(el("span", "stop-time", hhmm(leg.departure)));
   const body = el("span", "stop-body");
   const head = el("span", "stop-head");
-  head.append(el("span", "stop-name", `Frå ${leg.from}`));
-  if (leg.signal) head.append(el("span", "stop-tag", "På signal"));
+  head.append(el("span", "stop-name", t("next.from", { from: leg.from })));
+  if (leg.signal) head.append(el("span", "stop-tag", t("signal.onRequest")));
   body.append(head);
   const note = signalNote(leg, isToday());
   if (note) body.append(note);
   const connection = connectionNote(index, "dep", leg);
   if (connection) body.append(el("span", "stop-note stop-conn", connection));
   row.append(body);
-  const remaining = past ? "Gått" : isToday() ? countdown(leg.departure) : "";
+  const remaining = past ? t("gone") : isToday() ? countdown(leg.departure) : "";
   row.append(el("span", "stop-state", remaining));
   return row;
 }
@@ -665,7 +666,7 @@ function arrivalRow(leg, past, index) {
   const row = el("div", `stop stop-arr${past ? " is-past" : ""}`);
   row.append(el("span", "stop-time", hhmm(leg.arrival)));
   const body = el("span", "stop-body");
-  body.append(el("span", "stop-name", `Ankomst ${leg.to}`));
+  body.append(el("span", "stop-name", t("next.arrival", { to: leg.to })));
   const connection = connectionNote(index, "arr", leg);
   if (connection) body.append(el("span", "stop-note stop-conn", connection));
   row.append(body);
@@ -677,14 +678,14 @@ function transferRow(from, to, past) {
   const row = el("div", `stop stop-transfer${past ? " is-past" : ""}`);
   row.append(el("span", "stop-time", ""));
   const body = el("span", "stop-body");
-  body.append(el("span", "stop-name", `Ferja flyttar seg til ${to}`));
+  body.append(el("span", "stop-name", t("transfer.moves", { to })));
   body.append(
     el(
       "span",
       "stop-note",
       crossesArea(from, to)
-        ? `Ikkje persontrafikk mellom ${from} og ${to}`
-        : "Utan passasjerar"
+        ? t("transfer.noPassengers", { from, to })
+        : t("transfer.empty")
     )
   );
   row.append(body);
@@ -694,7 +695,7 @@ function transferRow(from, to, past) {
 
 function statusRow(status) {
   const row = el("div", `now${status.underway ? " is-underway" : " is-moored"}`);
-  row.append(el("span", "now-label", "Nå"));
+  row.append(el("span", "now-label", t("now")));
   row.append(el("span", "now-text", status.text));
   return row;
 }
@@ -755,7 +756,7 @@ function renderStopFilter(legs) {
   const quays = quaysInDay(legs);
   if (quays.length < 2) return;
   if (state.stopFilter && !quays.includes(state.stopFilter)) state.stopFilter = null;
-  const options = [{ value: null, label: "Alle stopp" }].concat(
+  const options = [{ value: null, label: t("stops.all") }].concat(
     quays.map((quay) => ({ value: quay, label: quay }))
   );
   for (const option of options) {
@@ -776,7 +777,7 @@ function renderConnectionFilter() {
   const root = document.getElementById("conn-filter");
   const note = document.getElementById("connection-note");
   root.replaceChildren();
-  const options = [{ value: null, label: "Ingen" }].concat(
+  const options = [{ value: null, label: t("conn.none") }].concat(
     (state.connections?.lines || [
       { id: "solavagen", label: "Solavågen" },
       { id: "hundeidvika", label: "Hundeidvika" },
@@ -794,7 +795,12 @@ function renderConnectionFilter() {
   const data = state.connections;
   note.textContent =
     state.connection && data
-      ? `Korrespondansen reknar ${data.driveMinutes} min køyring ${data.hub}–${data.roadTo} pluss ${data.marginMinutes} min margin.`
+      ? t("conn.note", {
+          drive: data.driveMinutes,
+          hub: data.hub,
+          roadTo: data.roadTo,
+          margin: data.marginMinutes,
+        })
       : "";
 }
 
@@ -807,8 +813,7 @@ async function selectConnection(id) {
       state.connections = await response.json();
     } catch (error) {
       state.connection = null;
-      document.getElementById("connection-note").textContent =
-        "Klarte ikkje hente korresponderande ruter.";
+      document.getElementById("connection-note").textContent = t("conn.error");
       console.error(error);
     }
   }
@@ -830,7 +835,7 @@ function renderLedeStatus() {
   const legs = legsForDate(todayIso());
   if (!legs.length) {
     lede.hidden = false;
-    lede.textContent = "Ingen turar i rutetabellen i dag.";
+    lede.textContent = t("lede.noTripsToday");
     return;
   }
   const status = currentStatus(legs);
@@ -839,7 +844,11 @@ function renderLedeStatus() {
   if (status) parts.push(status.short || status.text.replace(/\.$/, ""));
   if (next) {
     parts.push(
-      `Neste avgang ${hhmm(next.departure)} frå ${next.from}, ${countdown(next.departure)}`
+      t("lede.nextDeparture", {
+        time: hhmm(next.departure),
+        from: next.from,
+        countdown: countdown(next.departure),
+      })
     );
   }
   lede.hidden = false;
@@ -850,9 +859,7 @@ function renderLedeStatus() {
 function renderPositionNote() {
   const note = document.getElementById("position-note");
   if (!note) return;
-  note.textContent = liveStatus(state.live)
-    ? "Posisjonen kjem frå Entur sanntid no."
-    : "Posisjonen er rekna ut frå rutetabellen når Entur ikkje sender køyretøyposisjon.";
+  note.textContent = liveStatus(state.live) ? t("position.live") : t("position.planned");
 }
 
 /** Knappen ligg utanfor lista, så minuttoppdateringa ikkje stel fokus. */
@@ -873,8 +880,8 @@ function renderReveal(pastCount) {
     wrap.replaceChildren(button);
   }
   button.textContent = state.showPast
-    ? "Skjul tidlegare anløp"
-    : `Vis ${pastCount} tidlegare anløp`;
+    ? t("reveal.hide")
+    : t("reveal.show", { n: pastCount });
 }
 
 /** Alt som endrar seg med klokka. Køyrer kvart minutt utan å byggje om resten. */
@@ -882,7 +889,7 @@ function renderLive() {
   const root = document.getElementById("departures");
   root.replaceChildren();
   if (!state.routes) {
-    root.append(el("p", "empty", "Fann ikkje rutetabell."));
+    root.append(el("p", "empty", t("empty.noTimetable")));
     return;
   }
   const legs = legsForDate(selectedDate());
@@ -891,7 +898,7 @@ function renderLive() {
 
   if (!legs.length) {
     renderReveal(0);
-    root.append(el("p", "empty", "Ingen turar i tabellen denne dagen."));
+    root.append(el("p", "empty", t("empty.noTripsDay")));
     return;
   }
 
@@ -969,15 +976,13 @@ function renderMessages() {
     return;
   }
   const filtered = applyMessageFilter(all);
-  meta.textContent = `Sist henta ${formatDateTime(state.messages.fetchedAt)}`;
+  meta.textContent = t("messages.fetched", { when: formatDateTime(state.messages.fetchedAt) });
   if (!filtered.length) {
     root.append(
       el(
         "p",
         "empty",
-        state.messageFilter === "issues"
-          ? "Ingen avvik i området no."
-          : "Ingen gjeldande meldingar for området."
+        state.messageFilter === "issues" ? t("empty.noIssues") : t("empty.noMessages")
       )
     );
     renderBanner(all);
@@ -985,9 +990,13 @@ function renderMessages() {
   }
   for (const msg of filtered) {
     const card = el("article", `card is-${msg.severity}`);
-    const title = el("h3", null, msg.heading || "Trafikkmelding");
+    const title = el("h3", null, msg.heading || t("messages.heading"));
     title.append(
-      el("span", `badge badge-${msg.severity}`, SEVERITY_LABEL[msg.severity] || "Melding")
+      el(
+        "span",
+        `badge badge-${msg.severity}`,
+        t(`severity.${msg.severity}`) || t("severity.info")
+      )
     );
     card.append(title, el("p", null, msg.text));
     const when = el("time", null, formatDateTime(msg.publishedAt));
@@ -1004,7 +1013,7 @@ function renderBanner(messages) {
   banner.hidden = false;
   if (!local.length) {
     banner.className = "status-banner is-normal is-quiet";
-    banner.textContent = "Ingen trafikkmeldingar i Hjørundfjorden no.";
+    banner.textContent = t("banner.none");
     return;
   }
   const latest = local[0];
@@ -1020,9 +1029,9 @@ async function loadMessages() {
     state.messages = await response.json();
     renderMessages();
   } catch (error) {
-    meta.textContent = "Klarte ikkje hente lokale Fjord1-data.";
+    meta.textContent = t("messages.fetchError");
     document.getElementById("messages").replaceChildren(
-      el("p", "empty", "Sjå trafikkmeldingane direkte hos Fjord1.")
+      el("p", "empty", t("messages.seeFjord1"))
     );
     console.error(error);
   }
@@ -1056,15 +1065,17 @@ async function loadRoutes() {
     renderLedeStatus();
     const updated = document.getElementById("timetable-updated");
     if (updated && state.routes.fetchedAt) {
-      updated.textContent = `Sist lasta ned ${formatDateOnly(state.routes.fetchedAt)}. `;
+      updated.textContent = t("timetable.updated", {
+        date: formatDateOnly(state.routes.fetchedAt),
+      });
     }
     await loadLivePosition();
     renderLive();
     renderLedeStatus();
   } catch (error) {
-    if (label) label.textContent = "Feil ved lasting av rutetabell";
+    if (label) label.textContent = t("timetable.loadError");
     document.getElementById("departures").replaceChildren(
-      el("p", "empty", "Rutetabellen er ikkje lasta ned enno.")
+      el("p", "empty", t("timetable.notLoaded"))
     );
     console.error(error);
   }
@@ -1106,6 +1117,65 @@ function wake() {
   scheduleTick();
 }
 
+function applyLanguage(next) {
+  setLang(next);
+  applyStaticTranslations();
+  syncLangButtons();
+  const install = document.getElementById("install-btn");
+  if (install) install.textContent = t("install.app");
+  if (state.routes) {
+    renderTimeline();
+    renderLedeStatus();
+  } else {
+    renderDayNav();
+  }
+  renderMessages();
+}
+
+function syncLangButtons() {
+  const current = getLang();
+  document.querySelectorAll("[data-lang]").forEach((btn) => {
+    const active = btn.dataset.lang === current;
+    btn.classList.toggle("is-active", active);
+    btn.setAttribute("aria-pressed", String(active));
+  });
+}
+
+function bindInstallPrompt() {
+  const btn = document.getElementById("install-btn");
+  if (!btn) return;
+  let deferred = null;
+  window.addEventListener("beforeinstallprompt", (event) => {
+    event.preventDefault();
+    deferred = event;
+    btn.hidden = false;
+  });
+  window.addEventListener("appinstalled", () => {
+    deferred = null;
+    btn.hidden = true;
+  });
+  btn.addEventListener("click", async () => {
+    if (!deferred) return;
+    deferred.prompt();
+    await deferred.userChoice;
+    deferred = null;
+    btn.hidden = true;
+  });
+}
+
+function bindLanguage() {
+  document.querySelectorAll("[data-lang]").forEach((btn) => {
+    btn.addEventListener("click", () => applyLanguage(btn.dataset.lang));
+  });
+}
+
+function registerServiceWorker() {
+  if (!("serviceWorker" in navigator)) return;
+  navigator.serviceWorker.register(new URL("../sw.js", import.meta.url)).catch((error) => {
+    console.error(error);
+  });
+}
+
 function bindControls() {
   document.querySelectorAll("[data-filter]").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -1121,6 +1191,8 @@ function bindControls() {
   document.getElementById("day-prev").addEventListener("click", () => goToDay(-1));
   document.getElementById("day-next").addEventListener("click", () => goToDay(1));
   document.getElementById("day-today").addEventListener("click", () => goToDay(0));
+  bindLanguage();
+  bindInstallPrompt();
 
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden) wake();
@@ -1147,7 +1219,11 @@ export {
 };
 
 if (typeof document !== "undefined") {
+  setLang(detectLang());
+  applyStaticTranslations();
+  syncLangButtons();
   bindControls();
+  registerServiceWorker();
   loadMessages();
   loadRoutes();
   scheduleTick();

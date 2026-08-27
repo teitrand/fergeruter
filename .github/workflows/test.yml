@@ -14,3 +14,8 @@ jobs:
           python-version: "3.12"
       - name: Køyr einingstestar
         run: python -m unittest discover -s tests -v
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Køyr JS-testar
+        run: node --test --test-concurrency=1 tests/test_status.mjs tests/test_i18n.mjs
