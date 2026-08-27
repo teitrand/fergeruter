@@ -28,7 +28,7 @@ Opne [http://localhost:8080](http://localhost:8080).
 
 ## Språk
 
-Sida er på **nynorsk**, **engelsk** og **tysk**. Vel språk øvst til høgre; valet blir hugsa i nettlesaren. Fyrste gongen gjettar sida ut frå språket i nettlesaren (tysk og engelsk), elles nynorsk.
+Sida er på **nynorsk**, **engelsk** og **tysk**. Ho byter automatisk til språket i nettlesaren (norsk, engelsk eller tysk). Trykk på eit flagg øvst til høgre for å overstyre; det valet blir hugsa i nettlesaren.
 
 Stadnamn og trafikkmeldingane frå Fjord1 står på originalspråket.
 

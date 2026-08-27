@@ -3,6 +3,9 @@ import test from "node:test";
 import { ferryStatus } from "../assets/app.js";
 import {
   SUPPORTED,
+  STORAGE_KEY,
+  detectLang,
+  matchSupportedLang,
   setLang,
   stringKeys,
   stringsFor,
@@ -57,3 +60,49 @@ test("statusfølgjer valt språk", () => {
   const nn = ferryStatus(wednesday, 7 * 60 + 10, wednesday);
   assert.equal(nn.short, "Ferja ligg til kai på Standal");
 });
+
+test("matchSupportedLang les locale-taggar", () => {
+  assert.equal(matchSupportedLang("nb-NO"), "nn");
+  assert.equal(matchSupportedLang("no-NO"), "nn");
+  assert.equal(matchSupportedLang("nn-NO"), "nn");
+  assert.equal(matchSupportedLang("de-AT"), "de");
+  assert.equal(matchSupportedLang("en-GB"), "en");
+  assert.equal(matchSupportedLang("en_US"), "en");
+  assert.equal(matchSupportedLang("fr-FR"), null);
+  assert.equal(matchSupportedLang(""), null);
+});
+
+test("detectLang følgjer nettlesarspråk til fyrste treff", () => {
+  assert.equal(detectLang({ languages: ["de-DE"], storage: new MapStorage() }), "de");
+  assert.equal(detectLang({ languages: ["fr-FR", "en-GB"], storage: new MapStorage() }), "en");
+  assert.equal(detectLang({ languages: ["nb-NO"], storage: new MapStorage() }), "nn");
+  assert.equal(detectLang({ languages: ["no-NO"], storage: new MapStorage() }), "nn");
+  assert.equal(detectLang({ languages: ["sv-SE"], storage: new MapStorage() }), "nn");
+});
+
+test("lagra språkval overstyrer nettlesaren", () => {
+  const storage = new MapStorage();
+  storage.setItem(STORAGE_KEY, "de");
+  assert.equal(detectLang({ languages: ["en-US"], storage }), "de");
+});
+
+test("setLang lagrar berre når persist er på", () => {
+  const storage = new MapStorage();
+  setLang("en", { persist: false, storage });
+  assert.equal(storage.getItem(STORAGE_KEY), null);
+  setLang("de", { persist: true, storage });
+  assert.equal(storage.getItem(STORAGE_KEY), "de");
+  setLang("nn");
+});
+
+class MapStorage {
+  constructor() {
+    this.map = new Map();
+  }
+  getItem(key) {
+    return this.map.has(key) ? this.map.get(key) : null;
+  }
+  setItem(key, value) {
+    this.map.set(key, String(value));
+  }
+}

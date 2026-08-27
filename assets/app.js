@@ -1219,7 +1219,7 @@ export {
 };
 
 if (typeof document !== "undefined") {
-  setLang(detectLang());
+  setLang(detectLang(), { persist: false });
   applyStaticTranslations();
   syncLangButtons();
   bindControls();
