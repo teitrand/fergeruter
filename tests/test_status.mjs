@@ -5,6 +5,7 @@ import {
   compareTimelineEvents,
   delayMinutes,
   ferryStatus,
+  firstKnownQuay,
   homeQuay,
   isLiveFresh,
   liveStatus,
@@ -137,6 +138,29 @@ test("parseVehicleMonitoring les destinasjon og posisjon", () => {
   assert.equal(live.latitude, 62.3);
 });
 
+test("parseVehicleMonitoring kuttar destinasjonslista til neste kai", () => {
+  const live = parseVehicleMonitoring({
+    Siri: {
+      ServiceDelivery: {
+        VehicleMonitoringDelivery: [
+          {
+            VehicleActivity: {
+              ValidUntilTime: "2099-01-01T00:00:00Z",
+              MonitoredVehicleJourney: {
+                DestinationName: [{ value: "Sæbø Trandal Standal" }],
+                Delay: "PT1M",
+                VehicleLocation: { Latitude: 62.2, Longitude: 6.5 },
+              },
+            },
+          },
+        ],
+      },
+    },
+  });
+  assert.equal(live.destination, "Sæbø");
+  assert.equal(live.delayMinutes, 1);
+});
+
 test("liveStatus krev fersk data", () => {
   assert.equal(isLiveFresh(null), false);
   assert.equal(isLiveFresh({ validUntil: "2000-01-01T00:00:00Z" }), false);
@@ -146,10 +170,16 @@ test("liveStatus krev fersk data", () => {
     validUntil: "2099-01-01T00:00:00Z",
   };
   assert.equal(isLiveFresh(live), true);
-  const status = liveStatus(live);
-  assert.match(status.text, /sanntid frå Entur/);
-  assert.match(status.text, /Trandal/);
-  assert.match(status.text, /2 min forsinka/);
+  const status = liveStatus({
+    destination: "Sæbø Trandal Standal",
+    delayMinutes: 1,
+    validUntil: "2099-01-01T00:00:00Z",
+  });
+  assert.equal(
+    status.text,
+    "Ferja er på veg mot Sæbø, om lag 1 min forsinka (sanntid frå Entur)."
+  );
+  assert.doesNotMatch(status.text, /Sæbø Trandal Standal/);
 });
 
 test("ankomst kjem før avgang når klokka er den same", () => {
