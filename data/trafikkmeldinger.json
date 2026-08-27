@@ -1,7 +1,21 @@
 {
   "source": "https://www.fjord1.no/trafikkmeldingar",
-  "fetchedAt": "2026-08-27T00:01:35.224192+00:00",
+  "fetchedAt": "2026-08-27T08:26:35.090643+00:00",
   "messages": [
+    {
+      "id": "RG9tYWluQ29udGVudDoyMTY0MzkxOA==",
+      "heading": "Jondal - Tørvikbygd",
+      "text": "Rute 1026 Jondal - Tørvikbygd: Frå 11:20 kan B-ruta transportere 1 ADR-enhet pr overfart. A-ruta har normal kapasitet Mvh Fjord1 på vegner av Skyss.",
+      "publishedAt": "2026-08-27T09:34:52+02:00",
+      "validFrom": "2026-08-27T07:34:52+00:00",
+      "validTo": "2026-08-28T07:33:58+00:00",
+      "countyNumber": 12,
+      "connectionNumber": 1143,
+      "important": false,
+      "severity": "capacity",
+      "isRoute1136": false,
+      "isLocal": false
+    },
     {
       "id": "RG9tYWluQ29udGVudDoyMTYzOTk4MQ==",
       "heading": "Stårheim-Isane",
