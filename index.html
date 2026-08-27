@@ -16,6 +16,26 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,560;9..144,700&family=Outfit:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="assets/styles.css">
+  <script>
+    (function () {
+      var KEY = "fergeruter-lang-chosen";
+      var saved = null;
+      try { saved = localStorage.getItem(KEY); } catch (e) {}
+      var lang = saved === "nn" || saved === "en" || saved === "de" ? saved : null;
+      if (!lang) {
+        var list = navigator.languages && navigator.languages.length
+          ? navigator.languages
+          : [navigator.language];
+        for (var i = 0; i < list.length; i++) {
+          var primary = String(list[i] || "").toLowerCase().replace(/_/g, "-").split("-")[0];
+          if (primary === "nn" || primary === "nb" || primary === "no") { lang = "nn"; break; }
+          if (primary === "de") { lang = "de"; break; }
+          if (primary === "en") { lang = "en"; break; }
+        }
+      }
+      document.documentElement.lang = lang || "nn";
+    })();
+  </script>
 </head>
 <body>
   <a class="skip-link" href="#innhald" data-i18n="skip">Hopp til innhald</a>
@@ -36,9 +56,40 @@
       </div>
       <div class="header-tools">
         <div class="lang-switch" role="group" data-i18n-aria="lang.label" aria-label="Språk">
-          <button type="button" class="lang-btn is-active" data-lang="nn" lang="nn" aria-pressed="true">NN</button>
-          <button type="button" class="lang-btn" data-lang="en" lang="en" aria-pressed="false">EN</button>
-          <button type="button" class="lang-btn" data-lang="de" lang="de" aria-pressed="false">DE</button>
+          <button type="button" class="lang-btn" data-lang="nn" lang="nn" aria-label="Nynorsk" title="Nynorsk" aria-pressed="false">
+            <span class="lang-flag" aria-hidden="true">
+              <svg viewBox="0 0 22 16" focusable="false">
+                <rect width="22" height="16" fill="#ba0c2f"/>
+                <rect x="6" width="4" height="16" fill="#fff"/>
+                <rect y="6" width="22" height="4" fill="#fff"/>
+                <rect x="7" width="2" height="16" fill="#00205b"/>
+                <rect y="7" width="22" height="2" fill="#00205b"/>
+              </svg>
+            </span>
+            <span class="lang-code">NN</span>
+          </button>
+          <button type="button" class="lang-btn" data-lang="en" lang="en" aria-label="English" title="English" aria-pressed="false">
+            <span class="lang-flag" aria-hidden="true">
+              <svg viewBox="0 0 60 30" preserveAspectRatio="xMidYMid slice" focusable="false">
+                <rect width="60" height="30" fill="#012169"/>
+                <path d="M0 0l60 30M60 0L0 30" stroke="#fff" stroke-width="6"/>
+                <path d="M0 0l60 30M60 0L0 30" stroke="#c8102e" stroke-width="4"/>
+                <path d="M30 0v30M0 15h60" stroke="#fff" stroke-width="10"/>
+                <path d="M30 0v30M0 15h60" stroke="#c8102e" stroke-width="6"/>
+              </svg>
+            </span>
+            <span class="lang-code">EN</span>
+          </button>
+          <button type="button" class="lang-btn" data-lang="de" lang="de" aria-label="Deutsch" title="Deutsch" aria-pressed="false">
+            <span class="lang-flag" aria-hidden="true">
+              <svg viewBox="0 0 16 12" focusable="false">
+                <rect width="16" height="4" fill="#000"/>
+                <rect y="4" width="16" height="4" fill="#d00"/>
+                <rect y="8" width="16" height="4" fill="#ffce00"/>
+              </svg>
+            </span>
+            <span class="lang-code">DE</span>
+          </button>
         </div>
         <button type="button" id="install-btn" class="install-btn" hidden data-i18n="install.app">Installer app</button>
       </div>

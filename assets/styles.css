@@ -98,6 +98,34 @@ main,
   cursor: pointer;
 }
 
+.lang-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.22rem 0.58rem 0.22rem 0.32rem;
+  white-space: nowrap;
+}
+
+.lang-flag {
+  width: 1.2rem;
+  height: 0.86rem;
+  border-radius: 2px;
+  overflow: hidden;
+  flex: none;
+  box-shadow: 0 0 0 1px rgba(4, 28, 36, 0.28);
+  background: #012169;
+}
+
+.lang-flag svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.lang-code {
+  line-height: 1;
+}
+
 .lang-btn:hover,
 .install-btn:hover,
 .lang-btn:focus-visible,
@@ -106,6 +134,9 @@ main,
   outline: none;
 }
 
+html[lang="nn"] .lang-btn[data-lang="nn"],
+html[lang="en"] .lang-btn[data-lang="en"],
+html[lang="de"] .lang-btn[data-lang="de"],
 .lang-btn.is-active {
   background: var(--foam);
   color: var(--fjord);

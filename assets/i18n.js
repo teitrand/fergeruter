@@ -1,4 +1,4 @@
-const STORAGE_KEY = "fergeruter-lang";
+const STORAGE_KEY = "fergeruter-lang-chosen";
 const SUPPORTED = ["nn", "en", "de"];
 
 const WEEKDAYS = {
@@ -368,34 +368,50 @@ export function monthsShort() {
   return MONTHS_SHORT[lang] || MONTHS_SHORT.nn;
 }
 
-export function detectLang() {
+export function matchSupportedLang(tag) {
+  const primary = String(tag || "")
+    .toLowerCase()
+    .replace(/_/g, "-")
+    .split("-")[0];
+  if (primary === "nn" || primary === "nb" || primary === "no") return "nn";
+  if (primary === "de") return "de";
+  if (primary === "en") return "en";
+  return null;
+}
+
+export function detectLang({ languages, storage } = {}) {
   try {
-    const saved = localStorage.getItem(STORAGE_KEY);
+    const store =
+      storage ?? (typeof localStorage !== "undefined" ? localStorage : null);
+    const saved = store && store.getItem(STORAGE_KEY);
     if (saved && STRINGS[saved]) return saved;
   } catch {
     // localStorage kan vere stengt.
   }
   const nav =
-    typeof navigator !== "undefined"
+    languages ??
+    (typeof navigator !== "undefined"
       ? navigator.languages && navigator.languages.length
         ? navigator.languages
         : [navigator.language]
-      : [];
+      : []);
   for (const raw of nav) {
-    const code = String(raw || "").toLowerCase();
-    if (code.startsWith("nn") || code.startsWith("nb") || code === "no") return "nn";
-    if (code.startsWith("de")) return "de";
-    if (code.startsWith("en")) return "en";
+    const matched = matchSupportedLang(raw);
+    if (matched) return matched;
   }
   return "nn";
 }
 
-export function setLang(next) {
+export function setLang(next, { persist = true, storage } = {}) {
   lang = STRINGS[next] ? next : "nn";
-  try {
-    localStorage.setItem(STORAGE_KEY, lang);
-  } catch {
-    // ignore
+  if (persist) {
+    try {
+      const store =
+        storage ?? (typeof localStorage !== "undefined" ? localStorage : null);
+      if (store) store.setItem(STORAGE_KEY, lang);
+    } catch {
+      // ignore
+    }
   }
   return lang;
 }
@@ -422,4 +438,4 @@ export function stringsFor(code) {
   return STRINGS[code] || null;
 }
 
-export { SUPPORTED };
+export { SUPPORTED, STORAGE_KEY };
