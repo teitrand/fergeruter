@@ -397,11 +397,22 @@ function currentStatus(legs) {
   return { ...planned, ...live, at: planned.at };
 }
 
-function nextDepartureFrom(legs, quay) {
-  return legs.find((leg) => leg.from === quay && (!isToday() || !hasPassed(leg.departure)));
+function nextDepartureFrom(legs, quay, skipPassed = false) {
+  return (
+    legs.find(
+      (leg) => (!quay || leg.from === quay) && (!skipPassed || !hasPassed(leg.departure))
+    ) || null
+  );
 }
 
-/** Fyrste avgangen på ein seinare dag, så boksen ikkje står tom om kvelden. */
+function nextArrivalAt(legs, quay, skipPassed = false) {
+  if (!quay) return null;
+  return (
+    legs.find((leg) => leg.to === quay && (!skipPassed || !hasPassed(leg.arrival))) || null
+  );
+}
+
+/** Fyrste treffet på ein seinare dag, så boksen ikkje står tom om kvelden. */
 function lookAhead(fromDate, matches, maxDays = 7) {
   for (let step = 1; step <= maxDays; step += 1) {
     const date = shiftIso(fromDate, step);
@@ -416,44 +427,88 @@ function dayPrefix(date) {
   return formatDay(date);
 }
 
-/** Éin boks, for kaia du har valt. Utan val: den neste avgangen som helst. */
+function resolveAhead(selected, current, matches) {
+  if (current) return { leg: current, date: selected, prefix: "" };
+  const ahead = lookAhead(selected, matches);
+  if (!ahead) return null;
+  return { leg: ahead.leg, date: ahead.date, prefix: dayPrefix(ahead.date) };
+}
+
+function overviewState(prefix, time, live) {
+  const bits = [];
+  if (prefix) bits.push(prefix);
+  if (live) bits.push(countdown(time));
+  return bits.join(" · ");
+}
+
+function buildNextRow(row) {
+  const node = el("div", "next-row");
+  node.append(el("span", "next-time", hhmm(row.time)));
+  const body = el("span", "next-body");
+  const name = el("span", "next-name", row.name);
+  if (row.leg.signal) name.append(el("span", "stop-tag", "På signal"));
+  body.append(name);
+  const note = signalNote(row.leg, row.live);
+  if (note) body.append(note);
+  const connection = connectionNote(connectionIndex(row.date), row.kind, row.leg);
+  if (connection) body.append(el("span", "stop-note stop-conn", connection));
+  node.append(body);
+  node.append(el("span", "next-state", row.state || ""));
+  return node;
+}
+
+/** Boks med neste avgang (og destinasjon) og neste anløp på same kai. */
 function renderNextSummary(legs) {
   const root = document.getElementById("next-summary");
   root.replaceChildren();
+  const selected = selectedDate();
+  const skipPassed = isToday();
   const quay = state.stopFilter;
-  const matches = (leg) => !quay || leg.from === quay;
 
-  let leg = legs.find((candidate) => matches(candidate) && (!isToday() || !hasPassed(candidate.departure)));
-  let legDate = selectedDate();
-  let prefix = "";
-  if (!leg) {
-    const ahead = lookAhead(selectedDate(), matches);
-    if (ahead) {
-      leg = ahead.leg;
-      legDate = ahead.date;
-      prefix = dayPrefix(ahead.date);
-    }
+  const depHit = resolveAhead(
+    selected,
+    nextDepartureFrom(legs, quay, skipPassed),
+    (leg) => !quay || leg.from === quay
+  );
+  const arrQuay = quay || depHit?.leg.from;
+  const arrHit = resolveAhead(
+    selected,
+    nextArrivalAt(legs, arrQuay, skipPassed),
+    (leg) => Boolean(arrQuay) && leg.to === arrQuay
+  );
+  if (!depHit && !arrHit) return;
+
+  const rows = [];
+  if (depHit) {
+    const live = depHit.date === todayIso();
+    rows.push({
+      sort: `${depHit.date}T${depHit.leg.departure}`,
+      time: depHit.leg.departure,
+      name: `Frå ${depHit.leg.from} til ${depHit.leg.to}`,
+      state: overviewState(depHit.prefix, depHit.leg.departure, live),
+      live,
+      leg: depHit.leg,
+      kind: "dep",
+      date: depHit.date,
+    });
   }
-  if (!leg) return;
+  if (arrHit) {
+    const live = arrHit.date === todayIso();
+    rows.push({
+      sort: `${arrHit.date}T${arrHit.leg.arrival}`,
+      time: arrHit.leg.arrival,
+      name: `Ankomst ${arrHit.leg.to}`,
+      state: overviewState(arrHit.prefix, arrHit.leg.arrival, live),
+      live,
+      leg: arrHit.leg,
+      kind: "arr",
+      date: arrHit.date,
+    });
+  }
+  rows.sort((a, b) => a.sort.localeCompare(b.sort));
 
-  const live = legDate === todayIso();
   const item = el("div", "next-item");
-  const head = el("span", "next-head");
-  head.append(el("span", "next-label", `Neste frå ${quay || leg.from}`));
-  if (leg.signal) head.append(el("span", "stop-tag", "På signal"));
-  item.append(head);
-  item.append(el("span", "next-time", hhmm(leg.departure)));
-
-  const bits = [];
-  if (prefix) bits.push(prefix);
-  bits.push(`mot ${leg.to}`);
-  if (live) bits.push(countdown(leg.departure));
-  item.append(el("span", "next-sub", bits.join(" · ")));
-
-  const note = signalNote(leg, live);
-  if (note) item.append(note);
-  const connection = connectionNote(connectionIndex(legDate), "dep", leg);
-  if (connection) item.append(el("span", "stop-note stop-conn", connection));
+  for (const row of rows) item.append(buildNextRow(row));
   root.append(item);
 }
 
@@ -779,7 +834,6 @@ function renderReveal(pastCount) {
 /** Alt som endrar seg med klokka. Køyrer kvart minutt utan å byggje om resten. */
 function renderLive() {
   const root = document.getElementById("departures");
-  const meta = document.getElementById("departures-meta");
   root.replaceChildren();
   if (!state.routes) {
     root.append(el("p", "empty", "Fann ikkje rutetabell."));
@@ -788,7 +842,6 @@ function renderLive() {
   const legs = legsForDate(selectedDate());
   renderDayNav();
   renderNextSummary(legs);
-  meta.textContent = isToday() ? "I dag" : formatDay(selectedDate());
 
   if (!legs.length) {
     renderReveal(0);
@@ -948,7 +1001,7 @@ async function loadLivePosition() {
 }
 
 async function loadRoutes() {
-  const meta = document.getElementById("departures-meta");
+  const label = document.getElementById("day-label");
   try {
     const response = await fetch(ROUTES_URL);
     if (!response.ok) throw new Error(response.statusText);
@@ -963,7 +1016,7 @@ async function loadRoutes() {
     renderLive();
     renderLedeStatus();
   } catch (error) {
-    meta.textContent = "Feil ved lasting av rutetabell";
+    if (label) label.textContent = "Feil ved lasting av rutetabell";
     document.getElementById("departures").replaceChildren(
       el("p", "empty", "Rutetabellen er ikkje lasta ned enno.")
     );
@@ -1040,6 +1093,8 @@ export {
   isLiveFresh,
   liveStatus,
   minDeadheadMinutes,
+  nextArrivalAt,
+  nextDepartureFrom,
   parseVehicleMonitoring,
   quayPlace,
 };
