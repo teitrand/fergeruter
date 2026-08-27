@@ -49,9 +49,13 @@ python3 scripts/fetch_ruter.py
 
 eller køyr GitHub Action **Oppdater rutetabell** manuelt. Det er ingen dagleg/automatisk nedlasting mot Entur.
 
+## Statistikk
+
+Sida brukar [Plausible](https://plausible.io/) for å telje vitjingar. Det er utan informasjonskapslar og utan personopplysningar. Talet på vitjingar, kjelder og utgåande lenkjer (t.d. Fjord1 og NAIS) visest i Plausible-panelet. Lokal utvikling på `localhost` blir ikkje telt.
+
 ## Testar
 
 ```bash
 python3 -m unittest discover -s tests -v
-node --test --test-concurrency=1 tests/test_status.mjs tests/test_i18n.mjs
+node --test --test-concurrency=1 tests/test_status.mjs tests/test_i18n.mjs tests/test_plausible.mjs
 ```
