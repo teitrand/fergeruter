@@ -214,6 +214,39 @@ function quayPlace(name) {
   return String(name).replace(/\s+(ferjekai|kai)$/i, "").trim();
 }
 
+const LINE_QUAYS = [
+  "Store Kalvøy",
+  "Valderøya",
+  "Standal",
+  "Trandal",
+  "Sæbø",
+  "Skår",
+  "Leknes",
+  "Bjørke",
+  "Urke",
+];
+
+function knownQuays() {
+  const names = new Set(LINE_QUAYS);
+  for (const quay of hjorundfjordQuays()) names.add(quay);
+  for (const leg of state.routes?.legs || []) {
+    names.add(leg.from);
+    names.add(leg.to);
+  }
+  return [...names].filter(Boolean);
+}
+
+/** Entur kan sende heile resten av turen, t.d. «Sæbø Trandal Standal». */
+function firstKnownQuay(name, quays = knownQuays()) {
+  const text = quayPlace(name);
+  if (!text) return "";
+  const known = [...quays].sort((a, b) => b.length - a.length);
+  for (const quay of known) {
+    if (text === quay || text.startsWith(`${quay} `)) return quay;
+  }
+  return text;
+}
+
 function unwrapSiri(value) {
   if (value == null) return "";
   if (typeof value === "string" || typeof value === "number") return String(value);
@@ -279,8 +312,8 @@ function parseVehicleMonitoring(data) {
   const location = journey.VehicleLocation || {};
   const recorded = activity.RecordedAtTime || activity.ValidUntilTime;
   return {
-    destination: quayPlace(unwrapSiri(journey.DestinationName)),
-    origin: quayPlace(unwrapSiri(journey.OriginName)),
+    destination: firstKnownQuay(unwrapSiri(journey.DestinationName)),
+    direction: firstKnownQuay(unwrapSiri(journey.DirectionName)),
     delayMinutes: delayMinutes(journey.Delay),
     latitude: location.Latitude ?? location.latitude,
     longitude: location.Longitude ?? location.longitude,
@@ -303,20 +336,26 @@ function isLiveFresh(live) {
   return false;
 }
 
+function delayBit(minutes) {
+  if (minutes >= 1) return `om lag ${minutes} min forsinka`;
+  return "";
+}
+
+function withSanntid(base, live) {
+  const delay = delayBit(live.delayMinutes);
+  const short = delay ? `${base}, ${delay}` : base;
+  return {
+    live: true,
+    short,
+    text: `${short} (sanntid frå Entur).`,
+  };
+}
+
 function liveStatus(live) {
   if (!isLiveFresh(live)) return null;
-  const dest = live.destination;
-  const delay = live.delayMinutes;
-  const parts = [];
-  if (dest) parts.push(`Ferja er på veg mot ${dest}`);
-  else parts.push("Ferja er i rute");
-  if (delay >= 1) parts.push(`om lag ${delay} min forsinka`);
-  return {
-    underway: true,
-    live: true,
-    short: dest ? `Ferja er på veg mot ${dest}` : "Ferja er i rute",
-    text: `${parts.join(", ")} (sanntid frå Entur).`,
-  };
+  const dest = firstKnownQuay(live.destination);
+  const base = dest ? `Ferja er på veg mot ${dest}` : "Ferja er i rute";
+  return { underway: true, ...withSanntid(base, live) };
 }
 
 function overnightStatus(last, home, now, allLegs) {
@@ -396,10 +435,12 @@ function ferryStatus(legs, now = nowMinutes(), allLegs = null) {
 
 function currentStatus(legs) {
   const planned = ferryStatus(legs);
-  const live = liveStatus(state.live);
-  if (!planned) return live;
-  if (!live) return planned;
-  return { ...planned, ...live, at: planned.at };
+  if (!isLiveFresh(state.live)) return planned;
+  if (planned) {
+    const base = (planned.short || planned.text || "").replace(/\.$/, "");
+    return { ...planned, ...withSanntid(base, state.live) };
+  }
+  return liveStatus(state.live);
 }
 
 function nextDepartureFrom(legs, quay, skipPassed = false) {
@@ -1094,6 +1135,7 @@ export {
   currentStatus,
   delayMinutes,
   ferryStatus,
+  firstKnownQuay,
   homeQuay,
   isLiveFresh,
   liveStatus,
