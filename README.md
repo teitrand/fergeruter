@@ -43,13 +43,3 @@ eller køyr GitHub Action **Oppdater rutetabell** manuelt. Det er ingen dagleg/a
 python3 -m unittest discover -s tests -v
 node --test tests/test_status.mjs
 ```
-
-## GitHub Pages
-
-Sidefilene ligg i rota, så Pages kan servere dei direkte frå `main`. Dette må stillast inn éin gong:
-
-*Settings → Pages → Build and deployment → Source:* **Deploy from a branch**, branch `main`, mappe `/ (root)`.
-
-Deretter ligg sida på `https://teitrand.github.io/fergeruter/`, og alle push til `main` — også dei automatiske oppdateringane av trafikkmeldingane — blir publiserte utan vidare.
-
-Pages er per repo, så dette påverkar ikkje andre repo som har Pages på.
