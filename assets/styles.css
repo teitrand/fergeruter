@@ -272,10 +272,6 @@ h2.day-label {
   flex: 1;
 }
 
-.day-label::first-letter {
-  text-transform: uppercase;
-}
-
 .next-summary {
   margin-bottom: 1rem;
 }

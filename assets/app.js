@@ -147,6 +147,11 @@ function formatDay(isoDate) {
   return `${weekdayOf(isoDate)} ${day}. ${MONTHS[month - 1]}`;
 }
 
+function headingDay(isoDate) {
+  const text = formatDay(isoDate);
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
 function formatDateOnly(iso) {
   if (!iso) return "";
   const parts = osloParts(new Date(iso));
@@ -772,7 +777,7 @@ async function selectConnection(id) {
 
 function renderDayNav() {
   const label = document.getElementById("day-label");
-  if (label) label.textContent = formatDay(selectedDate());
+  if (label) label.textContent = headingDay(selectedDate());
   const todayBtn = document.getElementById("day-today");
   if (todayBtn) todayBtn.disabled = isToday();
 }
