@@ -18,4 +18,4 @@ jobs:
         with:
           node-version: "22"
       - name: Køyr JS-testar
-        run: node --test --test-concurrency=1 tests/test_status.mjs tests/test_i18n.mjs
+        run: node --test --test-concurrency=1 tests/test_status.mjs tests/test_i18n.mjs tests/test_plausible.mjs
