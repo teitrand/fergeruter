@@ -239,7 +239,7 @@ h2 { font-size: 1.45rem; }
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  margin-bottom: 0.9rem;
+  margin-bottom: 0.85rem;
 }
 
 .daybtn {
@@ -264,12 +264,12 @@ h2 { font-size: 1.45rem; }
 
 .daybtn-today { margin-left: auto; font-size: 0.9rem; }
 
-.day-label {
+h2.day-label {
+  margin: 0;
+  font-size: 1.05rem;
   font-weight: 600;
-}
-
-.day-label::first-letter {
-  text-transform: uppercase;
+  line-height: 1.2;
+  flex: 1;
 }
 
 .next-summary {
@@ -279,37 +279,48 @@ h2 { font-size: 1.45rem; }
 .next-item {
   border: 1px solid var(--line);
   border-radius: 14px;
-  padding: 0.6rem 0.75rem;
+  padding: 0.55rem 0.75rem;
   background: #fff;
   display: flex;
   flex-direction: column;
-  gap: 0.1rem;
+  gap: 0.45rem;
 }
 
-.next-head {
+.next-row {
+  display: grid;
+  grid-template-columns: 3.8rem minmax(0, 1fr) auto;
+  gap: 0.2rem 0.65rem;
+  align-items: baseline;
+}
+
+.next-body {
   display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.4rem;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
 }
 
-.next-label {
-  font-size: 0.78rem;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--muted);
+.next-name {
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.next-name .stop-tag {
+  margin-left: 0.35rem;
 }
 
 .next-time {
   font-family: Fraunces, Georgia, serif;
-  font-size: 1.6rem;
-  line-height: 1.1;
+  font-size: 1.25rem;
+  line-height: 1.15;
   font-variant-numeric: tabular-nums;
 }
 
-.next-sub {
+.next-state {
   font-size: 0.82rem;
   color: var(--muted);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 .timeline {
@@ -531,6 +542,6 @@ h2 { font-size: 1.45rem; }
 
 @media (max-width: 640px) {
   .panel-head { flex-direction: column; gap: 0.2rem; }
-  .stop { grid-template-columns: 3.2rem 1fr auto; gap: 0.5rem; }
-  .stop-state { font-size: 0.78rem; }
+  .stop, .next-row { grid-template-columns: 3.2rem 1fr auto; gap: 0.5rem; }
+  .stop-state, .next-state { font-size: 0.78rem; }
 }

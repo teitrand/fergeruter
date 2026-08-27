@@ -9,6 +9,8 @@ import {
   isLiveFresh,
   liveStatus,
   minDeadheadMinutes,
+  nextArrivalAt,
+  nextDepartureFrom,
   parseVehicleMonitoring,
   quayPlace,
 } from "../assets/app.js";
@@ -167,4 +169,22 @@ test("flytting kjem etter ankomst, før neste avgang", () => {
     afterLast.map((event) => event.kind),
     ["arr", "transfer"]
   );
+});
+
+test("neste avgang har destinasjon, neste anløp er attende på kaia", () => {
+  const dep = nextDepartureFrom(wednesday, "Standal");
+  const arr = nextArrivalAt(wednesday, "Standal");
+  assert.equal(dep.from, "Standal");
+  assert.equal(dep.to, "Trandal");
+  assert.equal(dep.departure, "07:40:00");
+  assert.equal(arr.to, "Standal");
+  assert.equal(arr.arrival, "16:05:00");
+});
+
+test("utan kaival er neste avgang den fyrste, anløp på same kai", () => {
+  const dep = nextDepartureFrom(wednesday, null);
+  const arr = nextArrivalAt(wednesday, dep.from);
+  assert.equal(dep.from, "Standal");
+  assert.equal(dep.to, "Trandal");
+  assert.equal(arr.to, "Standal");
 });
