@@ -1,6 +1,6 @@
 {
   "source": "https://www.fjord1.no/trafikkmeldingar",
-  "fetchedAt": "2026-08-27T19:10:08.737952+00:00",
+  "fetchedAt": "2026-08-28T03:33:16.342068+00:00",
   "messages": [
     {
       "id": "RG9tYWluQ29udGVudDoyMTY0NDUwMA==",
@@ -27,20 +27,6 @@
       "connectionNumber": 1143,
       "important": false,
       "severity": "capacity",
-      "isRoute1136": false,
-      "isLocal": false
-    },
-    {
-      "id": "RG9tYWluQ29udGVudDoyMTU4MzY2Mg==",
-      "heading": "Jondal - Tørvikbygd",
-      "text": "Rute 1026 Jondal - Tørvikbygd: Det er normal drift i sambandet. For informasjon kan ikkje B-ruta kan ta farleg last om bord. Mvh Fjord1 på vegner av Skyss.",
-      "publishedAt": "2026-08-20T11:33:00+02:00",
-      "validFrom": "2026-08-20T09:33:00+00:00",
-      "validTo": "2026-08-27T21:55:00+00:00",
-      "countyNumber": 12,
-      "connectionNumber": 1143,
-      "important": false,
-      "severity": "normal",
       "isRoute1136": false,
       "isLocal": false
     },
