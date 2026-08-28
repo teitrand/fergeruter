@@ -77,7 +77,9 @@ Sjølve meldingsteksten blir **ikkje** send til Plausible.
 
 ## Tilbakemelding
 
-Nedst på sida ligg **Gi tilbakemelding**. Brukarane kan svare ja/nei (anonymt) og eventuelt skrive ei melding som opnar e-post til vedlikehaldaren, eller opne eit GitHub-issue.
+Nedst på sida ligg **Gi tilbakemelding**. Ja/nei blir telt anonymt i Plausible. Ei skriftleg melding opnar eit **GitHub-issue** (innlogging på GitHub), ferdig utfylt med vurdering og tekst.
+
+Som eigar av repoet får du **varsel** når eit issue blir oppretta (GitHub-innboks, og e-post dersom varsel er slått på). Tommel opp/ned utan melding kjem berre i Plausible, ikkje som e-post.
 
 ## Testar
 

@@ -137,14 +137,14 @@ const STRINGS = {
     "feedback.thanks": "Takk! Det hjelper oss å forstå korleis sida blir brukt.",
     "feedback.commentLabel": "Vil du seie meir? (valfritt)",
     "feedback.commentPlaceholder": "Til dømes kva som manglar, eller kva du brukar sida til.",
-    "feedback.send": "Send melding",
+    "feedback.send": "Send på GitHub",
     "feedback.close": "Lukk",
     "feedback.privacy":
-      "Ja/nei blir telt anonymt, utan namn eller e-post. Ei skriftleg melding opnar e-posten din og blir ikkje lagra i statistikken.",
-    "feedback.github": "Eller meld ein feil på GitHub",
-    "feedback.mailSubject": "Tilbakemelding på Fergeruter 1136",
-    "feedback.mailBody": "Vurdering: {rating}\n\n{comment}",
-    "feedback.mailNoComment": "(inga melding)",
+      "Ja/nei blir telt anonymt. Ei skriftleg melding blir lagra som GitHub-issue; du må vere innlogga der for å sende.",
+    "feedback.issueTitle": "Tilbakemelding: {rating}",
+    "feedback.issueBody":
+      "**Vurdering:** {rating}\n\n{comment}\n\n---\nSendt frå fergeruter-sida.",
+    "feedback.issueNoComment": "(inga melding)",
   },
   en: {
     "meta.title": "Ferry times 1136 · Standal–Trandal",
@@ -254,14 +254,14 @@ const STRINGS = {
     "feedback.thanks": "Thanks! That helps us understand how the page is used.",
     "feedback.commentLabel": "Want to say more? (optional)",
     "feedback.commentPlaceholder": "For example what is missing, or what you use the page for.",
-    "feedback.send": "Send message",
+    "feedback.send": "Send on GitHub",
     "feedback.close": "Close",
     "feedback.privacy":
-      "Yes/no is counted anonymously, without your name or email. A written message opens your email app and is not stored in the statistics.",
-    "feedback.github": "Or report a bug on GitHub",
-    "feedback.mailSubject": "Feedback on Ferry times 1136",
-    "feedback.mailBody": "Rating: {rating}\n\n{comment}",
-    "feedback.mailNoComment": "(no message)",
+      "Yes/no is counted anonymously. A written message is saved as a GitHub issue; you need to be signed in there to send it.",
+    "feedback.issueTitle": "Feedback: {rating}",
+    "feedback.issueBody":
+      "**Rating:** {rating}\n\n{comment}\n\n---\nSent from the ferry times page.",
+    "feedback.issueNoComment": "(no message)",
   },
   de: {
     "meta.title": "Fährzeiten 1136 · Standal–Trandal",
@@ -375,14 +375,14 @@ const STRINGS = {
     "feedback.commentLabel": "Möchten Sie noch etwas sagen? (optional)",
     "feedback.commentPlaceholder":
       "Zum Beispiel, was fehlt, oder wofür Sie die Seite nutzen.",
-    "feedback.send": "Nachricht senden",
+    "feedback.send": "Auf GitHub senden",
     "feedback.close": "Schließen",
     "feedback.privacy":
-      "Ja/nein wird anonym gezählt, ohne Namen oder E-Mail. Eine schriftliche Nachricht öffnet Ihr E-Mail-Programm und wird nicht in der Statistik gespeichert.",
-    "feedback.github": "Oder einen Fehler auf GitHub melden",
-    "feedback.mailSubject": "Feedback zu Fährzeiten 1136",
-    "feedback.mailBody": "Bewertung: {rating}\n\n{comment}",
-    "feedback.mailNoComment": "(keine Nachricht)",
+      "Ja/nein wird anonym gezählt. Eine schriftliche Nachricht wird als GitHub-Issue gespeichert; zum Senden müssen Sie dort angemeldet sein.",
+    "feedback.issueTitle": "Feedback: {rating}",
+    "feedback.issueBody":
+      "**Bewertung:** {rating}\n\n{comment}\n\n---\nGesendet von der Fährzeiten-Seite.",
+    "feedback.issueNoComment": "(keine Nachricht)",
   },
 };
 

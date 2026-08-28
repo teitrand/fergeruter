@@ -177,7 +177,7 @@
     </p>
     <p data-i18n="footer.holidays">Nokre turar går berre på signal. Ved jul, nyttår og høgtid: sjå FRAM-appen.</p>
     <p>
-      <button type="button" id="feedback-open" class="feedback-link" data-i18n="feedback.open">Gi tilbakemelding</button>
+      <a href="#feedback-dialog" id="feedback-open" class="feedback-link" data-i18n="feedback.open">Gi tilbakemelding</a>
     </p>
   </footer>
 
@@ -193,12 +193,9 @@
       <label for="feedback-comment" data-i18n="feedback.commentLabel">Vil du seie meir? (valfritt)</label>
       <textarea id="feedback-comment" name="feedback" rows="4" maxlength="700" data-i18n-placeholder="feedback.commentPlaceholder" placeholder="Til dømes kva som manglar, eller kva du brukar sida til."></textarea>
     </div>
-    <p class="feedback-privacy" data-i18n="feedback.privacy">Ja/nei blir telt anonymt, utan namn eller e-post. Ei skriftleg melding opnar e-posten din og blir ikkje lagra i statistikken.</p>
-    <p class="feedback-alt">
-      <a id="feedback-github" href="https://github.com/teitrand/fergeruter/issues/new" target="_blank" rel="noreferrer" data-i18n="feedback.github">Eller meld ein feil på GitHub</a>
-    </p>
+    <p class="feedback-privacy" data-i18n="feedback.privacy">Ja/nei blir telt anonymt. Ei skriftleg melding blir lagra som GitHub-issue; du må vere innlogga der for å sende.</p>
     <div class="feedback-actions">
-      <button type="button" id="feedback-send" class="feedback-send" hidden data-i18n="feedback.send">Send melding</button>
+      <a id="feedback-send" class="feedback-send" hidden target="_blank" rel="noopener noreferrer" data-i18n="feedback.send">Send på GitHub</a>
       <button type="button" id="feedback-cancel" class="feedback-cancel" data-i18n="feedback.close">Lukk</button>
     </div>
   </dialog>

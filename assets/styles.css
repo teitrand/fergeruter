@@ -622,20 +622,7 @@ h2.day-label {
 .site-footer p { margin: 0.2rem 0; }
 
 .feedback-link {
-  background: none;
-  border: 0;
-  padding: 0;
-  font: inherit;
   color: var(--water);
-  cursor: pointer;
-  text-decoration: underline;
-  text-underline-offset: 0.15em;
-}
-
-.feedback-link:hover,
-.feedback-link:focus-visible {
-  color: var(--fjord);
-  outline: none;
 }
 
 .feedback-dialog {
@@ -670,6 +657,8 @@ h2.day-label {
 .feedback-rate,
 .feedback-send,
 .feedback-cancel {
+  appearance: none;
+  -webkit-appearance: none;
   font: inherit;
   cursor: pointer;
   border-radius: 999px;
@@ -722,14 +711,9 @@ h2.day-label {
   outline-offset: 1px;
 }
 
-.feedback-privacy,
-.feedback-alt {
+.feedback-privacy {
   font-size: 0.82rem;
   color: var(--muted);
-}
-
-.feedback-alt a {
-  color: var(--water);
 }
 
 .feedback-actions {
@@ -740,10 +724,17 @@ h2.day-label {
 }
 
 .feedback-send {
+  display: inline-flex;
+  align-items: center;
   border: 0;
   background: var(--fjord);
   color: var(--foam);
   font-weight: 600;
+  text-decoration: none;
+}
+
+.feedback-send[hidden] {
+  display: none;
 }
 
 .feedback-send:hover,

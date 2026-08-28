@@ -17,7 +17,6 @@ const LIVE_VM_URL =
 const ENTUR_CLIENT = "teitrand-fergeruter";
 const HOME_QUAY = "Standal";
 const LIVE_MAX_AGE_MS = 3 * 60 * 1000;
-const FEEDBACK_MAIL = "teitrand@hotmail.com";
 const FEEDBACK_GITHUB = "https://github.com/teitrand/fergeruter/issues/new";
 
 const state = {
@@ -68,12 +67,15 @@ function appMode() {
   return "web";
 }
 
-function feedbackMailto(rating, comment) {
+function feedbackIssueUrl(rating, comment) {
   const ratingLabel = rating === "yes" ? t("feedback.yes") : t("feedback.no");
-  const text = String(comment || "").trim() || t("feedback.mailNoComment");
-  const subject = t("feedback.mailSubject");
-  const body = t("feedback.mailBody", { rating: ratingLabel, comment: text });
-  return `mailto:${FEEDBACK_MAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  const text = String(comment || "").trim() || t("feedback.issueNoComment");
+  const params = new URLSearchParams({
+    title: t("feedback.issueTitle", { rating: ratingLabel }),
+    body: t("feedback.issueBody", { rating: ratingLabel, comment: text }),
+    labels: "tilbakemelding",
+  });
+  return `${FEEDBACK_GITHUB}?${params.toString()}`;
 }
 
 function osloParts(date = new Date()) {
@@ -1230,20 +1232,25 @@ function bindFeedback() {
   const comment = document.getElementById("feedback-comment");
   const extra = document.getElementById("feedback-extra");
   const thanks = document.getElementById("feedback-thanks");
-  const github = document.getElementById("feedback-github");
   if (!dialog || !openBtn) return;
 
   let rating = null;
   let sentRating = false;
 
-  if (github) github.href = FEEDBACK_GITHUB;
+  function syncSendLink() {
+    if (!sendBtn || !rating) return;
+    sendBtn.href = feedbackIssueUrl(rating, comment?.value);
+  }
 
   function resetFeedback() {
     rating = null;
     sentRating = false;
     if (extra) extra.hidden = true;
     if (thanks) thanks.hidden = true;
-    if (sendBtn) sendBtn.hidden = true;
+    if (sendBtn) {
+      sendBtn.hidden = true;
+      sendBtn.removeAttribute("href");
+    }
     if (comment) comment.value = "";
     dialog.querySelectorAll("[data-rating]").forEach((btn) => {
       btn.classList.remove("is-active");
@@ -1261,13 +1268,15 @@ function bindFeedback() {
     if (thanks) thanks.hidden = false;
     if (extra) extra.hidden = false;
     if (sendBtn) sendBtn.hidden = false;
+    syncSendLink();
     if (!sentRating) {
       sentRating = true;
       track(value === "yes" ? "Feedback yes" : "Feedback no");
     }
   }
 
-  openBtn.addEventListener("click", () => {
+  openBtn.addEventListener("click", (event) => {
+    event.preventDefault();
     resetFeedback();
     if (typeof dialog.showModal === "function") dialog.showModal();
     else dialog.setAttribute("open", "");
@@ -1279,17 +1288,14 @@ function bindFeedback() {
   dialog.querySelectorAll("[data-rating]").forEach((btn) => {
     btn.addEventListener("click", () => chooseRating(btn.dataset.rating));
   });
-  sendBtn?.addEventListener("click", () => {
-    if (!rating) return;
-    const text = (comment?.value || "").trim();
-    if (!text) {
-      dialog.close();
+  comment?.addEventListener("input", syncSendLink);
+  sendBtn?.addEventListener("click", (event) => {
+    if (!rating || !sendBtn.getAttribute("href")) {
+      event.preventDefault();
       return;
     }
     track("Feedback message");
-    const url = feedbackMailto(rating, text);
-    dialog.close();
-    window.location.href = url;
+    setTimeout(() => dialog.close(), 50);
   });
 }
 
@@ -1331,13 +1337,13 @@ function bindControls() {
 }
 
 export {
-  FEEDBACK_MAIL,
+  FEEDBACK_GITHUB,
   appMode,
   buildEvents,
   compareTimelineEvents,
   currentStatus,
   delayMinutes,
-  feedbackMailto,
+  feedbackIssueUrl,
   ferryStatus,
   firstKnownQuay,
   homeQuay,

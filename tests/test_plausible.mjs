@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
-  FEEDBACK_MAIL,
+  FEEDBACK_GITHUB,
   appMode,
-  feedbackMailto,
+  feedbackIssueUrl,
   track,
 } from "../assets/app.js";
 import { setLang } from "../assets/i18n.js";
@@ -29,14 +29,16 @@ test("papirruta peikar på Fjord1 si PDF-fane, ikkje lokal fil", () => {
   assert.doesNotMatch(html, /[?&]date=/);
 });
 
-test("sida har tilbakemeldingsdialog", () => {
+test("sida har tilbakemeldingsdialog mot GitHub", () => {
   assert.match(html, /id="feedback-open"/);
+  assert.match(html, /<a href="#feedback-dialog" id="feedback-open"/);
   assert.match(html, /id="feedback-dialog"/);
   assert.match(html, /data-rating="yes"/);
   assert.match(html, /data-rating="no"/);
   assert.match(html, /id="feedback-comment"/);
-  assert.match(html, /id="feedback-github"/);
-  assert.match(html, /teitrand\/fergeruter\/issues\/new/);
+  assert.match(html, /id="feedback-send"/);
+  assert.doesNotMatch(html, /mailto:/);
+  assert.doesNotMatch(html, /id="feedback-github"/);
 });
 
 test("appen sender namngjevne brukshendingar til Plausible", () => {
@@ -99,18 +101,18 @@ test("appMode er web utan display-mode standalone", () => {
   assert.equal(appMode(), "web");
 });
 
-test("feedbackMailto kodar vurdering og kommentar", () => {
+test("feedbackIssueUrl kodar vurdering og kommentar til GitHub", () => {
   setLang("nn");
-  const url = feedbackMailto("yes", "Meir korrespondanse");
-  assert.ok(url.startsWith(`mailto:${FEEDBACK_MAIL}?`));
-  const decoded = decodeURIComponent(url);
-  assert.match(decoded, /Tilbakemelding på Fergeruter 1136/);
-  assert.match(decoded, /Ja, nyttig/);
-  assert.match(decoded, /Meir korrespondanse/);
-  assert.doesNotMatch(url, /Meir korrespondanse/);
+  const url = feedbackIssueUrl("yes", "Meir korrespondanse");
+  assert.ok(url.startsWith(`${FEEDBACK_GITHUB}?`));
+  const parsed = new URL(url);
+  assert.equal(parsed.searchParams.get("labels"), "tilbakemelding");
+  assert.match(parsed.searchParams.get("title"), /Tilbakemelding: Ja, nyttig/);
+  assert.match(parsed.searchParams.get("body"), /Meir korrespondanse/);
+  assert.match(parsed.searchParams.get("body"), /Ja, nyttig/);
   setLang("en");
-  const en = decodeURIComponent(feedbackMailto("no", "Need Saturday"));
-  assert.match(en, /Rating: No, something is missing/);
-  assert.match(en, /Need Saturday/);
+  const en = new URL(feedbackIssueUrl("no", "Need Saturday"));
+  assert.match(en.searchParams.get("title"), /Feedback: No, something is missing/);
+  assert.match(en.searchParams.get("body"), /Need Saturday/);
   setLang("nn");
 });
