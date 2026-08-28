@@ -12,7 +12,7 @@ Rutetabellen blir lasta ned frå Entur og lagra i `data/ruter.json`. Han blir be
 - Rutetabell: [Entur Journey Planner](https://developer.entur.org/), lagra i `data/ruter.json`
 - Sanntidsposisjon: [Entur SIRI VM](https://developer.entur.no/open-data/realtime) (`datasetId=MOR`, `LineRef=MOR:Line:1136`) når ferja rapporterer. Små ferjer som 1136 kan vere utan køyretøy i straumen, særleg utanom rutetid.
 - AIS-kart: [NAIS / Kystverket](https://nais.kystverket.no/) for M/F Kvernes (MMSI 257297400). BarentsWatch sitt AIS-API er gratis under NLOD, men krev innlogging med klient-id og hemmelegheit, så det passar ikkje på ei statisk GitHub Pages-side.
-- Papir-ruteplan: [`ruter.pdf`](ruter.pdf)
+- Papir-ruteplan: [Fjord1 rute 1136 (PDF)](https://www.fjord1.no/ruteoversikt/moere-og-romsdal/standal-trandal-valderoeya-store-kalvoey/(page)/pdf)
 
 Fjord1 tillèt ikkje CORS frå nettlesaren, så meldingane blir henta av eit skript til `data/trafikkmeldinger.json`.
 
