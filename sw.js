@@ -1,4 +1,4 @@
-const CACHE = "fergeruter-v3";
+const CACHE = "fergeruter-v4";
 const PRECACHE = [
   "./",
   "./index.html",
