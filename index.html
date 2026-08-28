@@ -20,7 +20,19 @@
   <script async src="https://plausible.io/js/pa-zLwKfsUV57HIZfM4j6wLS.js"></script>
   <script>
     window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}};
-    plausible.init()
+    plausible.init({
+      customProperties: function () {
+        var lang = "nn";
+        var app = "web";
+        try {
+          lang = document.documentElement.lang || "nn";
+          if ((window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || navigator.standalone) {
+            app = "pwa";
+          }
+        } catch (e) {}
+        return { lang: lang, app: app };
+      }
+    });
   </script>
   <script>
     (function () {
@@ -164,7 +176,32 @@
       AIS: <a href="https://nais.kystverket.no/" target="_blank" rel="noreferrer">NAIS / Kystverket</a>.
     </p>
     <p data-i18n="footer.holidays">Nokre turar går berre på signal. Ved jul, nyttår og høgtid: sjå FRAM-appen.</p>
+    <p>
+      <button type="button" id="feedback-open" class="feedback-link" data-i18n="feedback.open">Gi tilbakemelding</button>
+    </p>
   </footer>
+
+  <dialog id="feedback-dialog" class="feedback-dialog" aria-labelledby="feedback-title">
+    <h2 id="feedback-title" data-i18n="feedback.title">Tilbakemelding</h2>
+    <p id="feedback-lead" data-i18n="feedback.lead">Hjelper sida deg å finne ferja?</p>
+    <div class="feedback-ratings" role="group" aria-labelledby="feedback-lead">
+      <button type="button" class="feedback-rate" data-rating="yes" aria-pressed="false" data-i18n="feedback.yes">Ja, nyttig</button>
+      <button type="button" class="feedback-rate" data-rating="no" aria-pressed="false" data-i18n="feedback.no">Nei, noko manglar</button>
+    </div>
+    <p id="feedback-thanks" class="feedback-thanks" hidden aria-live="polite" data-i18n="feedback.thanks">Takk! Det hjelper oss å forstå korleis sida blir brukt.</p>
+    <div id="feedback-extra" hidden>
+      <label for="feedback-comment" data-i18n="feedback.commentLabel">Vil du seie meir? (valfritt)</label>
+      <textarea id="feedback-comment" name="feedback" rows="4" maxlength="700" data-i18n-placeholder="feedback.commentPlaceholder" placeholder="Til dømes kva som manglar, eller kva du brukar sida til."></textarea>
+    </div>
+    <p class="feedback-privacy" data-i18n="feedback.privacy">Ja/nei blir telt anonymt, utan namn eller e-post. Ei skriftleg melding opnar e-posten din og blir ikkje lagra i statistikken.</p>
+    <p class="feedback-alt">
+      <a id="feedback-github" href="https://github.com/teitrand/fergeruter/issues/new" target="_blank" rel="noreferrer" data-i18n="feedback.github">Eller meld ein feil på GitHub</a>
+    </p>
+    <div class="feedback-actions">
+      <button type="button" id="feedback-send" class="feedback-send" hidden data-i18n="feedback.send">Send melding</button>
+      <button type="button" id="feedback-cancel" class="feedback-cancel" data-i18n="feedback.close">Lukk</button>
+    </div>
+  </dialog>
 
   <noscript>
     <p>Slå på JavaScript for å sjå rutetabellen, eller opne <a href="https://www.fjord1.no/trafikkmeldingar">trafikkmeldingane hos Fjord1</a>.</p>
