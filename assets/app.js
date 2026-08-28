@@ -17,6 +17,8 @@ const LIVE_VM_URL =
 const ENTUR_CLIENT = "teitrand-fergeruter";
 const HOME_QUAY = "Standal";
 const LIVE_MAX_AGE_MS = 3 * 60 * 1000;
+const FEEDBACK_MAIL = "teitrand@hotmail.com";
+const FEEDBACK_GITHUB = "https://github.com/teitrand/fergeruter/issues/new";
 
 const state = {
   messageFilter: "local",
@@ -39,6 +41,39 @@ function el(tag, className, text) {
   if (className) node.className = className;
   if (text != null) node.textContent = text;
   return node;
+}
+
+/** Anonym Plausible-hending. Feilar aldri ut til brukaren. */
+function track(name, props, { interactive = true } = {}) {
+  try {
+    const fn = typeof window !== "undefined" ? window.plausible : null;
+    if (typeof fn !== "function") return;
+    const payload = {};
+    if (props && Object.keys(props).length) payload.props = props;
+    if (!interactive) payload.interactive = false;
+    fn(name, Object.keys(payload).length ? payload : undefined);
+  } catch {
+    // statistikk skal ikkje stoppe sida
+  }
+}
+
+function appMode() {
+  try {
+    if (typeof window === "undefined") return "web";
+    if (window.matchMedia("(display-mode: standalone)").matches) return "pwa";
+    if (navigator.standalone) return "pwa";
+  } catch {
+    // matchMedia kan mangle
+  }
+  return "web";
+}
+
+function feedbackMailto(rating, comment) {
+  const ratingLabel = rating === "yes" ? t("feedback.yes") : t("feedback.no");
+  const text = String(comment || "").trim() || t("feedback.mailNoComment");
+  const subject = t("feedback.mailSubject");
+  const body = t("feedback.mailBody", { rating: ratingLabel, comment: text });
+  return `mailto:${FEEDBACK_MAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
 
 function osloParts(date = new Date()) {
@@ -766,7 +801,9 @@ function renderStopFilter(legs) {
     btn.setAttribute("aria-pressed", String(active));
     if (active) btn.classList.add("is-active");
     btn.addEventListener("click", () => {
+      if (state.stopFilter === option.value) return;
       state.stopFilter = option.value;
+      track(`Stop ${option.value || "all"}`);
       renderTimeline();
     });
     root.append(btn);
@@ -789,7 +826,11 @@ function renderConnectionFilter() {
     const active = state.connection === option.value;
     btn.setAttribute("aria-pressed", String(active));
     if (active) btn.classList.add("is-active");
-    btn.addEventListener("click", () => selectConnection(option.value));
+    btn.addEventListener("click", () => {
+      if (state.connection === option.value) return;
+      track(`Connection ${option.value || "none"}`);
+      selectConnection(option.value);
+    });
     root.append(btn);
   }
   const data = state.connections;
@@ -875,6 +916,7 @@ function renderReveal(pastCount) {
     button.type = "button";
     button.addEventListener("click", () => {
       state.showPast = !state.showPast;
+      track(state.showPast ? "Show past" : "Hide past");
       renderLive();
     });
     wrap.replaceChildren(button);
@@ -1118,6 +1160,8 @@ function wake() {
 }
 
 function applyLanguage(next) {
+  if (next === getLang()) return;
+  track(`Language ${next}`);
   setLang(next);
   applyStaticTranslations();
   syncLangButtons();
@@ -1151,11 +1195,13 @@ function bindInstallPrompt() {
     btn.hidden = false;
   });
   window.addEventListener("appinstalled", () => {
+    track("App installed");
     deferred = null;
     btn.hidden = true;
   });
   btn.addEventListener("click", async () => {
     if (!deferred) return;
+    track("Install app");
     deferred.prompt();
     await deferred.userChoice;
     deferred = null;
@@ -1176,10 +1222,83 @@ function registerServiceWorker() {
   });
 }
 
+function bindFeedback() {
+  const dialog = document.getElementById("feedback-dialog");
+  const openBtn = document.getElementById("feedback-open");
+  const cancelBtn = document.getElementById("feedback-cancel");
+  const sendBtn = document.getElementById("feedback-send");
+  const comment = document.getElementById("feedback-comment");
+  const extra = document.getElementById("feedback-extra");
+  const thanks = document.getElementById("feedback-thanks");
+  const github = document.getElementById("feedback-github");
+  if (!dialog || !openBtn) return;
+
+  let rating = null;
+  let sentRating = false;
+
+  if (github) github.href = FEEDBACK_GITHUB;
+
+  function resetFeedback() {
+    rating = null;
+    sentRating = false;
+    if (extra) extra.hidden = true;
+    if (thanks) thanks.hidden = true;
+    if (sendBtn) sendBtn.hidden = true;
+    if (comment) comment.value = "";
+    dialog.querySelectorAll("[data-rating]").forEach((btn) => {
+      btn.classList.remove("is-active");
+      btn.setAttribute("aria-pressed", "false");
+    });
+  }
+
+  function chooseRating(value) {
+    rating = value;
+    dialog.querySelectorAll("[data-rating]").forEach((btn) => {
+      const active = btn.dataset.rating === value;
+      btn.classList.toggle("is-active", active);
+      btn.setAttribute("aria-pressed", String(active));
+    });
+    if (thanks) thanks.hidden = false;
+    if (extra) extra.hidden = false;
+    if (sendBtn) sendBtn.hidden = false;
+    if (!sentRating) {
+      sentRating = true;
+      track(value === "yes" ? "Feedback yes" : "Feedback no");
+    }
+  }
+
+  openBtn.addEventListener("click", () => {
+    resetFeedback();
+    if (typeof dialog.showModal === "function") dialog.showModal();
+    else dialog.setAttribute("open", "");
+  });
+  cancelBtn?.addEventListener("click", () => dialog.close());
+  dialog.addEventListener("click", (event) => {
+    if (event.target === dialog) dialog.close();
+  });
+  dialog.querySelectorAll("[data-rating]").forEach((btn) => {
+    btn.addEventListener("click", () => chooseRating(btn.dataset.rating));
+  });
+  sendBtn?.addEventListener("click", () => {
+    if (!rating) return;
+    const text = (comment?.value || "").trim();
+    if (!text) {
+      dialog.close();
+      return;
+    }
+    track("Feedback message");
+    const url = feedbackMailto(rating, text);
+    dialog.close();
+    window.location.href = url;
+  });
+}
+
 function bindControls() {
   document.querySelectorAll("[data-filter]").forEach((btn) => {
     btn.addEventListener("click", () => {
+      if (state.messageFilter === btn.dataset.filter) return;
       state.messageFilter = btn.dataset.filter;
+      track(`Messages ${btn.dataset.filter}`);
       document.querySelectorAll("[data-filter]").forEach((other) => {
         const active = other === btn;
         other.classList.toggle("is-active", active);
@@ -1188,11 +1307,21 @@ function bindControls() {
       renderMessages();
     });
   });
-  document.getElementById("day-prev").addEventListener("click", () => goToDay(-1));
-  document.getElementById("day-next").addEventListener("click", () => goToDay(1));
-  document.getElementById("day-today").addEventListener("click", () => goToDay(0));
+  document.getElementById("day-prev").addEventListener("click", () => {
+    track("Day prev");
+    goToDay(-1);
+  });
+  document.getElementById("day-next").addEventListener("click", () => {
+    track("Day next");
+    goToDay(1);
+  });
+  document.getElementById("day-today").addEventListener("click", () => {
+    track("Day today");
+    goToDay(0);
+  });
   bindLanguage();
   bindInstallPrompt();
+  bindFeedback();
 
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden) wake();
@@ -1202,10 +1331,13 @@ function bindControls() {
 }
 
 export {
+  FEEDBACK_MAIL,
+  appMode,
   buildEvents,
   compareTimelineEvents,
   currentStatus,
   delayMinutes,
+  feedbackMailto,
   ferryStatus,
   firstKnownQuay,
   homeQuay,
@@ -1216,6 +1348,7 @@ export {
   nextDepartureFrom,
   parseVehicleMonitoring,
   quayPlace,
+  track,
 };
 
 if (typeof document !== "undefined") {
@@ -1228,4 +1361,6 @@ if (typeof document !== "undefined") {
   loadRoutes();
   scheduleTick();
   setInterval(loadMessages, 3 * 60 * 1000);
+  track(`Visit ${getLang()}`, { app: appMode() }, { interactive: false });
+  if (appMode() === "pwa") track("Visit pwa", null, { interactive: false });
 }

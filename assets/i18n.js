@@ -129,6 +129,22 @@ const STRINGS = {
     "date.full": "{weekday} {day}. {month}",
     "date.only": "{day}. {month} {year}",
     "date.time": "{weekday} {day}. {month}. {hour}:{minute}",
+    "feedback.open": "Gi tilbakemelding",
+    "feedback.title": "Tilbakemelding",
+    "feedback.lead": "Hjelper sida deg å finne ferja?",
+    "feedback.yes": "Ja, nyttig",
+    "feedback.no": "Nei, noko manglar",
+    "feedback.thanks": "Takk! Det hjelper oss å forstå korleis sida blir brukt.",
+    "feedback.commentLabel": "Vil du seie meir? (valfritt)",
+    "feedback.commentPlaceholder": "Til dømes kva som manglar, eller kva du brukar sida til.",
+    "feedback.send": "Send melding",
+    "feedback.close": "Lukk",
+    "feedback.privacy":
+      "Ja/nei blir telt anonymt, utan namn eller e-post. Ei skriftleg melding opnar e-posten din og blir ikkje lagra i statistikken.",
+    "feedback.github": "Eller meld ein feil på GitHub",
+    "feedback.mailSubject": "Tilbakemelding på Fergeruter 1136",
+    "feedback.mailBody": "Vurdering: {rating}\n\n{comment}",
+    "feedback.mailNoComment": "(inga melding)",
   },
   en: {
     "meta.title": "Ferry times 1136 · Standal–Trandal",
@@ -230,6 +246,22 @@ const STRINGS = {
     "date.full": "{weekday} {day} {month}",
     "date.only": "{day} {month} {year}",
     "date.time": "{weekday} {day} {month} {hour}:{minute}",
+    "feedback.open": "Send feedback",
+    "feedback.title": "Feedback",
+    "feedback.lead": "Does this page help you find the ferry?",
+    "feedback.yes": "Yes, useful",
+    "feedback.no": "No, something is missing",
+    "feedback.thanks": "Thanks! That helps us understand how the page is used.",
+    "feedback.commentLabel": "Want to say more? (optional)",
+    "feedback.commentPlaceholder": "For example what is missing, or what you use the page for.",
+    "feedback.send": "Send message",
+    "feedback.close": "Close",
+    "feedback.privacy":
+      "Yes/no is counted anonymously, without your name or email. A written message opens your email app and is not stored in the statistics.",
+    "feedback.github": "Or report a bug on GitHub",
+    "feedback.mailSubject": "Feedback on Ferry times 1136",
+    "feedback.mailBody": "Rating: {rating}\n\n{comment}",
+    "feedback.mailNoComment": "(no message)",
   },
   de: {
     "meta.title": "Fährzeiten 1136 · Standal–Trandal",
@@ -334,6 +366,23 @@ const STRINGS = {
     "date.full": "{weekday}, {day}. {month}",
     "date.only": "{day}. {month} {year}",
     "date.time": "{weekday} {day}. {month}. {hour}:{minute}",
+    "feedback.open": "Feedback geben",
+    "feedback.title": "Feedback",
+    "feedback.lead": "Hilft Ihnen die Seite, die Fähre zu finden?",
+    "feedback.yes": "Ja, hilfreich",
+    "feedback.no": "Nein, etwas fehlt",
+    "feedback.thanks": "Danke! Das hilft uns zu verstehen, wie die Seite genutzt wird.",
+    "feedback.commentLabel": "Möchten Sie noch etwas sagen? (optional)",
+    "feedback.commentPlaceholder":
+      "Zum Beispiel, was fehlt, oder wofür Sie die Seite nutzen.",
+    "feedback.send": "Nachricht senden",
+    "feedback.close": "Schließen",
+    "feedback.privacy":
+      "Ja/nein wird anonym gezählt, ohne Namen oder E-Mail. Eine schriftliche Nachricht öffnet Ihr E-Mail-Programm und wird nicht in der Statistik gespeichert.",
+    "feedback.github": "Oder einen Fehler auf GitHub melden",
+    "feedback.mailSubject": "Feedback zu Fährzeiten 1136",
+    "feedback.mailBody": "Bewertung: {rating}\n\n{comment}",
+    "feedback.mailNoComment": "(keine Nachricht)",
   },
 };
 
@@ -427,6 +476,9 @@ export function applyStaticTranslations() {
   });
   document.querySelectorAll("[data-i18n-aria]").forEach((node) => {
     node.setAttribute("aria-label", t(node.getAttribute("data-i18n-aria")));
+  });
+  document.querySelectorAll("[data-i18n-placeholder]").forEach((node) => {
+    node.setAttribute("placeholder", t(node.getAttribute("data-i18n-placeholder")));
   });
 }
 

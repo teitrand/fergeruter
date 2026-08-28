@@ -51,7 +51,33 @@ eller køyr GitHub Action **Oppdater rutetabell** manuelt. Det er ingen dagleg/a
 
 ## Statistikk
 
-Sida brukar [Plausible](https://plausible.io/) for å telje vitjingar. Det er utan informasjonskapslar og utan personopplysningar. Talet på vitjingar, kjelder og utgåande lenkjer (t.d. Fjord1 og NAIS) visest i Plausible-panelet. Lokal utvikling på `localhost` blir ikkje telt.
+Sida brukar [Plausible](https://plausible.io/) for å telje vitjingar og **kva folk faktisk trykkjer på**. Det er utan informasjonskapslar og utan personopplysningar. Lokal utvikling på `localhost` blir ikkje telt.
+
+I Plausible-panelet ser du:
+
+- Vitjingar, kjelder og utgåande lenkjer (t.d. Fjord1 og NAIS)
+- Språk og om sida er open i nettlesar eller som installert app (`lang` og `app` på kvar vitjing; krev eigenskapar/custom properties)
+- Eigne hendingar for bruken av sida. Legg dei til som **mål (goals)** i Plausible (Site settings → Goals). Du kan òg la Plausible foreslå mål frå hendingar som allereie er sende inn.
+
+| Hending | Når |
+| --- | --- |
+| `Visit nn` / `Visit en` / `Visit de` | Sidan lastar (anonymt, tel ikkje mot bounce) |
+| `Visit pwa` | Sidan er open som installert app |
+| `Language nn` / `en` / `de` | Nokon byter språk |
+| `Day prev` / `Day next` / `Day today` | Blad i rutetabellen |
+| `Stop all` / `Stop Standal` / … | Filter på stoppestad |
+| `Connection none` / `solavagen` / `hundeidvika` | Korrespondanse |
+| `Messages local` / `route` / `issues` | Filter på trafikkmeldingar |
+| `Show past` / `Hide past` | Vis eller skjul tidlegare anløp |
+| `Install app` / `App installed` | Installer-knappen, og når appen faktisk er lagt til |
+| `Feedback yes` / `Feedback no` | Tommel opp/ned i tilbakemeldingsruta |
+| `Feedback message` | Nokon sender ei skriftleg melding |
+
+Sjølve meldingsteksten blir **ikkje** send til Plausible.
+
+## Tilbakemelding
+
+Nedst på sida ligg **Gi tilbakemelding**. Brukarane kan svare ja/nei (anonymt) og eventuelt skrive ei melding som opnar e-post til vedlikehaldaren, eller opne eit GitHub-issue.
 
 ## Testar
 

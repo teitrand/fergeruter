@@ -621,6 +621,150 @@ h2.day-label {
 
 .site-footer p { margin: 0.2rem 0; }
 
+.feedback-link {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: var(--water);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.feedback-link:hover,
+.feedback-link:focus-visible {
+  color: var(--fjord);
+  outline: none;
+}
+
+.feedback-dialog {
+  border: 0;
+  border-radius: 22px;
+  padding: 1.3rem 1.2rem 1.1rem;
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: var(--shadow);
+  width: min(28rem, calc(100vw - 2rem));
+}
+
+.feedback-dialog::backdrop {
+  background: rgba(4, 28, 36, 0.48);
+}
+
+.feedback-dialog h2 {
+  margin-bottom: 0.35rem;
+}
+
+.feedback-dialog p {
+  margin: 0.35rem 0;
+}
+
+.feedback-ratings {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0.85rem 0 0.7rem;
+}
+
+.feedback-rate,
+.feedback-send,
+.feedback-cancel {
+  font: inherit;
+  cursor: pointer;
+  border-radius: 999px;
+  padding: 0.42rem 0.9rem;
+}
+
+.feedback-rate {
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--fjord);
+}
+
+.feedback-rate:hover,
+.feedback-rate:focus-visible {
+  border-color: var(--water);
+  outline: none;
+}
+
+.feedback-rate.is-active {
+  background: var(--fjord);
+  color: var(--foam);
+  border-color: var(--fjord);
+}
+
+.feedback-thanks {
+  font-weight: 600;
+  color: var(--ok);
+}
+
+.feedback-dialog label {
+  display: block;
+  margin: 0.7rem 0 0.35rem;
+  font-size: 0.92rem;
+}
+
+.feedback-dialog textarea {
+  width: 100%;
+  font: inherit;
+  color: inherit;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 0.6rem 0.7rem;
+  resize: vertical;
+  min-height: 5.5rem;
+  background: #fff;
+}
+
+.feedback-dialog textarea:focus-visible {
+  outline: 2px solid var(--water);
+  outline-offset: 1px;
+}
+
+.feedback-privacy,
+.feedback-alt {
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.feedback-alt a {
+  color: var(--water);
+}
+
+.feedback-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin-top: 0.9rem;
+}
+
+.feedback-send {
+  border: 0;
+  background: var(--fjord);
+  color: var(--foam);
+  font-weight: 600;
+}
+
+.feedback-send:hover,
+.feedback-send:focus-visible {
+  background: var(--water);
+  outline: none;
+}
+
+.feedback-cancel {
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+}
+
+.feedback-cancel:hover,
+.feedback-cancel:focus-visible {
+  border-color: var(--water);
+  color: var(--fjord);
+  outline: none;
+}
+
 .empty {
   padding: 1.2rem 0.4rem;
 }
