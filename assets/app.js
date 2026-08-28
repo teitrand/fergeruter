@@ -1281,7 +1281,7 @@ function bindFeedback() {
   });
   sendBtn?.addEventListener("click", () => {
     if (!rating) return;
-    const text = comment.value.trim();
+    const text = (comment?.value || "").trim();
     if (!text) {
       dialog.close();
       return;
