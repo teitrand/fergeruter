@@ -331,6 +331,74 @@ class FetchTests(unittest.TestCase):
             self.assertEqual(data["lines"]["1135"]["legs"][0]["departure"], "08:15:00")
 
 
+# FRAM 1136 frå 17.08.26, Frå-kolonnar (bbox 29.08.26). Onsdag har eiga tabell.
+FRAM_PDF_FROM_1136 = {
+    "mtthf": {
+        "Standal": "0645 0740 1310 1545 1845 2000",
+        "Trandal": "0705 0800 0945 1425 1515 1625 1810 1940 2020",
+        "Sæbø": "0835 0920 1450 1650 1745",
+        "Skår": "0855 1710",
+    },
+    "wednesday": {
+        "Standal": "0740 1440 1610",
+        "Trandal": "0800 1500 1550 1630",
+        "Sæbø": "0835 1525",
+        "Valderøya": "1110 1900",
+        "Store Kalvøy": "1210 1925",
+    },
+    "saturday": {
+        "Standal": "0740 1605 1845 2000",
+        "Trandal": "0800 0945 1625 1810 1940 2020",
+        "Sæbø": "0835 0920 1650 1745",
+        "Skår": "0855 1710",
+        "Valderøya": "1215",
+        "Store Kalvøy": "1315",
+    },
+    "sunday": {
+        "Standal": "0900 1000 1530 1655 2000 2040",
+        "Trandal": "0920 1020 1215 1550 1715 1900 2020 2100",
+        "Sæbø": "1050 1150 1750 1835",
+        "Skår": "1120 1815",
+    },
+}
+
+# FRAM 1135. Sommar og haust har same kvardag; helg mister 10:00 og 11:15 frå 01.09.
+FRAM_PDF_FROM_1135_SUMMER = {
+    "weekday": {
+        "Sæbø": "0600 0630 0715 0815 0915 1030 1145 1245 1345 1445 1545 1630 1700 1730 1830 2000 2100 2215",
+        "Leknes": "0615 0645 0730 0830 0930 1045 1200 1300 1400 1500 1600 1645 1715 1745 1845 2015 2115 2230",
+    },
+    "saturday": {
+        "Sæbø": "0630 0830 0900 1000 1030 1115 1145 1245 1345 1445 1545 1630 1730 1830 2030 2115 2215",
+        "Leknes": "0645 0845 0915 1015 1045 1130 1200 1300 1400 1500 1600 1645 1745 1845 2045 2130 2230",
+    },
+    "sunday": {
+        "Sæbø": "0730 0815 0900 1000 1030 1115 1145 1245 1345 1445 1545 1630 1730 1800 1830 2030 2115 2215",
+        "Leknes": "0745 0830 0915 1015 1045 1130 1200 1300 1400 1500 1600 1645 1745 1815 1845 2045 2130 2230",
+    },
+}
+FRAM_PDF_FROM_1135_AUTUMN = {
+    "weekday": FRAM_PDF_FROM_1135_SUMMER["weekday"],
+    "saturday": {
+        "Sæbø": "0630 0830 0900 1030 1145 1245 1345 1445 1545 1630 1730 1830 2030 2115 2215",
+        "Leknes": "0645 0845 0915 1045 1200 1300 1400 1500 1600 1645 1745 1845 2045 2130 2230",
+    },
+    "sunday": {
+        "Sæbø": "0730 0815 0900 1030 1145 1245 1345 1445 1545 1630 1730 1800 1830 2030 2115 2215",
+        "Leknes": "0745 0830 0915 1045 1200 1300 1400 1500 1600 1645 1745 1815 1845 2045 2130 2230",
+    },
+}
+
+
+def _from_times(legs, iso):
+    got = {}
+    for leg in legs:
+        if iso not in (leg.get("activeDates") or []):
+            continue
+        got.setdefault(leg["from"], set()).add(leg["departure"][:2] + leg["departure"][3:5])
+    return got
+
+
 class StoredTimetableTests(unittest.TestCase):
     def test_1135_saebo_0815_weekday_from_entur(self):
         data = json.loads((ROOT / "data" / "ruter.json").read_text(encoding="utf-8"))
@@ -374,6 +442,43 @@ class StoredTimetableTests(unittest.TestCase):
                 if leg.get("signal"):
                     got[key] = 3 if leg["signal"]["minutesBefore"] == 180 else 1
             self.assertEqual(got, expected, group)
+
+    def test_1136_from_times_match_fram_pdf(self):
+        """Frå-kolonnane i FRAM 1136-PDF 17.08.26."""
+        data = json.loads((ROOT / "data" / "ruter.json").read_text(encoding="utf-8"))
+        samples = {
+            "mtthf": "2026-08-31",
+            "wednesday": "2026-09-02",
+            "saturday": "2026-08-29",
+            "sunday": "2026-08-30",
+        }
+        legs = data["lines"]["1136"]["legs"]
+        for group, iso in samples.items():
+            got = _from_times(legs, iso)
+            expected = {
+                quay: set(times.split()) for quay, times in FRAM_PDF_FROM_1136[group].items()
+            }
+            for quay, times in got.items():
+                self.assertEqual(times, expected.get(quay, set()), f"{group} {quay}")
+            for quay, times in expected.items():
+                self.assertEqual(got.get(quay, set()), times, f"{group} {quay}")
+
+    def test_1135_from_times_match_fram_pdf_seasons(self):
+        """1135 sommar til 31.08, haust frå 01.09. Inga 1)."""
+        data = json.loads((ROOT / "data" / "ruter.json").read_text(encoding="utf-8"))
+        legs = data["lines"]["1135"]["legs"]
+        samples = [
+            (FRAM_PDF_FROM_1135_SUMMER["weekday"], "2026-08-31"),
+            (FRAM_PDF_FROM_1135_SUMMER["saturday"], "2026-08-29"),
+            (FRAM_PDF_FROM_1135_SUMMER["sunday"], "2026-08-30"),
+            (FRAM_PDF_FROM_1135_AUTUMN["weekday"], "2026-09-01"),
+            (FRAM_PDF_FROM_1135_AUTUMN["saturday"], "2026-09-05"),
+            (FRAM_PDF_FROM_1135_AUTUMN["sunday"], "2026-09-06"),
+        ]
+        for expected, iso in samples:
+            got = _from_times(legs, iso)
+            for quay, times in expected.items():
+                self.assertEqual(got.get(quay, set()), set(times.split()), f"{iso} {quay}")
 
 
 if __name__ == "__main__":
