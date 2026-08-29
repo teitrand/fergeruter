@@ -126,6 +126,12 @@ test("Øye-korrespondanse visest berre når Leknes er i tabellen", () => {
   const ids1136 = visibleConnectionLines(legsForDate(WEEKDAY)).map((line) => line.id);
   assert.deepEqual(ids1136, ["solavagen"]);
 
+  setTestState({ connections: null });
+  const defaultKombi = visibleConnectionLines([
+    { from: "Sæbø", to: "Leknes", departure: "08:15:00", arrival: "08:30:00" },
+  ]).map((line) => line.id);
+  assert.ok(defaultKombi.includes("oye"));
+
   setTestState({
     messages: {
       messages: [

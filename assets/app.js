@@ -716,13 +716,15 @@ function connectionIndex(date) {
   };
 }
 
+const DEFAULT_CONNECTION_LINES = [
+  { id: "solavagen", label: "Solavågen", hub: "Festøya", roadTo: "Standal" },
+  { id: "hundeidvika", label: "Hundeidvika", hub: "Festøya", roadTo: "Standal" },
+  { id: "oye", label: "Øye", hub: "Leknes", roadTo: "Leknes" },
+];
+
 function visibleConnectionLines(legs) {
   const quays = quaysInDay(legs);
-  const defaults = [
-    { id: "solavagen", label: "Solavågen", hub: "Festøya", roadTo: "Standal" },
-    { id: "hundeidvika", label: "Hundeidvika", hub: "Festøya", roadTo: "Standal" },
-  ];
-  const lines = state.connections?.lines || defaults;
+  const lines = state.connections?.lines || DEFAULT_CONNECTION_LINES;
   return lines.filter((line) => {
     const hub = line.hub || state.connections?.hub;
     const road = line.roadTo || state.connections?.roadTo;
@@ -967,17 +969,25 @@ function renderConnectionFilter() {
       : "";
 }
 
+async function loadConnections() {
+  if (state.connections) return;
+  try {
+    const response = await fetch(CONNECTIONS_URL);
+    if (!response.ok) throw new Error(response.statusText);
+    state.connections = await response.json();
+  } catch (error) {
+    console.error(error);
+  }
+}
+
 async function selectConnection(id) {
   state.connection = id;
   if (id && !state.connections) {
-    try {
-      const response = await fetch(CONNECTIONS_URL);
-      if (!response.ok) throw new Error(response.statusText);
-      state.connections = await response.json();
-    } catch (error) {
+    await loadConnections();
+    if (!state.connections) {
       state.connection = null;
-      document.getElementById("connection-note").textContent = t("conn.error");
-      console.error(error);
+      const note = document.getElementById("connection-note");
+      if (note) note.textContent = t("conn.error");
     }
   }
   renderConnectionFilter();
@@ -1308,6 +1318,7 @@ async function loadRoutes() {
     if (!routesRes.ok) throw new Error(routesRes.statusText);
     state.routes = await routesRes.json();
     if (kombiRes?.ok) state.kombirute = await kombiRes.json();
+    await loadConnections();
     renderRouteChrome();
     renderTimeline();
     renderLedeStatus();
