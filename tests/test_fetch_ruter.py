@@ -90,10 +90,11 @@ class AreaTests(unittest.TestCase):
 
     def test_payload_exposes_quay_list(self):
         payload = mod.build_payload(
-            {"id": "x", "publicCode": "1136", "name": "n", "serviceJourneys": []},
+            {"1136": {"id": "x", "publicCode": "1136", "name": "n", "serviceJourneys": []}},
             fetched_at="2026-08-25T00:00:00+00:00",
         )
         self.assertIn("Trandal", payload["hjorundfjordQuays"])
+        self.assertIn("Leknes", payload["hjorundfjordQuays"])
 
 
 class QuayNameTests(unittest.TestCase):
@@ -101,6 +102,10 @@ class QuayNameTests(unittest.TestCase):
         self.assertEqual(mod.quay_place("Trandal ferjekai"), "Trandal")
         self.assertEqual(mod.quay_place("Store Kalvøy kai"), "Store Kalvøy")
         self.assertEqual(mod.quay_place("Sæbø"), "Sæbø")
+
+    def test_lekneset_becomes_leknes(self):
+        self.assertEqual(mod.quay_place("Lekneset"), "Leknes")
+        self.assertEqual(mod.quay_place("Lekneset ferjekai"), "Leknes")
 
 
 class LegTests(unittest.TestCase):
@@ -163,9 +168,10 @@ class PayloadTests(unittest.TestCase):
                 ),
             ],
         }
-        payload = mod.build_payload(line, fetched_at="2026-08-25T00:00:00+00:00")
+        payload = mod.build_payload({"1136": line}, fetched_at="2026-08-25T00:00:00+00:00")
         self.assertEqual(
-            [leg["departure"] for leg in payload["legs"]], ["06:45:00", "09:20:00"]
+            [leg["departure"] for leg in payload["lines"]["1136"]["legs"]],
+            ["06:45:00", "09:20:00"],
         )
 
     def test_write_skipped_when_timetable_unchanged(self):
@@ -180,8 +186,8 @@ class PayloadTests(unittest.TestCase):
                 )
             ],
         }
-        first = mod.build_payload(line, fetched_at="2026-08-25T00:00:00+00:00")
-        second = mod.build_payload(line, fetched_at="2026-08-26T00:00:00+00:00")
+        first = mod.build_payload({"1136": line}, fetched_at="2026-08-25T00:00:00+00:00")
+        second = mod.build_payload({"1136": line}, fetched_at="2026-08-26T00:00:00+00:00")
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "ruter.json"
             self.assertTrue(mod.write_if_changed(first, path))
@@ -192,26 +198,49 @@ class PayloadTests(unittest.TestCase):
 
 class FetchTests(unittest.TestCase):
     def test_main_writes_json(self):
-        graphql = {
-            "data": {
-                "line": {
-                    "id": "MOR:Line:1136",
-                    "publicCode": "1136",
-                    "name": "Standal-Trandal",
-                    "serviceJourneys": [
-                        journey(
-                            [
-                                point("Standal", "07:40:00", None),
-                                point("Trandal", None, "07:55:00"),
+        def graphql_for(line_id: str) -> dict:
+            if line_id.endswith("1135"):
+                return {
+                    "data": {
+                        "line": {
+                            "id": line_id,
+                            "publicCode": "1135",
+                            "name": "Sæbø-Leknes",
+                            "serviceJourneys": [
+                                journey(
+                                    [
+                                        point("Sæbø", "08:15:00", None),
+                                        point("Lekneset", None, "08:30:00"),
+                                    ],
+                                    ["2026-08-25"],
+                                )
                             ],
-                            ["2026-08-25"],
-                        )
-                    ],
+                        }
+                    }
+                }
+            return {
+                "data": {
+                    "line": {
+                        "id": line_id,
+                        "publicCode": "1136",
+                        "name": "Standal-Trandal",
+                        "serviceJourneys": [
+                            journey(
+                                [
+                                    point("Standal", "07:40:00", None),
+                                    point("Trandal", None, "07:55:00"),
+                                ],
+                                ["2026-08-25"],
+                            )
+                        ],
+                    }
                 }
             }
-        }
 
         class FakeResponse:
+            def __init__(self, payload: dict):
+                self._payload = payload
+
             def __enter__(self):
                 return self
 
@@ -219,16 +248,39 @@ class FetchTests(unittest.TestCase):
                 return False
 
             def read(self):
-                return json.dumps(graphql).encode("utf-8")
+                return json.dumps(self._payload).encode("utf-8")
+
+        def fake_urlopen(req, timeout=60):
+            body = json.loads(req.data.decode("utf-8"))
+            return FakeResponse(graphql_for(body["variables"]["id"]))
 
         with tempfile.TemporaryDirectory() as tmp:
             out = Path(tmp) / "ruter.json"
-            with patch.object(mod.urllib.request, "urlopen", return_value=FakeResponse()):
+            with patch.object(mod.urllib.request, "urlopen", side_effect=fake_urlopen):
                 with patch.object(sys, "argv", ["fetch_ruter.py", str(out)]):
                     self.assertEqual(mod.main(), 0)
             data = json.loads(out.read_text(encoding="utf-8"))
-            self.assertEqual(len(data["legs"]), 1)
-            self.assertEqual(data["legs"][0]["to"], "Trandal")
+            self.assertEqual(len(data["lines"]["1136"]["legs"]), 1)
+            self.assertEqual(data["lines"]["1136"]["legs"][0]["to"], "Trandal")
+            self.assertEqual(data["lines"]["1135"]["legs"][0]["from"], "Sæbø")
+            self.assertEqual(data["lines"]["1135"]["legs"][0]["to"], "Leknes")
+            self.assertEqual(data["lines"]["1135"]["legs"][0]["departure"], "08:15:00")
+
+
+class StoredTimetableTests(unittest.TestCase):
+    def test_1135_saebo_0815_weekday_from_entur(self):
+        data = json.loads((ROOT / "data" / "ruter.json").read_text(encoding="utf-8"))
+        weekday = "2026-08-28"
+        match = [
+            leg
+            for leg in data["lines"]["1135"]["legs"]
+            if leg["from"] == "Sæbø"
+            and leg["to"] == "Leknes"
+            and leg["departure"] == "08:15:00"
+            and weekday in (leg.get("activeDates") or [])
+        ]
+        self.assertTrue(match, "1135 skal ha Sæbø 08:15 mot Leknes på kvardag")
+        self.assertTrue(match[0]["arrival"].startswith("08:2"))
 
 
 if __name__ == "__main__":

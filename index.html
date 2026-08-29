@@ -21,6 +21,16 @@
   <script>
     window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}};
     plausible.init({
+      transformRequest: function (payload) {
+        try {
+          var host = location.hostname;
+          var path = location.pathname || "";
+          if (host === "localhost" || host === "127.0.0.1" || path.indexOf("/dev/") !== -1) {
+            return null;
+          }
+        } catch (e) {}
+        return payload;
+      },
       customProperties: function () {
         var lang = "nn";
         var app = "web";
@@ -69,7 +79,7 @@
         </svg>
         <div>
           <p class="eyebrow" data-i18n="eyebrow">Rute 1136 · Fjord1 / FRAM</p>
-          <h1>Standal–Trandal–Sæbø–Skår–Valderøya–Store Kalvøy</h1>
+          <h1 id="route-title">Standal–Trandal–Sæbø–Skår–Valderøya–Store Kalvøy</h1>
         </div>
       </div>
       <div class="header-tools">
@@ -159,7 +169,7 @@
           <span id="connection-note"></span>
           <span data-i18n="footnote.timetable">Rutetabellen lastast berre ned att når han er endra.</span>
           <span id="timetable-updated"></span>
-          <span data-i18n="footnote.pdf">Papir-ruteplan</span>: <a href="https://www.fjord1.no/ruteoversikt/moere-og-romsdal/standal-trandal-valderoeya-store-kalvoey/(page)/pdf" target="_blank" rel="noreferrer">fjord1.no</a>
+          <span data-i18n="footnote.pdf">Papir-ruteplan</span>: <a id="timetable-pdf" href="https://www.fjord1.no/ruteoversikt/moere-og-romsdal/standal-trandal-valderoeya-store-kalvoey/(page)/pdf" target="_blank" rel="noreferrer">fjord1.no</a>
           ·
           <a href="https://frammr.no/" target="_blank" rel="noreferrer">frammr.no</a>
           ·

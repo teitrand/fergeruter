@@ -11,14 +11,27 @@ import {
 
 const MESSAGES_URL = "data/trafikkmeldinger.json";
 const ROUTES_URL = "data/ruter.json";
+const KOMBI_URL = "data/kombirute.json";
 const CONNECTIONS_URL = "data/korrespondanse.json";
-const LIVE_VM_URL =
-  "https://api.entur.io/realtime/v1/rest/vm?datasetId=MOR&LineRef=MOR:Line:1136";
+const LIVE_VM_URLS = {
+  1136: "https://api.entur.io/realtime/v1/rest/vm?datasetId=MOR&LineRef=MOR:Line:1136",
+  1135: "https://api.entur.io/realtime/v1/rest/vm?datasetId=MOR&LineRef=MOR:Line:1135",
+};
 const ENTUR_CLIENT = "teitrand-fergeruter";
 const HOME_QUAY = "Standal";
 const LIVE_MAX_AGE_MS = 3 * 60 * 1000;
 const FEEDBACK_MAIL = "teitrand@hotmail.com";
 const FEEDBACK_GITHUB = "https://github.com/teitrand/fergeruter/issues/new";
+const KOMBI_PDF =
+  "https://frammr.no/_f/p2/i2e02cdba-2cdc-4a23-b9bf-f6a6bd437bbe/kombinasjonsrute-sabo-leknes-skar-trandal-standal-20251118.pdf";
+const FJORD1_PDF =
+  "https://www.fjord1.no/ruteoversikt/moere-og-romsdal/standal-trandal-valderoeya-store-kalvoey/(page)/pdf";
+const ALLOWED_MODES = new Set(["1136", "1135", "kombi"]);
+const NORMAL_RE = /normal drift/i;
+const CANCEL_RE = /innstilt|innstilling/i;
+const KOMBI_RE = /kombinasjon|kombirute|kombinert rute/i;
+const HAS_1135_RE = /\b1135\b/;
+const HAS_1136_RE = /\b1136\b/;
 
 const state = {
   messageFilter: "local",
@@ -27,6 +40,7 @@ const state = {
   showPast: false,
   messages: null,
   routes: null,
+  kombirute: null,
   connection: null,
   connections: null,
   live: null,
@@ -208,8 +222,85 @@ function countdown(time) {
   return t("countdown.in", { duration: durationText(minutes) });
 }
 
+function previewLocation(loc) {
+  if (loc) return loc;
+  if (typeof location !== "undefined") return location;
+  return null;
+}
+
+/** Lokal utvikling og /dev/ på Pages. Produksjon tek ikkje ?rute=. */
+function isPreview(loc) {
+  const here = previewLocation(loc);
+  if (!here) return false;
+  const host = here.hostname || "";
+  const path = here.pathname || "";
+  return host === "localhost" || host === "127.0.0.1" || path.includes("/dev/");
+}
+
+function routeOverride(loc) {
+  const here = previewLocation(loc);
+  if (!isPreview(here)) return null;
+  try {
+    const raw = new URL(here.href, "https://teitrand.github.io").searchParams.get("rute");
+    return ALLOWED_MODES.has(raw) ? raw : null;
+  } catch {
+    return null;
+  }
+}
+
+function modeFromText(text) {
+  const blob = text || "";
+  const hasNormal = NORMAL_RE.test(blob);
+  const hasCancel = CANCEL_RE.test(blob);
+  const hasKombi = KOMBI_RE.test(blob);
+  const has1135 = HAS_1135_RE.test(blob);
+  const has1136 = HAS_1136_RE.test(blob);
+  if (hasNormal && hasCancel && !hasKombi) return "1136";
+  if (hasKombi || (hasCancel && has1135 && has1136)) return "kombi";
+  if (hasCancel && has1136 && !has1135) return "1135";
+  return "1136";
+}
+
+function routeModeFromMessages(messages, now = Date.now()) {
+  const latest = validMessages(messages || [], now).find((msg) => msg.isLocal);
+  if (!latest) return "1136";
+  return latest.routeMode || modeFromText(`${latest.heading || ""} ${latest.text || ""}`);
+}
+
+function activeMode() {
+  return routeOverride() || routeModeFromMessages(state.messages?.messages) || "1136";
+}
+
+function dayType(iso) {
+  const dow = new Date(`${iso}T12:00:00Z`).getUTCDay();
+  if (dow === 0) return "sunday";
+  if (dow === 6) return "saturday";
+  return "weekday";
+}
+
+function lineLegs(mode) {
+  if (mode === "kombi") return state.kombirute?.legs || [];
+  return state.routes?.lines?.[mode]?.legs || state.routes?.legs || [];
+}
+
+function allCatalogLegs() {
+  const fromLines = Object.values(state.routes?.lines || {}).flatMap((line) => line.legs || []);
+  return [...fromLines, ...(state.routes?.legs || []), ...(state.kombirute?.legs || [])];
+}
+
+function hasTimetable() {
+  return Boolean(state.routes || state.kombirute);
+}
+
 function legsForDate(date) {
-  return (state.routes?.legs || [])
+  const mode = activeMode();
+  if (mode === "kombi") {
+    const kind = dayType(date);
+    return lineLegs("kombi")
+      .filter((leg) => (leg.days || []).includes(kind))
+      .sort((a, b) => a.departure.localeCompare(b.departure) || a.from.localeCompare(b.from));
+  }
+  return lineLegs(mode)
     .filter((leg) => (leg.activeDates || []).includes(date))
     .sort((a, b) => a.departure.localeCompare(b.departure));
 }
@@ -241,7 +332,8 @@ function bookingDeadline(leg) {
 
 function quayPlace(name) {
   if (!name) return "";
-  return String(name).replace(/\s+(ferjekai|kai)$/i, "").trim();
+  const place = String(name).replace(/\s+(ferjekai|kai)$/i, "").trim();
+  return place === "Lekneset" ? "Leknes" : place;
 }
 
 const LINE_QUAYS = [
@@ -259,7 +351,7 @@ const LINE_QUAYS = [
 function knownQuays() {
   const names = new Set(LINE_QUAYS);
   for (const quay of hjorundfjordQuays()) names.add(quay);
-  for (const leg of state.routes?.legs || []) {
+  for (const leg of allCatalogLegs()) {
     names.add(leg.from);
     names.add(leg.to);
   }
@@ -304,11 +396,17 @@ function homeQuay(legs) {
   return legs[0]?.from || HOME_QUAY;
 }
 
+function catalogKeys(leg) {
+  if (leg.activeDates?.length) return leg.activeDates;
+  if (leg.days?.length) return leg.days;
+  return ["*"];
+}
+
 /** Kortaste hol mellom to kaier i tabellen, t.d. Valderøya 12:30 → Standal 14:40. */
 function minDeadheadMinutes(allLegs, fromQuay, toQuay) {
   const byDate = new Map();
   for (const leg of allLegs || []) {
-    for (const date of leg.activeDates || []) {
+    for (const date of catalogKeys(leg)) {
       if (!byDate.has(date)) byDate.set(date, []);
       byDate.get(date).push(leg);
     }
@@ -419,7 +517,7 @@ function ferryStatus(legs, now = nowMinutes(), allLegs = null) {
   const first = legs[0];
   const last = legs[legs.length - 1];
   const home = homeQuay(legs);
-  const catalog = allLegs || state.routes?.legs || legs;
+  const catalog = allLegs || lineLegs(activeMode()) || legs;
 
   if (now < clockMinutes(first.departure)) {
     return {
@@ -599,19 +697,40 @@ function connectionIndex(date) {
   if (!data || !state.connection) return null;
   const line = data.lines.find((candidate) => candidate.id === state.connection);
   if (!line) return null;
+  const hub = line.hub || data.hub;
+  const roadTo = line.roadTo || data.roadTo;
+  const drive = line.driveMinutes ?? data.driveMinutes ?? 0;
+  const margin = line.marginMinutes ?? data.marginMinutes ?? 0;
   const runsToday = (trip) => (data.calendars[trip.cal] || []).includes(date);
   const trips = line.trips.filter(runsToday);
   return {
-    hub: data.hub,
-    roadTo: data.roadTo,
-    buffer: (data.driveMinutes || 0) + (data.marginMinutes || 0),
+    hub,
+    roadTo,
+    buffer: drive + margin,
     toHub: trips
-      .filter((trip) => trip.to === data.hub)
+      .filter((trip) => trip.to === hub)
       .sort((a, b) => a.arrival.localeCompare(b.arrival)),
     fromHub: trips
-      .filter((trip) => trip.from === data.hub)
+      .filter((trip) => trip.from === hub)
       .sort((a, b) => a.departure.localeCompare(b.departure)),
   };
+}
+
+function visibleConnectionLines(legs) {
+  const quays = quaysInDay(legs);
+  const defaults = [
+    { id: "solavagen", label: "Solavågen", hub: "Festøya", roadTo: "Standal" },
+    { id: "hundeidvika", label: "Hundeidvika", hub: "Festøya", roadTo: "Standal" },
+  ];
+  const lines = state.connections?.lines || defaults;
+  return lines.filter((line) => {
+    const hub = line.hub || state.connections?.hub;
+    const road = line.roadTo || state.connections?.roadTo;
+    if (line.id === "oye" || hub === "Leknes" || road === "Leknes") {
+      return quays.includes("Leknes");
+    }
+    return true;
+  });
 }
 
 function inboundConnection(index, departure) {
@@ -813,12 +932,14 @@ function renderStopFilter(legs) {
 function renderConnectionFilter() {
   const root = document.getElementById("conn-filter");
   const note = document.getElementById("connection-note");
+  if (!root || !note) return;
   root.replaceChildren();
+  const visible = visibleConnectionLines(legsForDate(selectedDate()));
+  if (state.connection && !visible.some((line) => line.id === state.connection)) {
+    state.connection = null;
+  }
   const options = [{ value: null, label: t("conn.none") }].concat(
-    (state.connections?.lines || [
-      { id: "solavagen", label: "Solavågen" },
-      { id: "hundeidvika", label: "Hundeidvika" },
-    ]).map((line) => ({ value: line.id, label: line.label }))
+    visible.map((line) => ({ value: line.id, label: line.label }))
   );
   for (const option of options) {
     const btn = el("button", "chip chip-small", option.label);
@@ -834,13 +955,14 @@ function renderConnectionFilter() {
     root.append(btn);
   }
   const data = state.connections;
+  const line = data?.lines?.find((candidate) => candidate.id === state.connection);
   note.textContent =
     state.connection && data
       ? t("conn.note", {
-          drive: data.driveMinutes,
-          hub: data.hub,
-          roadTo: data.roadTo,
-          margin: data.marginMinutes,
+          drive: line?.driveMinutes ?? data.driveMinutes,
+          hub: line?.hub ?? data.hub,
+          roadTo: line?.roadTo ?? data.roadTo,
+          margin: line?.marginMinutes ?? data.marginMinutes,
         })
       : "";
 }
@@ -930,7 +1052,7 @@ function renderReveal(pastCount) {
 function renderLive() {
   const root = document.getElementById("departures");
   root.replaceChildren();
-  if (!state.routes) {
+  if (!hasTimetable()) {
     root.append(el("p", "empty", t("empty.noTimetable")));
     return;
   }
@@ -978,9 +1100,8 @@ function renderTimeline() {
   renderLive();
 }
 
-function validMessages(messages) {
-  const now = Date.now();
-  return messages.filter((msg) => {
+function validMessages(messages, now = Date.now()) {
+  return (messages || []).filter((msg) => {
     if (!msg.validTo) return true;
     return new Date(msg.validTo).getTime() >= now - 60 * 60 * 1000;
   });
@@ -1049,18 +1170,68 @@ function renderMessages() {
   renderBanner(all);
 }
 
+function appendModeNote(banner, mode) {
+  if (mode === "kombi") {
+    const note = el("p", "banner-mode");
+    note.append(document.createTextNode(`${t("mode.kombiNote")} `));
+    const link = el("a", null, t("mode.kombiPdf"));
+    link.href = state.kombirute?.source || KOMBI_PDF;
+    link.target = "_blank";
+    link.rel = "noreferrer";
+    note.append(link);
+    banner.append(note);
+    return;
+  }
+  if (mode === "1135") {
+    banner.append(el("p", "banner-mode", t("mode.only1135")));
+  }
+}
+
 function renderBanner(messages) {
   const banner = document.getElementById("status-banner");
+  if (!banner) return;
   const local = messages.filter((msg) => msg.isLocal);
+  const mode = activeMode();
   banner.hidden = false;
+  banner.replaceChildren();
   if (!local.length) {
     banner.className = "status-banner is-normal is-quiet";
-    banner.textContent = t("banner.none");
+    banner.append(el("p", "banner-text", t("banner.none")));
+    appendModeNote(banner, mode);
     return;
   }
   const latest = local[0];
   banner.className = `status-banner is-${latest.severity}`;
-  banner.textContent = latest.text;
+  banner.append(el("p", "banner-text", latest.text));
+  appendModeNote(banner, mode);
+}
+
+function renderRouteChrome() {
+  const mode = activeMode();
+  const title = document.getElementById("route-title");
+  if (title) {
+    title.textContent =
+      mode === "kombi"
+        ? t("route.titleKombi")
+        : mode === "1135"
+          ? t("route.title1135")
+          : t("route.title1136");
+  }
+  const eyebrow = document.querySelector(".eyebrow");
+  if (eyebrow) {
+    eyebrow.textContent =
+      mode === "kombi" ? t("eyebrow.kombi") : mode === "1135" ? t("eyebrow.1135") : t("eyebrow");
+  }
+  const pdf = document.getElementById("timetable-pdf");
+  if (pdf) {
+    if (mode === "kombi") {
+      pdf.href = state.kombirute?.source || KOMBI_PDF;
+      pdf.textContent = t("footnote.kombiPdf");
+    } else {
+      pdf.href = FJORD1_PDF;
+      pdf.textContent = "fjord1.no";
+    }
+  }
 }
 
 async function loadMessages() {
@@ -1070,6 +1241,11 @@ async function loadMessages() {
     if (!response.ok) throw new Error(response.statusText);
     state.messages = await response.json();
     renderMessages();
+    if (hasTimetable()) {
+      renderRouteChrome();
+      renderTimeline();
+      renderLedeStatus();
+    }
   } catch (error) {
     meta.textContent = t("messages.fetchError");
     document.getElementById("messages").replaceChildren(
@@ -1079,18 +1255,43 @@ async function loadMessages() {
   }
 }
 
+function recordedMs(live) {
+  if (!live) return 0;
+  const raw = live.recordedAt || live.validUntil;
+  const ms = raw ? Date.parse(raw) : 0;
+  return Number.isFinite(ms) ? ms : 0;
+}
+
+function pickFreshest(lives) {
+  const fresh = lives.filter((live) => isLiveFresh(live));
+  const pool = fresh.length ? fresh : lives;
+  return pool.slice().sort((a, b) => recordedMs(b) - recordedMs(a))[0] || null;
+}
+
+async function fetchLive(url) {
+  const response = await fetch(url, {
+    headers: {
+      "ET-Client-Name": ENTUR_CLIENT,
+      Accept: "application/json",
+    },
+  });
+  if (!response.ok) throw new Error(response.statusText);
+  return parseVehicleMonitoring(await response.json());
+}
+
 async function loadLivePosition() {
   if (Date.now() - (state.liveFetchedAt || 0) < 55 * 1000) return;
   state.liveFetchedAt = Date.now();
+  const mode = activeMode();
+  const urls =
+    mode === "1135"
+      ? [LIVE_VM_URLS["1135"]]
+      : mode === "1136"
+        ? [LIVE_VM_URLS["1136"]]
+        : [LIVE_VM_URLS["1136"], LIVE_VM_URLS["1135"]];
   try {
-    const response = await fetch(LIVE_VM_URL, {
-      headers: {
-        "ET-Client-Name": ENTUR_CLIENT,
-        Accept: "application/json",
-      },
-    });
-    if (!response.ok) throw new Error(response.statusText);
-    state.live = parseVehicleMonitoring(await response.json());
+    const results = await Promise.all(urls.map((url) => fetchLive(url).catch(() => null)));
+    state.live = pickFreshest(results.filter(Boolean));
   } catch (error) {
     state.live = null;
     console.error(error);
@@ -1100,9 +1301,14 @@ async function loadLivePosition() {
 async function loadRoutes() {
   const label = document.getElementById("day-label");
   try {
-    const response = await fetch(ROUTES_URL);
-    if (!response.ok) throw new Error(response.statusText);
-    state.routes = await response.json();
+    const [routesRes, kombiRes] = await Promise.all([
+      fetch(ROUTES_URL),
+      fetch(KOMBI_URL).catch(() => null),
+    ]);
+    if (!routesRes.ok) throw new Error(routesRes.statusText);
+    state.routes = await routesRes.json();
+    if (kombiRes?.ok) state.kombirute = await kombiRes.json();
+    renderRouteChrome();
     renderTimeline();
     renderLedeStatus();
     const updated = document.getElementById("timetable-updated");
@@ -1135,7 +1341,7 @@ function goToDay(days) {
  * på nytt, og vi tikkar òg når fana blir synleg att etter dvale.
  */
 async function tick() {
-  if (!state.routes) return;
+  if (!hasTimetable()) return;
   await loadLivePosition();
   if (selectedDate() !== renderedDate) {
     renderTimeline();
@@ -1167,7 +1373,8 @@ function applyLanguage(next) {
   syncLangButtons();
   const install = document.getElementById("install-btn");
   if (install) install.textContent = t("install.app");
-  if (state.routes) {
+  renderRouteChrome();
+  if (hasTimetable()) {
     renderTimeline();
     renderLedeStatus();
   } else {
@@ -1217,7 +1424,8 @@ function bindLanguage() {
 
 function registerServiceWorker() {
   if (!("serviceWorker" in navigator)) return;
-  navigator.serviceWorker.register(new URL("../sw.js", import.meta.url)).catch((error) => {
+  const swUrl = new URL("../sw.js", import.meta.url);
+  navigator.serviceWorker.register(swUrl, { scope: "./" }).catch((error) => {
     console.error(error);
   });
 }
@@ -1330,25 +1538,54 @@ function bindControls() {
   window.addEventListener("focus", wake);
 }
 
+function setTestState(partial) {
+  Object.assign(state, partial);
+}
+
+function resetTestState() {
+  state.messageFilter = "local";
+  state.stopFilter = null;
+  state.date = null;
+  state.showPast = false;
+  state.messages = null;
+  state.routes = null;
+  state.kombirute = null;
+  state.connection = null;
+  state.connections = null;
+  state.live = null;
+  state.liveFetchedAt = 0;
+}
+
 export {
   FEEDBACK_MAIL,
+  activeMode,
   appMode,
   buildEvents,
   compareTimelineEvents,
   currentStatus,
+  dayType,
   delayMinutes,
   feedbackMailto,
   ferryStatus,
   firstKnownQuay,
   homeQuay,
   isLiveFresh,
+  isPreview,
+  legsForDate,
   liveStatus,
   minDeadheadMinutes,
+  modeFromText,
   nextArrivalAt,
   nextDepartureFrom,
   parseVehicleMonitoring,
   quayPlace,
+  quaysInDay,
+  resetTestState,
+  routeModeFromMessages,
+  routeOverride,
+  setTestState,
   track,
+  visibleConnectionLines,
 };
 
 if (typeof document !== "undefined") {

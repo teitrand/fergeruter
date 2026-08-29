@@ -1,0 +1,53 @@
+name: GitHub Pages
+
+# main → https://teitrand.github.io/fergeruter/
+# dev  → https://teitrand.github.io/fergeruter/dev/
+on:
+  push:
+    branches: [main, dev]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main (prod)
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: prod
+      - name: Checkout dev (test)
+        uses: actions/checkout@v4
+        with:
+          ref: dev
+          path: staging
+        continue-on-error: true
+      - name: Assemble site
+        run: |
+          mkdir -p publish
+          rsync -a --exclude '.git' --exclude '.github' prod/ publish/
+          if [ -d staging/.git ] || [ -f staging/index.html ]; then
+            mkdir -p publish/dev
+            rsync -a --exclude '.git' --exclude '.github' --exclude 'dev' staging/ publish/dev/
+          fi
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: publish
+      - name: Deploy
+        id: deploy
+        uses: actions/deploy-pages@v4

@@ -131,6 +131,34 @@ class ParseTests(unittest.TestCase):
         self.assertEqual(msg["severity"], "normal")
         self.assertTrue(msg["isRoute1136"])
         self.assertEqual(msg["heading"], node["heading"])
+        self.assertEqual(msg["routeMode"], "1136")
+
+
+class RouteModeTests(unittest.TestCase):
+    SMS = (
+        "Grunna driftsproblem så er ferjerutene 1135 og 1136 innstilt, det blir "
+        "utført kombinasjonsrute med MF Kvernes. Første avgang frå Sæbø ca. 08:15. "
+        "Sjå rutetabell på frammr.no."
+    )
+
+    def test_sms_example_is_kombi(self):
+        self.assertEqual(mod.route_mode_from_text(self.SMS), "kombi")
+
+    def test_normal_drift_overrides_false_innstilt(self):
+        text = (
+            "Rute 1136 Standal-Trandal: Pga ein feil i rutesøket vise at det er "
+            "innstilt, men det er normal drift."
+        )
+        self.assertEqual(mod.classify(text), "normal")
+        self.assertEqual(mod.route_mode_from_text(text), "1136")
+
+    def test_only_1136_cancelled_uses_1135(self):
+        text = "Rute 1136 Standal-Trandal er innstilt inntil vidare."
+        self.assertEqual(mod.route_mode_from_text(text), "1135")
+
+    def test_both_lines_cancelled_without_kombi_word_is_kombi(self):
+        text = "1135 og 1136 innstilt på grunn av driftsproblem."
+        self.assertEqual(mod.route_mode_from_text(text), "kombi")
 
 
 class FetchTests(unittest.TestCase):

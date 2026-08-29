@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-"""Hent korresponderande ferjeruter over Storfjorden frå Entur.
+"""Hent korresponderande ruter frå Entur.
 
-Begge samband landar på Festøya, og derfrå er det bilveg til Standal. Køyr
-berre når rutetabellane er endra; nettlesaren les den lagra fila.
+Solavågen (1069) og Hundeidvika (1049) landar på Festøya, med bilveg til
+Standal. Buss 133 Leknes–Øye gjeld når aktiv tabell har Leknes (kombirute
+eller 1135). Køyr berre når rutetabellane er endra; nettlesaren les den
+lagra fila.
 """
 
 from __future__ import annotations
@@ -26,9 +28,35 @@ DRIVE_MINUTES = 14
 MARGIN_MINUTES = 5
 
 LINES = (
-    {"id": "solavagen", "lineId": "MOR:Line:1069", "label": "Solavågen"},
-    {"id": "hundeidvika", "lineId": "MOR:Line:1049", "label": "Hundeidvika"},
+    {
+        "id": "solavagen",
+        "lineId": "MOR:Line:1069",
+        "label": "Solavågen",
+        "hub": "Festøya",
+        "roadTo": "Standal",
+        "driveMinutes": 14,
+        "marginMinutes": 5,
+    },
+    {
+        "id": "hundeidvika",
+        "lineId": "MOR:Line:1049",
+        "label": "Hundeidvika",
+        "hub": "Festøya",
+        "roadTo": "Standal",
+        "driveMinutes": 14,
+        "marginMinutes": 5,
+    },
+    {
+        "id": "oye",
+        "lineId": "MOR:Line:133",
+        "label": "Øye",
+        "hub": "Leknes",
+        "roadTo": "Leknes",
+        "driveMinutes": 0,
+        "marginMinutes": 2,
+    },
 )
+QUAY_ALIASES = {"Lekneset": "Leknes"}
 
 QUAY_SUFFIXES = (" ferjekai", " kai")
 
@@ -58,8 +86,9 @@ def quay_place(name: str | None) -> str:
     place = name.strip()
     for suffix in QUAY_SUFFIXES:
         if place.endswith(suffix):
-            return place[: -len(suffix)].strip()
-    return place
+            place = place[: -len(suffix)].strip()
+            break
+    return QUAY_ALIASES.get(place, place)
 
 
 def clock(value: str | None) -> str | None:
@@ -134,8 +163,9 @@ def build_payload(lines: list[tuple[dict, dict]], fetched_at: str | None = None)
             trip = trip_from_journey(journey)
             if not trip:
                 continue
+            hub = spec.get("hub") or HUB
             # Berre turar som rører knutepunktet er interessante.
-            if HUB not in (trip["from"], trip["to"]):
+            if hub not in (trip["from"], trip["to"]):
                 continue
             trips.append(
                 {
@@ -153,6 +183,10 @@ def build_payload(lines: list[tuple[dict, dict]], fetched_at: str | None = None)
                 "label": spec["label"],
                 "publicCode": line.get("publicCode") or "",
                 "operator": (line.get("operator") or {}).get("name") or "",
+                "hub": spec.get("hub") or HUB,
+                "roadTo": spec.get("roadTo") or ROAD_TO,
+                "driveMinutes": spec.get("driveMinutes", DRIVE_MINUTES),
+                "marginMinutes": spec.get("marginMinutes", MARGIN_MINUTES),
                 "trips": trips,
             }
         )

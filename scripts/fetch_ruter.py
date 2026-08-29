@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
-"""Hent rutetabellen for samband 1136 frå Entur.
+"""Hent rutetabellane for 1136 og 1135 frå Entur.
 
-Køyr berre når rutetabellen er endra. Nettlesaren les den lagra fila og byggjer
-seilingsplanen for dagen utan nye API-kall.
+Køyr berre når rutetabellen er endra. Nettlesaren les den lagra fila.
+
+Kombinasjonsruta ligg ikkje i Entur. Ho er transkribert frå FRAM-PDF i
+data/kombirute.json (scripts/build_kombirute.py) og blir bytt ut når FRAM
+legg ut ny PDF.
 """
 
 from __future__ import annotations
@@ -16,8 +19,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 ENTUR_URL = "https://api.entur.io/journey-planner/v3/graphql"
-LINE_ID = "MOR:Line:1136"
 CLIENT_NAME = "teitrand-fergeruter"
+LINE_IDS = {"1136": "MOR:Line:1136", "1135": "MOR:Line:1135"}
+QUAY_ALIASES = {"Lekneset": "Leknes"}
 
 QUAY_SUFFIXES = (" ferjekai", " kai")
 
@@ -29,8 +33,8 @@ SIGNAL_RE = re.compile(r"min\.?\s*(\d+)\s*(timar|time|minutt|min)", re.I)
 PHONE_RE = re.compile(r"tlf\.?\s*([\d\s]{6,})", re.I)
 
 QUERY = """
-{
-  line(id: "MOR:Line:1136") {
+query ($id: ID!) {
+  line(id: $id) {
     id
     publicCode
     name
@@ -56,8 +60,9 @@ def quay_place(name: str | None) -> str:
     place = name.strip()
     for suffix in QUAY_SUFFIXES:
         if place.endswith(suffix):
-            return place[: -len(suffix)].strip()
-    return place
+            place = place[: -len(suffix)].strip()
+            break
+    return QUAY_ALIASES.get(place, place)
 
 
 def clock(value: str | None) -> str | None:
@@ -142,10 +147,10 @@ def timetable_body(payload: dict) -> dict:
     return {key: value for key, value in payload.items() if key != "fetchedAt"}
 
 
-def fetch_line(timeout: int = 60) -> dict:
+def fetch_line(line_id: str, timeout: int = 60) -> dict:
     req = urllib.request.Request(
         ENTUR_URL,
-        data=json.dumps({"query": QUERY}).encode("utf-8"),
+        data=json.dumps({"query": QUERY, "variables": {"id": line_id}}).encode("utf-8"),
         headers={
             "Content-Type": "application/json",
             "Accept": "application/json",
@@ -159,19 +164,25 @@ def fetch_line(timeout: int = 60) -> dict:
         raise RuntimeError(f"Entur GraphQL-feil: {body['errors']}")
     line = (body.get("data") or {}).get("line")
     if not line:
-        raise RuntimeError("Entur gav ikkje noka linje 1136.")
+        raise RuntimeError(f"Entur gav ikkje linje {line_id}.")
     return line
 
 
-def build_payload(line: dict, fetched_at: str | None = None) -> dict:
+def build_line(line: dict) -> dict:
+    return {
+        "lineId": line.get("id") or "",
+        "publicCode": line.get("publicCode") or "",
+        "lineName": line.get("name") or "",
+        "legs": build_legs(line.get("serviceJourneys") or []),
+    }
+
+
+def build_payload(lines: dict[str, dict], fetched_at: str | None = None) -> dict:
     return {
         "source": ENTUR_URL,
-        "lineId": line.get("id") or LINE_ID,
-        "publicCode": line.get("publicCode") or "1136",
-        "lineName": line.get("name") or "Standal-Trandal",
         "fetchedAt": fetched_at or datetime.now(timezone.utc).isoformat(),
         "hjorundfjordQuays": list(HJORUNDFJORD_QUAYS),
-        "legs": build_legs(line.get("serviceJourneys") or []),
+        "lines": {code: build_line(line) for code, line in lines.items()},
     }
 
 
@@ -194,16 +205,18 @@ def write_if_changed(payload: dict, output: Path) -> bool:
 def main() -> int:
     output = Path(sys.argv[1]) if len(sys.argv) > 1 else default_output_path()
     try:
-        payload = build_payload(fetch_line())
+        fetched = {code: fetch_line(line_id) for code, line_id in LINE_IDS.items()}
+        payload = build_payload(fetched)
     except (urllib.error.URLError, TimeoutError, RuntimeError, json.JSONDecodeError) as exc:
         print(f"Kunne ikkje hente rutetabell: {exc}", file=sys.stderr)
         return 1
     changed = write_if_changed(payload, output)
-    count = len(payload["legs"])
+    counts = {code: len(line["legs"]) for code, line in payload["lines"].items()}
+    summary = ", ".join(f"{code}={n}" for code, n in counts.items())
     if changed:
-        print(f"Skreiv {count} strekningar til {output}")
+        print(f"Skreiv {summary} strekningar til {output}")
     else:
-        print(f"Rutetabellen er uendra ({count} strekningar)")
+        print(f"Rutetabellen er uendra ({summary})")
     return 0
 
 

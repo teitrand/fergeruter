@@ -20,6 +20,8 @@ test("index.html lastar Plausible utan informasjonskapslar", () => {
   assert.match(html, /src="https:\/\/plausible\.io\/js\/pa-zLwKfsUV57HIZfM4j6wLS\.js"/);
   assert.match(html, /plausible\.init\(/);
   assert.match(html, /customProperties/);
+  assert.match(html, /transformRequest/);
+  assert.match(html, /\/dev\//);
   assert.doesNotMatch(html, /google-analytics|gtag\(|googletagmanager/i);
 });
 
