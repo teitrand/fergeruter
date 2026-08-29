@@ -97,6 +97,25 @@ def apply_pdf_signal(legs: list[dict]) -> None:
         item["requestStop"] = marked
 
 
+def hide_duplicate_departures(legs: list[dict]) -> None:
+    """PDF har éi Frå-celle per kai og klokke.
+
+    Innbound til Skår/Trandal brukar same Sæbø-tid som pendelen, og skal
+    berre gje ankomst — ikkje ei ekstra «Frå Sæbø»-rad.
+    """
+    seen: set[tuple[str, str, str]] = set()
+    for item in legs:
+        hidden = False
+        for day in item["days"]:
+            key = (day, item["from"], item["departure"])
+            if key in seen:
+                hidden = True
+            else:
+                seen.add(key)
+        if hidden:
+            item["hideDeparture"] = True
+
+
 def fjord_back(days, trandal, saebo_arr=None, standal=None, signal=False):
     """Retur. Standal-avgang berre når PDF-en har «Frå Standal»."""
     items = []
@@ -197,6 +216,7 @@ def build() -> dict:
     legs.append(leg("Trandal", "Sæbø", "0755", "0815", sa, signal=True))
 
     apply_pdf_signal(legs)
+    hide_duplicate_departures(legs)
     legs.sort(key=lambda item: (item["days"][0], item["departure"], item["from"], item["to"]))
     return {
         "source": SOURCE,

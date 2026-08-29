@@ -241,6 +241,26 @@ test("appen viser same Frå-tid som FRAM-PDF for kvardag, laurdag og søndag", (
   assert.ok(!sunday.some((leg) => leg.from === "Sæbø" && leg.departure === "21:15:00"));
 });
 
+test("kombirute har berre éi Frå Sæbø 11:15", () => {
+  setTestState({
+    routes: ruter,
+    kombirute: kombi,
+    messages: {
+      messages: [{ isLocal: true, text: SMS, routeMode: "kombi", validTo: "2099-01-01T00:00:00Z" }],
+    },
+  });
+  const legs = legsForDate(WEEKDAY);
+  const events = buildEvents(legs, null).filter(
+    (event) => event.kind === "dep" && event.quays.includes("Sæbø") && event.at === 11 * 60 + 15
+  );
+  assert.equal(events.length, 1);
+  const visible = legs.filter(
+    (leg) => leg.from === "Sæbø" && leg.departure === "11:15:00" && !leg.hideDeparture
+  );
+  assert.equal(visible.length, 1);
+  assert.equal(visible[0].to, "Leknes");
+});
+
 test("Skår har anløp før avgang, same klokke som på 1136", () => {
   setTestState({
     routes: ruter,

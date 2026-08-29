@@ -781,7 +781,8 @@
       "days": [
         "sunday"
       ],
-      "id": "kombi-Sæbø-1830-Skår-sunday"
+      "id": "kombi-Sæbø-1830-Skår-sunday",
+      "hideDeparture": true
     },
     {
       "from": "Leknes",
@@ -1171,7 +1172,8 @@
         "saturday",
         "sunday"
       ],
-      "id": "kombi-Sæbø-1115-Skår-weekday,saturday,sunday"
+      "id": "kombi-Sæbø-1115-Skår-weekday,saturday,sunday",
+      "hideDeparture": true
     },
     {
       "from": "Leknes",
@@ -1418,7 +1420,8 @@
         "weekday",
         "saturday"
       ],
-      "id": "kombi-Sæbø-1730-Skår-weekday,saturday"
+      "id": "kombi-Sæbø-1730-Skår-weekday,saturday",
+      "hideDeparture": true
     },
     {
       "from": "Leknes",
@@ -1568,7 +1571,8 @@
         "weekday",
         "saturday"
       ],
-      "id": "kombi-Sæbø-2100-Trandal-weekday,saturday"
+      "id": "kombi-Sæbø-2100-Trandal-weekday,saturday",
+      "hideDeparture": true
     },
     {
       "from": "Leknes",
