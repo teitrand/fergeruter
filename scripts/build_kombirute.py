@@ -97,25 +97,6 @@ def apply_pdf_signal(legs: list[dict]) -> None:
         item["requestStop"] = marked
 
 
-def hide_duplicate_departures(legs: list[dict]) -> None:
-    """PDF har éi Frå-celle per kai og klokke.
-
-    Innbound til Skår/Trandal brukar same Sæbø-tid som pendelen, og skal
-    berre gje ankomst — ikkje ei ekstra «Frå Sæbø»-rad.
-    """
-    seen: set[tuple[str, str, str]] = set()
-    for item in legs:
-        hidden = False
-        for day in item["days"]:
-            key = (day, item["from"], item["departure"])
-            if key in seen:
-                hidden = True
-            else:
-                seen.add(key)
-        if hidden:
-            item["hideDeparture"] = True
-
-
 def fjord_back(days, trandal, saebo_arr=None, standal=None, signal=False):
     """Retur. Standal-avgang berre når PDF-en har «Frå Standal»."""
     items = []
@@ -126,19 +107,12 @@ def fjord_back(days, trandal, saebo_arr=None, standal=None, signal=False):
     return items
 
 
-def skar_roundtrip(days, saebo, skar):
-    """Sæbø–Skår. Berre Frå Skår er 1) i PDF-en; apply_pdf_signal set merket."""
-    return [
-        leg("Sæbø", "Skår", saebo, skar, days),
-        leg("Skår", "Sæbø", skar, plus(skar, 20), days),
-    ]
-
-
 def build() -> dict:
     wd, sa, su = ["weekday"], ["saturday"], ["sunday"]
     all_days = wd + sa + su
     legs: list[dict] = []
 
+    # PDF: fem Frå-kolonnar × måndag–fredag / laurdag / søndag.
     # Sæbø–Leknes-pendel (same rader som PDF).
     for days, pairs in [
         (wd, [
@@ -198,17 +172,15 @@ def build() -> dict:
     # Søndag: PDF har «Frå Leknes» 21:15 etter kveldsreturen (ikkje Sæbø-ankomst).
     legs.append(leg("Leknes", "Sæbø", "2115", "2130", su))
 
-    # Signalturar Skår. Same PDF-rad som Sæbø 1115 / 1730 / 1830; innbound
-    # slik at tidslinja får anløp før «Frå Skår» (som på 1136).
-    for days, saebo, skar in [
-        (all_days, "1115", "1145"),
-        (wd + sa, "1730", "1800"),
-        (su, "1830", "1900"),
+    # Fem Frå-kolonnar per dag (Sæbø, Leknes, Skår, Trandal, Standal).
+    # Skår-cellene er eigne Frå-tider på same rad som Sæbø–Leknes, ikkje
+    # ein ekstra avgang frå Sæbø.
+    for days, skar in [
+        (all_days, "1145"),
+        (wd + sa, "1800"),
+        (su, "1900"),
     ]:
-        legs.extend(skar_roundtrip(days, saebo, skar))
-
-    # 2140 er berre Trandal i PDF-en; same rad som Sæbø 2100.
-    legs.append(leg("Sæbø", "Trandal", "2100", "2140", wd + sa, signal=True))
+        legs.append(leg("Skår", "Sæbø", skar, plus(skar, 20), days))
 
     # Laurdag morgon inn fjorden på signal.
     legs.extend(fjord_out(sa, "0700", "0725", "0740", signal=True))
@@ -216,7 +188,6 @@ def build() -> dict:
     legs.append(leg("Trandal", "Sæbø", "0755", "0815", sa, signal=True))
 
     apply_pdf_signal(legs)
-    hide_duplicate_departures(legs)
     legs.sort(key=lambda item: (item["days"][0], item["departure"], item["from"], item["to"]))
     return {
         "source": SOURCE,

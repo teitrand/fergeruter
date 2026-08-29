@@ -103,32 +103,19 @@ class KombiruteTests(unittest.TestCase):
             self.assertEqual(len(saebo_1115), 1, day)
             self.assertEqual(saebo_1115[0]["to"], "Leknes")
 
-    def test_signal_stops_have_arrival_before_departure(self):
-        """Skår (og Trandal 21:40) skal ha anløp same klokke som Frå."""
+    def test_no_invented_from_on_overlapping_row(self):
+        """Same PDF-rad (t.d. 11:15 / 11:30 / 11:45) er fem Frå-kolonnar, ikkje to Sæbø-avgangar."""
         payload = mod.build()
-        for day in ("weekday", "saturday", "sunday"):
-            for quay in ("Skår", "Trandal", "Standal", "Leknes"):
-                deps = [
-                    leg
-                    for leg in payload["legs"]
-                    if leg["from"] == quay and day in leg["days"]
-                ]
-                arrs = {
-                    leg["arrival"]
-                    for leg in payload["legs"]
-                    if leg["to"] == quay and day in leg["days"]
-                }
-                if quay == "Skår":
-                    self.assertTrue(deps, day)
-                    self.assertTrue(arrs, day)
-                for dep in deps:
-                    if quay == "Leknes" and dep["departure"] in {"12:00:00", "21:15:00"}:
-                        continue
-                    if quay == "Trandal" and dep["departure"] == "21:40:00":
-                        self.assertIn(dep["departure"], arrs, f"{day} Trandal 21:40")
-                        continue
-                    if quay == "Skår":
-                        self.assertIn(dep["departure"], arrs, f"{day} {quay} {dep['departure']}")
+        weekday = [leg for leg in payload["legs"] if "weekday" in leg["days"]]
+        self.assertFalse(
+            any(leg["from"] == "Sæbø" and leg["to"] == "Skår" for leg in weekday)
+        )
+        self.assertTrue(
+            any(
+                leg["from"] == "Skår" and leg["departure"] == "11:45:00"
+                for leg in weekday
+            )
+        )
 
     def test_signal_matches_fram_pdf_footnote(self):
         """Berre 1)-cellene i PDF-en skal vere merkte som signal."""

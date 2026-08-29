@@ -241,7 +241,7 @@ test("appen viser same Frå-tid som FRAM-PDF for kvardag, laurdag og søndag", (
   assert.ok(!sunday.some((leg) => leg.from === "Sæbø" && leg.departure === "21:15:00"));
 });
 
-test("kombirute har berre éi Frå Sæbø 11:15", () => {
+test("kombirute har éi hending per Frå-celle, ikkje ankomst same minutt", () => {
   setTestState({
     routes: ruter,
     kombirute: kombi,
@@ -250,45 +250,38 @@ test("kombirute har berre éi Frå Sæbø 11:15", () => {
     },
   });
   const legs = legsForDate(WEEKDAY);
-  const events = buildEvents(legs, null).filter(
+  const events = buildEvents(legs, null);
+  const saebo1115 = events.filter(
     (event) => event.kind === "dep" && event.quays.includes("Sæbø") && event.at === 11 * 60 + 15
   );
-  assert.equal(events.length, 1);
-  const visible = legs.filter(
-    (leg) => leg.from === "Sæbø" && leg.departure === "11:15:00" && !leg.hideDeparture
+  assert.equal(saebo1115.length, 1);
+  assert.equal(
+    legs.filter((leg) => leg.from === "Sæbø" && leg.departure === "11:15:00").length,
+    1
   );
-  assert.equal(visible.length, 1);
-  assert.equal(visible[0].to, "Leknes");
-});
-
-test("Skår har anløp før avgang, same klokke som på 1136", () => {
-  setTestState({
-    routes: ruter,
-    kombirute: kombi,
-    messages: {
-      messages: [{ isLocal: true, text: SMS, routeMode: "kombi", validTo: "2099-01-01T00:00:00Z" }],
-    },
-  });
-  const legs = legsForDate(WEEKDAY);
-  const deps = legs.filter((leg) => leg.from === "Skår");
+  const skar = events.filter((event) => event.quays?.includes("Skår") && event.at === 11 * 60 + 45);
   assert.deepEqual(
-    deps.map((leg) => leg.departure),
-    ["11:45:00", "18:00:00"]
+    skar.map((event) => event.kind),
+    ["dep"]
   );
-  for (const dep of deps) {
-    assert.ok(
-      legs.some((leg) => leg.to === "Skår" && leg.arrival === dep.departure && leg.from === "Sæbø"),
-      `ankomst før ${dep.departure}`
-    );
+  const leknes = events.filter(
+    (event) => event.quays?.includes("Leknes") && event.at === 6 * 60 + 15
+  );
+  assert.deepEqual(
+    leknes.map((event) => event.kind),
+    ["dep"]
+  );
+  const doubles = [];
+  const byKey = new Map();
+  for (const event of events) {
+    const quay = event.quays?.[0];
+    if (!quay || (event.kind !== "arr" && event.kind !== "dep")) continue;
+    const key = `${quay}|${event.at}`;
+    const prev = byKey.get(key);
+    if (prev && prev !== event.kind) doubles.push(key);
+    byKey.set(key, event.kind);
   }
-  const noon = nextArrivalAt(legs, "Skår");
-  assert.equal(noon?.arrival, "11:45:00");
-  assert.equal(noon?.from, "Sæbø");
-  const events = buildEvents(legs, null).filter((event) => event.quays?.includes("Skår"));
-  const kinds = events.map((event) => event.kind);
-  assert.ok(kinds.includes("arr") && kinds.includes("dep"));
-  const firstSkar = events.find((event) => event.at === 11 * 60 + 45);
-  assert.equal(firstSkar?.kind, "arr");
+  assert.deepEqual(doubles, []);
 });
 
 test("1136 merkar berre PDF-fotnote 1) og 3) som signal", () => {
