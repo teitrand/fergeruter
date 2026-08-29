@@ -271,6 +271,52 @@ test("Skår har anløp før avgang, same klokke som på 1136", () => {
   assert.equal(firstSkar?.kind, "arr");
 });
 
+test("1136 merkar berre PDF-fotnote 1) og 3) som signal", () => {
+  setTestState({ routes: ruter, kombirute: kombi, messages: { messages: [] } });
+  const friday = legsForDate("2026-08-28");
+  const standal0740 = friday.find((leg) => leg.from === "Standal" && leg.departure === "07:40:00");
+  const saebo0835 = friday.find((leg) => leg.from === "Sæbø" && leg.departure === "08:35:00");
+  const standal0645 = friday.find((leg) => leg.from === "Standal" && leg.departure === "06:45:00");
+  assert.ok(standal0740);
+  assert.equal(standal0740.signal, null);
+  assert.ok(saebo0835?.signal);
+  assert.equal(saebo0835.signal.minutesBefore, 60);
+  assert.ok(standal0645?.signal);
+
+  const saturday = legsForDate("2026-08-29");
+  const satStandal = saturday.find((leg) => leg.from === "Standal" && leg.departure === "07:40:00");
+  const satTrandal = saturday.find((leg) => leg.from === "Trandal" && leg.departure === "08:00:00");
+  assert.equal(satStandal?.signal, null);
+  assert.ok(satTrandal?.signal);
+
+  const wednesday = legsForDate("2026-09-02");
+  const valderoya = wednesday.find(
+    (leg) => leg.from === "Valderøya" && leg.departure === "11:10:00"
+  );
+  assert.ok(valderoya?.signal);
+  assert.equal(valderoya.signal.minutesBefore, 180);
+});
+
+test("1135 har inga PDF-fotnote og inga signalmerke", () => {
+  setTestState({
+    routes: ruter,
+    kombirute: kombi,
+    messages: {
+      messages: [
+        {
+          isLocal: true,
+          text: "Rute 1136 Standal-Trandal er innstilt inntil vidare.",
+          routeMode: "1135",
+          validTo: "2099-01-01T00:00:00Z",
+        },
+      ],
+    },
+  });
+  const legs = legsForDate(WEEKDAY);
+  assert.ok(legs.length > 0);
+  assert.ok(legs.every((leg) => !leg.signal));
+});
+
 test("kombirute merkar berre PDF-fotnote 1) som signal", () => {
   setTestState({
     routes: ruter,

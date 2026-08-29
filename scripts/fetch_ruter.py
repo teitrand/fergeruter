@@ -15,7 +15,7 @@ import re
 import sys
 import urllib.error
 import urllib.request
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 ENTUR_URL = "https://api.entur.io/journey-planner/v3/graphql"
@@ -31,6 +31,49 @@ HJORUNDFJORD_QUAYS = ("Standal", "Trandal", "Sæbø", "Skår", "Leknes", "Bjørk
 
 SIGNAL_RE = re.compile(r"min\.?\s*(\d+)\s*(timar|time|minutt|min)", re.I)
 PHONE_RE = re.compile(r"tlf\.?\s*([\d\s]{6,})", re.I)
+
+# Fotnote 1) og 3) i FRAM 1136-PDF frå 17.08.26, per Frå-celle.
+# https://frammr.no/_f/p2/i3300c33e-2d47-4764-978b-6b2213d03b94/1136-standal-trandal-sabo-skar-valderoya-store-kalvoy-20260817.pdf
+# 1) = 1 time, 3) = 3 timar. Ikkje heile turen (t.d. Standal 07:40 er vanleg,
+# medan Trandal 08:00 laurdag på same tur er 1)).
+PDF_SIGNAL_1136 = {
+    "mtthf": {
+        "Standal": {"0645": 1, "2000": 1},
+        "Trandal": {"0705": 1, "1625": 1, "2020": 1},
+        "Sæbø": {"0835": 1, "0920": 1, "1650": 1, "1745": 1},
+        "Skår": {"0855": 1, "1710": 1},
+    },
+    "wednesday": {
+        "Sæbø": {"0835": 1},
+        "Valderøya": {"1110": 3, "1900": 3},
+        "Store Kalvøy": {"1210": 3, "1925": 3},
+    },
+    "saturday": {
+        "Standal": {"2000": 1},
+        "Trandal": {"0800": 1, "1625": 1, "2020": 1},
+        "Sæbø": {"0835": 1, "0920": 1, "1650": 1, "1745": 1},
+        "Skår": {"0855": 1, "1710": 1},
+        "Valderøya": {"1215": 3},
+        "Store Kalvøy": {"1315": 3},
+    },
+    "sunday": {
+        "Standal": {"2000": 1, "2040": 1},
+        "Trandal": {"1020": 1, "1715": 1, "2020": 1, "2100": 1},
+        "Sæbø": {"1050": 1, "1150": 1, "1750": 1, "1835": 1},
+        "Skår": {"1120": 1, "1815": 1},
+    },
+}
+
+SIGNAL_1H = {
+    "minutesBefore": 60,
+    "text": "Berre på signal min. 1 time før, tlf. 91 66 93 40",
+    "phone": "91 66 93 40",
+}
+SIGNAL_3H = {
+    "minutesBefore": 180,
+    "text": "Berre på signal min. 3 timar før, tlf. 91 66 93 40",
+    "phone": "91 66 93 40",
+}
 
 QUERY = """
 query ($id: ID!) {
@@ -77,6 +120,64 @@ def passing_departure(point: dict) -> str | None:
 
 def passing_arrival(point: dict) -> str | None:
     return clock((point.get("arrival") or {}).get("time")) or passing_departure(point)
+
+
+def day_group(iso: str) -> str:
+    weekday = date.fromisoformat(iso).weekday()
+    if weekday == 2:
+        return "wednesday"
+    if weekday == 5:
+        return "saturday"
+    if weekday == 6:
+        return "sunday"
+    return "mtthf"
+
+
+def hhmm(clock: str) -> str:
+    return clock[:2] + clock[3:5]
+
+
+def pdf_signal_hours(from_quay: str, departure: str, dates: list[str]) -> int | None:
+    """Timar frå PDF-fotnote, eller None.
+
+    Høgtidsdagar som køyrer søndagstabell (t.d. 1. nyttårsdag) har Frå-tider
+    som berre finst i søndagsgruppa. Då vinn den gruppa som faktisk har celle.
+    """
+    hits = {
+        PDF_SIGNAL_1136.get(day_group(iso), {}).get(from_quay, {}).get(hhmm(departure))
+        for iso in dates
+    }
+    hits.discard(None)
+    if len(hits) == 1:
+        return hits.pop()
+    return None
+
+
+def apply_fram_pdf_signal(public_code: str, legs: list[dict]) -> None:
+    """PDF-fotnotane styrer 'På signal', ikkje Entur-meldinga på heile turen."""
+    if public_code == "1135":
+        # Sommar- og haust-PDF for 1135 har inga nummerert fotnote.
+        for item in legs:
+            item["signal"] = None
+        return
+    if public_code != "1136":
+        return
+    for item in legs:
+        hours = pdf_signal_hours(
+            item["from"], item["departure"], item.get("activeDates") or []
+        )
+        if hours is None:
+            item["signal"] = None
+            continue
+        existing = item.get("signal") or {}
+        if existing.get("minutesBefore") == hours * 60:
+            continue
+        template = SIGNAL_1H if hours == 1 else SIGNAL_3H
+        item["signal"] = {
+            "minutesBefore": hours * 60,
+            "text": existing.get("text") or template["text"],
+            "phone": existing.get("phone") or template["phone"],
+        }
 
 
 def parse_signal(notices: list[dict]) -> dict | None:
@@ -169,11 +270,14 @@ def fetch_line(line_id: str, timeout: int = 60) -> dict:
 
 
 def build_line(line: dict) -> dict:
+    code = line.get("publicCode") or ""
+    legs = build_legs(line.get("serviceJourneys") or [])
+    apply_fram_pdf_signal(code, legs)
     return {
         "lineId": line.get("id") or "",
-        "publicCode": line.get("publicCode") or "",
+        "publicCode": code,
         "lineName": line.get("name") or "",
-        "legs": build_legs(line.get("serviceJourneys") or []),
+        "legs": legs,
     }
 
 
