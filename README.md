@@ -53,9 +53,11 @@ Sida kan installerast på telefonen frå nettlesaren (Chrome: **Installer app**,
 
 ## Produksjon og testhost
 
-Produksjon er [teitrand.github.io/fergeruter](https://teitrand.github.io/fergeruter/) frå **`main`**. Testutgåva ligg på [teitrand.github.io/fergeruter/dev/](https://teitrand.github.io/fergeruter/dev/) frå greina **`dev`**.
+Produksjon er [teitrand.github.io/fergeruter](https://teitrand.github.io/fergeruter/) frå **`main`**. Testutgåva ligg på [teitrand.github.io/fergeruter/dev/](https://teitrand.github.io/fergeruter/dev/).
 
-GitHub Pages er sett til **GitHub Actions** (éin gong i repo-innstillingane: Settings → Pages → Source = GitHub Actions). Arbeidsflyta `.github/workflows/pages.yml` publiserer `main` til roten og `dev` til `/dev/`.
+Pages kjem framleis frå `main` (legacy). Testhosten blir derfor kopiert inn som mappa `dev/` på `main` ved kvar push til greina `dev` (arbeidsflyta **Publiser testhost til /dev/**).
+
+`github-pages`-miljøet tillèt berre `main`, så Actions-deploy frå `dev` feilar. Når de byter Pages til **GitHub Actions** (Settings → Pages → Source), kan `.github/workflows/pages.yml` køyrast frå `main` og publisere både rot og `/dev/` i same steg.
 
 - Feature-grein → PR mot `dev` → test på `/dev/` → merge `dev` → `main` når det er greitt
 - Service worker på `/dev/` har eige scope og eige cache-namn, så testinga ikkje stal cache frå prod
