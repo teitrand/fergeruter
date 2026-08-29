@@ -207,8 +207,10 @@ test("appen viser same Frå-tid som kombirute-tabellen for alle daggrupper", () 
   }
 });
 
-test("kombirute har éi Frå-hending per celle; ankomst berre ved hol", () => {
+test("kombirute viser alle ankomstar frå overfartstid", () => {
   useKombi();
+  assert.equal(kombi.crossingMinutes["Leknes–Trandal"], 20);
+  assert.equal(kombi.crossingMinutes["Trandal–Leknes"], 20);
   for (const [kind, iso] of Object.entries(KOMBI_DATES)) {
     const legs = legsForDate(iso);
     const events = buildEvents(legs, null);
@@ -217,29 +219,17 @@ test("kombirute har éi Frå-hending per celle; ankomst berre ved hol", () => {
       .filter((event) => event.kind === "dep")
       .map((event) => `${event.quays[0]}|${event.at}`);
     assert.deepEqual([...new Set(deps)].sort(), [...fromKeys].sort(), kind);
-    const doubles = [];
-    const byKey = new Map();
-    for (const event of events) {
-      const quay = event.quays?.[0];
-      if (!quay || (event.kind !== "arr" && event.kind !== "dep")) continue;
-      const key = `${quay}|${event.at}`;
-      const prev = byKey.get(key);
-      if (prev && prev !== event.kind) doubles.push(key);
-      byKey.set(key, event.kind);
+    const expectedArr = new Set(legs.map((leg) => `${leg.to}|${clockMin(leg.arrival)}`));
+    const arrs = events
+      .filter((event) => event.kind === "arr")
+      .map((event) => `${event.quays[0]}|${event.at}`);
+    assert.deepEqual([...new Set(arrs)].sort(), [...expectedArr].sort(), kind);
+    for (const leg of legs) {
+      const key = `${leg.from}–${leg.to}`;
+      const sailing = kombi.crossingMinutes[key];
+      assert.equal(typeof sailing, "number", key);
+      assert.equal(clockMin(leg.arrival), (clockMin(leg.departure) + sailing) % (24 * 60), key);
     }
-    assert.deepEqual(doubles, [], kind);
-    const layover = new Set(
-      legs
-        .filter((leg) => !fromKeys.has(`${leg.to}|${clockMin(leg.arrival)}`))
-        .map((leg) => `${leg.to}|${clockMin(leg.arrival)}`)
-    );
-    const arrs = new Set(
-      events
-        .filter((event) => event.kind === "arr")
-        .map((event) => `${event.quays[0]}|${event.at}`)
-    );
-    assert.deepEqual([...arrs].sort(), [...layover].sort(), kind);
-    for (const key of arrs) assert.ok(!fromKeys.has(key), key);
   }
 });
 

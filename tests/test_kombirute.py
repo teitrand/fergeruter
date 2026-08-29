@@ -168,6 +168,8 @@ class KombiruteSchemaTests(unittest.TestCase):
         }
         self.assertTrue(pairs)
         self.assertTrue(pairs <= set(mod.CROSSING))
+        self.assertEqual(mod.CROSSING[("Leknes", "Trandal")], 20)
+        self.assertEqual(mod.CROSSING[("Trandal", "Leknes")], 20)
 
     def test_one_from_per_quay_and_clock(self):
         payload = mod.build()
