@@ -352,7 +352,7 @@ test("kombirute merkar berre PDF-fotnote 1) som signal", () => {
   assert.ok(!legs.find((leg) => leg.from === "Sæbø" && leg.departure === "11:15:00" && leg.to === "Skår")?.signal);
 });
 
-test("kombirute finn ikkje opp tomflytting mellom overlappande rader", () => {
+test("kombirute er éi samanhengande rute utan tomflytting", () => {
   setTestState({
     routes: ruter,
     kombirute: kombi,
@@ -366,10 +366,20 @@ test("kombirute finn ikkje opp tomflytting mellom overlappande rader", () => {
   const events = buildEvents(legs, null);
   assert.ok(legs.some((leg) => leg.to === "Leknes"));
   assert.ok(
-    legs.some((a, i) => legs[i + 1] && a.to !== legs[i + 1].from),
-    "tabellen har rader som ikkje heng saman geografisk"
+    legs.every((a, i) => !legs[i + 1] || a.to === legs[i + 1].from),
+    "neste Frå-celle er neste anløp"
   );
   assert.ok(events.every((event) => event.kind !== "transfer"));
+  const stretch = events
+    .filter((event) => event.at >= 10 * 60 + 45 && event.at <= 12 * 60 + 15)
+    .map((event) => `${String(Math.floor(event.at / 60)).padStart(2, "0")}:${String(event.at % 60).padStart(2, "0")} ${event.kind} ${event.quays[0]}`);
+  assert.deepEqual(stretch, [
+    "10:45 dep Leknes",
+    "11:15 dep Sæbø",
+    "11:30 dep Leknes",
+    "11:45 dep Skår",
+    "12:00 dep Leknes",
+  ]);
   const status = ferryStatus(legs, 10 * 60 + 20, legs);
   assert.doesNotMatch(status?.text || "", /utan passasjerar/);
   assert.doesNotMatch(status?.short || "", /utan passasjerar/);
