@@ -32,6 +32,11 @@ const CANCEL_RE = /innstilt|innstilling/i;
 const KOMBI_RE = /kombinasjon|kombirute|kombinert rute/i;
 const HAS_1135_RE = /\b1135\b/;
 const HAS_1136_RE = /\b1136\b/;
+const VESSEL_UTFORT_RE = /utført av\s+(?:m\/?f\.?\s*)?(geiranger|kvernes)/i;
+const DEFAULT_VESSELS = [
+  { name: "M/F Geiranger", phone: "916 69 321" },
+  { name: "M/F Kvernes", phone: "916 69 340" },
+];
 
 const state = {
   messageFilter: "local",
@@ -267,6 +272,46 @@ function routeModeFromMessages(messages, now = Date.now()) {
   return latest.routeMode || modeFromText(`${latest.heading || ""} ${latest.text || ""}`);
 }
 
+function titleVessel(name) {
+  const key = String(name || "").toLowerCase();
+  if (key === "geiranger") return "Geiranger";
+  if (key === "kvernes") return "Kvernes";
+  return null;
+}
+
+function vesselFromText(text) {
+  const blob = text || "";
+  const performed = blob.match(VESSEL_UTFORT_RE);
+  if (performed) return titleVessel(performed[1]);
+  const names = [...blob.matchAll(/\b(?:m\/?f\.?\s*)?(geiranger|kvernes)\b/gi)].map((match) =>
+    match[1].toLowerCase()
+  );
+  const unique = [...new Set(names)];
+  if (unique.length === 1) return titleVessel(unique[0]);
+  return null;
+}
+
+function latestLocalMessage(now = Date.now()) {
+  return validMessages(state.messages?.messages || [], now).find((msg) => msg.isLocal) || null;
+}
+
+function activeVessel() {
+  const latest = latestLocalMessage();
+  if (!latest) return null;
+  return latest.vessel || vesselFromText(`${latest.heading || ""} ${latest.text || ""}`);
+}
+
+function vesselInfo(name) {
+  const vessels = state.kombirute?.vessels || DEFAULT_VESSELS;
+  if (!name) return null;
+  return (
+    vessels.find((item) => item.name.toLowerCase().includes(name.toLowerCase())) || {
+      name: `M/F ${name}`,
+      phone: null,
+    }
+  );
+}
+
 function activeMode() {
   return routeOverride() || routeModeFromMessages(state.messages?.messages) || "1136";
 }
@@ -394,6 +439,15 @@ function delayMinutes(value) {
 
 function homeQuay(legs) {
   return legs[0]?.from || HOME_QUAY;
+}
+
+/**
+ * Éi ferje køyrer både 1135 og 1136 som éi tabell. PDF-en har òg
+ * signalturar som overlappar i klokka (t.d. Skår og Leknes samstundes).
+ * Då er «flyttar seg utan passasjerar» ikkje ei ekte forflytting.
+ */
+function isCombinedTimetable() {
+  return activeMode() === "kombi";
 }
 
 function catalogKeys(leg) {
@@ -527,11 +581,12 @@ function ferryStatus(legs, now = nowMinutes(), allLegs = null) {
     };
   }
   if (now >= clockMinutes(last.arrival)) {
-    if (last.to === home) {
+    if (isCombinedTimetable() || last.to === home) {
+      const quay = last.to;
       return {
         at: 1441,
-        short: t("status.doneAt", { home }),
-        text: t("status.doneAtPeriod", { home }),
+        short: t("status.doneAt", { home: quay }),
+        text: t("status.doneAtPeriod", { home: quay }),
       };
     }
     return overnightStatus(last, home, now, catalog);
@@ -548,7 +603,7 @@ function ferryStatus(legs, now = nowMinutes(), allLegs = null) {
     }
     const next = legs[i + 1];
     if (next && now >= clockMinutes(leg.arrival) && now < clockMinutes(next.departure)) {
-      const moving = leg.to !== next.from;
+      const moving = !isCombinedTimetable() && leg.to !== next.from;
       return {
         at: clockMinutes(leg.arrival) + 0.5,
         underway: moving,
@@ -884,7 +939,7 @@ function buildEvents(legs, connections) {
       build: (past) => arrivalRow(leg, past, connections),
     });
     const next = legs[index + 1];
-    if (next && leg.to !== next.from) {
+    if (!isCombinedTimetable() && next && leg.to !== next.from) {
       events.push({
         at: clockMinutes(leg.arrival),
         kind: "transfer",
@@ -895,7 +950,7 @@ function buildEvents(legs, connections) {
   });
   const last = legs[legs.length - 1];
   const home = homeQuay(legs);
-  if (last && last.to !== home) {
+  if (!isCombinedTimetable() && last && last.to !== home) {
     events.push({
       at: clockMinutes(last.arrival),
       kind: "transfer",
@@ -1189,6 +1244,10 @@ function appendModeNote(banner, mode) {
     link.target = "_blank";
     link.rel = "noreferrer";
     note.append(link);
+    const vessel = vesselInfo(activeVessel());
+    if (vessel) {
+      note.append(document.createTextNode(` ${t("mode.vessel", { name: vessel.name.replace(/^M\/F\s+/i, "") })}`));
+    }
     banner.append(note);
     return;
   }
@@ -1241,6 +1300,19 @@ function renderRouteChrome() {
       pdf.href = FJORD1_PDF;
       pdf.textContent = "fjord1.no";
     }
+  }
+  const vessel = mode === "kombi" ? vesselInfo(activeVessel()) : null;
+  const operator = document.getElementById("footer-operator");
+  if (operator) {
+    operator.textContent = vessel
+      ? t("footer.operatorVessel", { name: vessel.name, phone: vessel.phone || "" })
+      : t("footer.operator");
+  }
+  const nais = document.getElementById("footnote-nais");
+  if (nais) {
+    nais.textContent = vessel
+      ? t("footnote.naisVessel", { name: vessel.name })
+      : t("footnote.nais");
   }
 }
 
@@ -1596,6 +1668,7 @@ export {
   routeOverride,
   setTestState,
   track,
+  vesselFromText,
   visibleConnectionLines,
 };
 

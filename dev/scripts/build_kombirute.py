@@ -58,10 +58,14 @@ def fjord_out(days, saebo, trandal, standal, signal=False):
     ]
 
 
-def fjord_back(days, trandal, saebo_arr=None, signal=True):
+def fjord_back(days, trandal, saebo_arr=None, standal=None, signal=True):
+    """Retur. Standal-avgang berre når PDF-en har «Frå Standal»."""
+    items = []
+    if standal:
+        items.append(leg("Standal", "Trandal", standal, trandal, days, signal=signal))
     arrive = saebo_arr or plus(trandal, 25)
-    return [leg("Standal", "Trandal", plus(trandal, -15), trandal, days, signal=signal),
-            leg("Trandal", "Sæbø", trandal, arrive, days, signal=signal)]
+    items.append(leg("Trandal", "Sæbø", trandal, arrive, days, signal=signal))
+    return items
 
 
 def build() -> dict:
@@ -113,16 +117,20 @@ def build() -> dict:
     ]:
         legs.extend(fjord_out(days, saebo, trandal, standal))
 
-    # Retur på signal frå Trandal etter Standal-anløp.
-    for days, trandal, saebo_arr in [
-        (all_days, "1005", "1030"),
-        (all_days, "1605", "1630"),
-        (wd + sa, "2005", "2030"),
-        (su, "2050", "2115"),
-        (wd + sa, "2140", "2215"),
+    # Retur. Standal-tid frå PDF-kolonnen «Frå Standal»; 2140 er berre Trandal.
+    for spec in [
+        (all_days, "1005", "1030", "0950"),
+        (all_days, "1605", "1630", "1550"),
+        (wd, "2005", "2030", "1945"),
+        (sa, "2005", "2030", "1950"),
+        (su, "2050", "2110", "2035"),
+        (wd + sa, "2140", "2215", None),
     ]:
-        days_list = days
-        legs.extend(fjord_back(days_list, trandal, saebo_arr))
+        days, trandal, saebo_arr, standal = spec
+        legs.extend(fjord_back(days, trandal, saebo_arr, standal=standal))
+
+    # Søndag: PDF har «Frå Leknes» 21:15 etter kveldsreturen (ikkje Sæbø-ankomst).
+    legs.append(leg("Leknes", "Sæbø", "2115", "2130", su))
 
     # Signalturar Skår.
     for days, dep in [(wd + sa, "1800"), (su, "1900"), (all_days, "1145")]:
@@ -143,7 +151,11 @@ def build() -> dict:
             {"name": "M/F Geiranger", "phone": "916 69 321"},
             {"name": "M/F Kvernes", "phone": "916 69 340"},
         ],
-        "note": "Berre på signal seinast 1 time før avgang. PDF frå FRAM, ikkje Entur.",
+        "note": (
+            "Éi ferje køyrer både Sæbø–Leknes og Standal–Trandal–Sæbø–Skår som "
+            "éi kombinasjonsrute (det andre sambandsfartøyet er ute). "
+            "Berre på signal seinast 1 time før avgang. PDF frå FRAM, ikkje Entur."
+        ),
         "legs": legs,
     }
 
