@@ -27,6 +27,9 @@ NORMAL_RE = re.compile(r"normal drift", re.I)
 CANCEL_RE = re.compile(r"innstilt|innstilling", re.I)
 DELAY_RE = re.compile(r"forsink", re.I)
 CAPACITY_RE = re.compile(r"kapasitet|kapasistet|farleg last|farlig last", re.I)
+KOMBI_RE = re.compile(r"kombinasjon|kombirute|kombinert rute", re.I)
+HAS_1135_RE = re.compile(r"\b1135\b")
+HAS_1136_RE = re.compile(r"\b1136\b")
 
 QUERY = """
 {
@@ -83,6 +86,23 @@ def is_route_1136(heading: str, text: str, connection_number: int | None) -> boo
     return bool(ROUTE_RE.search(blob))
 
 
+def route_mode_from_text(text: str) -> str:
+    """1136, 1135 eller kombi ut frå Fjord1-meldingstekst."""
+    blob = text or ""
+    has_normal = bool(NORMAL_RE.search(blob))
+    has_cancel = bool(CANCEL_RE.search(blob))
+    has_kombi = bool(KOMBI_RE.search(blob))
+    has_1135 = bool(HAS_1135_RE.search(blob))
+    has_1136 = bool(HAS_1136_RE.search(blob))
+    if has_normal and has_cancel and not has_kombi:
+        return "1136"
+    if has_kombi or (has_cancel and has_1135 and has_1136):
+        return "kombi"
+    if has_cancel and has_1136 and not has_1135:
+        return "1135"
+    return "1136"
+
+
 def is_local(heading: str, text: str, connection_number: int | None) -> bool:
     """Meldingar frå Hjørundfjorden og Festøya-Hundeidvika."""
     if is_route_1136(heading, text, connection_number):
@@ -136,6 +156,7 @@ def normalize_node(node: dict) -> dict:
         "severity": classify(text),
         "isRoute1136": is_route_1136(heading, text, connection),
         "isLocal": is_local(heading, text, connection),
+        "routeMode": route_mode_from_text(f"{heading} {text}"),
     }
 
 

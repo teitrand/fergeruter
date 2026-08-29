@@ -208,6 +208,18 @@ h1 {
 .status-banner.is-capacity { border-left-color: var(--delay); }
 .status-banner.is-info { border-left-color: var(--info); }
 
+.status-banner .banner-text { margin: 0; }
+
+.status-banner .banner-mode {
+  margin: 0.45rem 0 0;
+  font-size: 0.92em;
+}
+
+.status-banner .banner-mode a {
+  color: inherit;
+  text-underline-offset: 2px;
+}
+
 .layout {
   display: grid;
   grid-template-columns: 1fr;

@@ -1,4 +1,5 @@
-const CACHE = "fergeruter-v5";
+const IS_DEV = self.location.pathname.includes("/dev/");
+const CACHE = IS_DEV ? "fergeruter-dev-v7" : "fergeruter-v7";
 const PRECACHE = [
   "./",
   "./index.html",
@@ -11,9 +12,14 @@ const PRECACHE = [
   "./assets/icons/icon-512.png",
   "./assets/icons/apple-touch-icon.png",
   "./data/ruter.json",
+  "./data/kombirute.json",
   "./data/trafikkmeldinger.json",
   "./data/korrespondanse.json",
 ];
+
+function isOwnCache(key) {
+  return IS_DEV ? key.startsWith("fergeruter-dev-") : /^fergeruter-v\d/.test(key);
+}
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -29,7 +35,9 @@ self.addEventListener("activate", (event) => {
     caches
       .keys()
       .then((keys) =>
-        Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key)))
+        Promise.all(
+          keys.filter((key) => isOwnCache(key) && key !== CACHE).map((key) => caches.delete(key))
+        )
       )
       .then(() => self.clients.claim())
   );

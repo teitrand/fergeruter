@@ -98,6 +98,7 @@ test("utan hol i tabellen finn vi ikkje opp ei klokkeslett", () => {
 test("quayPlace strippar ferjekai", () => {
   assert.equal(quayPlace("Valderøya ferjekai"), "Valderøya");
   assert.equal(quayPlace("Standal"), "Standal");
+  assert.equal(quayPlace("Lekneset ferjekai"), "Leknes");
 });
 
 test("delayMinutes les ISO-varigheit og sekund", () => {

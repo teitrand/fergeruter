@@ -139,8 +139,35 @@ class FetchTests(unittest.TestCase):
                 with patch.object(sys, "argv", ["fetch_korrespondanse.py", str(out)]):
                     self.assertEqual(mod.main(), 0)
             data = json.loads(out.read_text(encoding="utf-8"))
-            self.assertEqual(len(data["lines"]), 2)
+            self.assertEqual(len(data["lines"]), 3)
             self.assertEqual(data["lines"][0]["trips"][0]["departure"], "06:00:00")
+            self.assertEqual(data["lines"][2]["id"], "oye")
+            self.assertEqual(data["lines"][2]["hub"], "Leknes")
+            self.assertEqual(data["lines"][2]["trips"], [])
+
+    def test_oye_keeps_trips_via_leknes(self):
+        spec = next(item for item in mod.LINES if item["id"] == "oye")
+        self.assertEqual(spec["lineId"], "MOR:Line:133")
+        self.assertEqual(spec["hub"], "Leknes")
+        payload = mod.build_payload(
+            [
+                (
+                    spec,
+                    line(
+                        [
+                            journey("Øye", "Lekneset", "08:10:00", "08:25:00", ["2026-08-26"]),
+                            journey("Ålesund", "Sula", "07:00:00", "07:20:00", ["2026-08-26"]),
+                        ],
+                        code="133",
+                    ),
+                )
+            ],
+            fetched_at="2026-08-26T00:00:00+00:00",
+        )
+        trips = payload["lines"][0]["trips"]
+        self.assertEqual(len(trips), 1)
+        self.assertEqual(trips[0]["to"], "Leknes")
+        self.assertEqual(payload["lines"][0]["driveMinutes"], 0)
 
 
 if __name__ == "__main__":
