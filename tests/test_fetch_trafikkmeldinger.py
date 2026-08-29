@@ -160,6 +160,21 @@ class RouteModeTests(unittest.TestCase):
         text = "1135 og 1136 innstilt på grunn av driftsproblem."
         self.assertEqual(mod.route_mode_from_text(text), "kombi")
 
+    def test_vessel_from_utfort_av(self):
+        self.assertEqual(
+            mod.vessel_from_text("kombinasjonsrute. Ruta blir utført av MF Geiranger."),
+            "Geiranger",
+        )
+        self.assertEqual(
+            mod.vessel_from_text("kombinasjonsrute. Ruta blir utført av M/F Kvernes."),
+            "Kvernes",
+        )
+
+    def test_vessel_ignores_both_names_without_utfort(self):
+        self.assertIsNone(
+            mod.vessel_from_text("M/F Geiranger og M/F Kvernes kan brukast.")
+        )
+
 
 class FetchTests(unittest.TestCase):
     def test_fetch_writes_json(self):

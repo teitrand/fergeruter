@@ -32,6 +32,11 @@ const CANCEL_RE = /innstilt|innstilling/i;
 const KOMBI_RE = /kombinasjon|kombirute|kombinert rute/i;
 const HAS_1135_RE = /\b1135\b/;
 const HAS_1136_RE = /\b1136\b/;
+const VESSEL_UTFORT_RE = /utført av\s+(?:m\/?f\.?\s*)?(geiranger|kvernes)/i;
+const DEFAULT_VESSELS = [
+  { name: "M/F Geiranger", phone: "916 69 321" },
+  { name: "M/F Kvernes", phone: "916 69 340" },
+];
 
 const state = {
   messageFilter: "local",
@@ -265,6 +270,46 @@ function routeModeFromMessages(messages, now = Date.now()) {
   const latest = validMessages(messages || [], now).find((msg) => msg.isLocal);
   if (!latest) return "1136";
   return latest.routeMode || modeFromText(`${latest.heading || ""} ${latest.text || ""}`);
+}
+
+function titleVessel(name) {
+  const key = String(name || "").toLowerCase();
+  if (key === "geiranger") return "Geiranger";
+  if (key === "kvernes") return "Kvernes";
+  return null;
+}
+
+function vesselFromText(text) {
+  const blob = text || "";
+  const performed = blob.match(VESSEL_UTFORT_RE);
+  if (performed) return titleVessel(performed[1]);
+  const names = [...blob.matchAll(/\b(?:m\/?f\.?\s*)?(geiranger|kvernes)\b/gi)].map((match) =>
+    match[1].toLowerCase()
+  );
+  const unique = [...new Set(names)];
+  if (unique.length === 1) return titleVessel(unique[0]);
+  return null;
+}
+
+function latestLocalMessage(now = Date.now()) {
+  return validMessages(state.messages?.messages || [], now).find((msg) => msg.isLocal) || null;
+}
+
+function activeVessel() {
+  const latest = latestLocalMessage();
+  if (!latest) return null;
+  return latest.vessel || vesselFromText(`${latest.heading || ""} ${latest.text || ""}`);
+}
+
+function vesselInfo(name) {
+  const vessels = state.kombirute?.vessels || DEFAULT_VESSELS;
+  if (!name) return null;
+  return (
+    vessels.find((item) => item.name.toLowerCase().includes(name.toLowerCase())) || {
+      name: `M/F ${name}`,
+      phone: null,
+    }
+  );
 }
 
 function activeMode() {
@@ -1199,6 +1244,10 @@ function appendModeNote(banner, mode) {
     link.target = "_blank";
     link.rel = "noreferrer";
     note.append(link);
+    const vessel = vesselInfo(activeVessel());
+    if (vessel) {
+      note.append(document.createTextNode(` ${t("mode.vessel", { name: vessel.name.replace(/^M\/F\s+/i, "") })}`));
+    }
     banner.append(note);
     return;
   }
@@ -1251,6 +1300,19 @@ function renderRouteChrome() {
       pdf.href = FJORD1_PDF;
       pdf.textContent = "fjord1.no";
     }
+  }
+  const vessel = mode === "kombi" ? vesselInfo(activeVessel()) : null;
+  const operator = document.getElementById("footer-operator");
+  if (operator) {
+    operator.textContent = vessel
+      ? t("footer.operatorVessel", { name: vessel.name, phone: vessel.phone || "" })
+      : t("footer.operator");
+  }
+  const nais = document.getElementById("footnote-nais");
+  if (nais) {
+    nais.textContent = vessel
+      ? t("footnote.naisVessel", { name: vessel.name })
+      : t("footnote.nais");
   }
 }
 
@@ -1606,6 +1668,7 @@ export {
   routeOverride,
   setTestState,
   track,
+  vesselFromText,
   visibleConnectionLines,
 };
 

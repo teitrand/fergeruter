@@ -14,6 +14,7 @@ import {
   routeModeFromMessages,
   routeOverride,
   setTestState,
+  vesselFromText,
   visibleConnectionLines,
 } from "../assets/app.js";
 
@@ -179,6 +180,12 @@ test("?rute= verkar berre på /dev/ og localhost", () => {
 
 test("quayPlace normaliserer Lekneset", () => {
   assert.equal(quayPlace("Lekneset ferjekai"), "Leknes");
+});
+
+test("driftsmelding seier kva ferje som køyrer kombiruta", () => {
+  assert.equal(vesselFromText("Ruta blir utført av MF Geiranger."), "Geiranger");
+  assert.equal(vesselFromText("Ruta blir utført av M/F Kvernes"), "Kvernes");
+  assert.equal(vesselFromText("M/F Geiranger og M/F Kvernes kan brukast."), null);
 });
 
 test("kombirute finn ikkje opp tomflytting mellom overlappande rader", () => {

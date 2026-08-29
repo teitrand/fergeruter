@@ -30,6 +30,8 @@ CAPACITY_RE = re.compile(r"kapasitet|kapasistet|farleg last|farlig last", re.I)
 KOMBI_RE = re.compile(r"kombinasjon|kombirute|kombinert rute", re.I)
 HAS_1135_RE = re.compile(r"\b1135\b")
 HAS_1136_RE = re.compile(r"\b1136\b")
+VESSEL_UTFORT_RE = re.compile(r"utført av\s+(?:m/?f\.?\s*)?(geiranger|kvernes)", re.I)
+VESSEL_NAME_RE = re.compile(r"\b(?:m/?f\.?\s*)?(geiranger|kvernes)\b", re.I)
 
 QUERY = """
 {
@@ -103,6 +105,18 @@ def route_mode_from_text(text: str) -> str:
     return "1136"
 
 
+def vessel_from_text(text: str) -> str | None:
+    """Kvernes eller Geiranger når Fjord1 seier kva ferje som køyrer."""
+    blob = text or ""
+    performed = VESSEL_UTFORT_RE.search(blob)
+    if performed:
+        return performed.group(1).capitalize()
+    names = {match.group(1).lower() for match in VESSEL_NAME_RE.finditer(blob)}
+    if len(names) == 1:
+        return names.pop().capitalize()
+    return None
+
+
 def is_local(heading: str, text: str, connection_number: int | None) -> bool:
     """Meldingar frå Hjørundfjorden og Festøya-Hundeidvika."""
     if is_route_1136(heading, text, connection_number):
@@ -157,6 +171,7 @@ def normalize_node(node: dict) -> dict:
         "isRoute1136": is_route_1136(heading, text, connection),
         "isLocal": is_local(heading, text, connection),
         "routeMode": route_mode_from_text(f"{heading} {text}"),
+        "vessel": vessel_from_text(f"{heading} {text}"),
     }
 
 
