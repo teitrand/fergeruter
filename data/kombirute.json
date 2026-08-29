@@ -408,6 +408,38 @@
       "id": "kombi-Trandal-1935-Standal-saturday"
     },
     {
+      "from": "Standal",
+      "to": "Trandal",
+      "departure": "19:50:00",
+      "arrival": "20:05:00",
+      "requestStop": true,
+      "signal": {
+        "minutesBefore": 60,
+        "text": "Berre på signal seinast 1 time før avgang",
+        "phone": null
+      },
+      "days": [
+        "saturday"
+      ],
+      "id": "kombi-Standal-1950-Trandal-saturday"
+    },
+    {
+      "from": "Trandal",
+      "to": "Sæbø",
+      "departure": "20:05:00",
+      "arrival": "20:30:00",
+      "requestStop": true,
+      "signal": {
+        "minutesBefore": 60,
+        "text": "Berre på signal seinast 1 time før avgang",
+        "phone": null
+      },
+      "days": [
+        "saturday"
+      ],
+      "id": "kombi-Trandal-2005-Sæbø-saturday"
+    },
+    {
       "from": "Sæbø",
       "to": "Leknes",
       "departure": "20:30:00",
@@ -843,7 +875,7 @@
       "from": "Trandal",
       "to": "Sæbø",
       "departure": "20:50:00",
-      "arrival": "21:15:00",
+      "arrival": "21:10:00",
       "requestStop": true,
       "signal": {
         "minutesBefore": 60,
@@ -854,6 +886,18 @@
         "sunday"
       ],
       "id": "kombi-Trandal-2050-Sæbø-sunday"
+    },
+    {
+      "from": "Leknes",
+      "to": "Sæbø",
+      "departure": "21:15:00",
+      "arrival": "21:30:00",
+      "requestStop": false,
+      "signal": null,
+      "days": [
+        "sunday"
+      ],
+      "id": "kombi-Leknes-2115-Sæbø-sunday"
     },
     {
       "from": "Sæbø",
@@ -1445,7 +1489,7 @@
     {
       "from": "Standal",
       "to": "Trandal",
-      "departure": "19:50:00",
+      "departure": "19:45:00",
       "arrival": "20:05:00",
       "requestStop": true,
       "signal": {
@@ -1454,10 +1498,9 @@
         "phone": null
       },
       "days": [
-        "weekday",
-        "saturday"
+        "weekday"
       ],
-      "id": "kombi-Standal-1950-Trandal-weekday,saturday"
+      "id": "kombi-Standal-1945-Trandal-weekday"
     },
     {
       "from": "Trandal",
@@ -1471,10 +1514,9 @@
         "phone": null
       },
       "days": [
-        "weekday",
-        "saturday"
+        "weekday"
       ],
-      "id": "kombi-Trandal-2005-Sæbø-weekday,saturday"
+      "id": "kombi-Trandal-2005-Sæbø-weekday"
     },
     {
       "from": "Sæbø",
@@ -1523,23 +1565,6 @@
         "weekday"
       ],
       "id": "kombi-Leknes-2115-Sæbø-weekday"
-    },
-    {
-      "from": "Standal",
-      "to": "Trandal",
-      "departure": "21:25:00",
-      "arrival": "21:40:00",
-      "requestStop": true,
-      "signal": {
-        "minutesBefore": 60,
-        "text": "Berre på signal seinast 1 time før avgang",
-        "phone": null
-      },
-      "days": [
-        "weekday",
-        "saturday"
-      ],
-      "id": "kombi-Standal-2125-Trandal-weekday,saturday"
     },
     {
       "from": "Trandal",

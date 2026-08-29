@@ -188,6 +188,58 @@ test("driftsmelding seier kva ferje som køyrer kombiruta", () => {
   assert.equal(vesselFromText("M/F Geiranger og M/F Kvernes kan brukast."), null);
 });
 
+const FRAM_PDF_FROM = {
+  weekday: {
+    Sæbø: ["06:00", "06:30", "07:15", "08:15", "08:45", "09:15", "10:30", "11:15", "12:45", "13:45", "14:45", "15:15", "16:30", "17:00", "17:30", "18:30", "19:00", "20:30", "21:00", "22:15"],
+    Leknes: ["06:15", "06:45", "07:30", "08:30", "09:00", "10:45", "11:30", "12:00", "13:00", "14:00", "15:00", "16:45", "17:15", "17:45", "18:45", "20:45", "21:15", "22:30"],
+    Skår: ["11:45", "18:00"],
+    Trandal: ["09:35", "10:05", "15:35", "16:05", "19:25", "20:05", "21:40"],
+    Standal: ["09:50", "15:50", "19:45"],
+  },
+  saturday: {
+    Sæbø: ["06:30", "07:00", "08:15", "08:45", "09:15", "10:30", "11:15", "12:45", "13:45", "14:45", "15:15", "16:30", "17:00", "17:30", "18:30", "19:00", "20:30", "21:00", "22:15"],
+    Leknes: ["06:45", "08:30", "09:00", "10:45", "11:30", "12:00", "13:00", "14:00", "15:00", "16:45", "17:15", "17:45", "18:45", "20:45", "21:15", "22:30"],
+    Skår: ["11:45", "18:00"],
+    Trandal: ["07:25", "07:55", "09:35", "10:05", "15:35", "16:05", "19:35", "20:05", "21:40"],
+    Standal: ["07:40", "09:50", "15:50", "19:50"],
+  },
+  sunday: {
+    Sæbø: ["07:30", "08:15", "08:45", "09:15", "10:30", "11:15", "12:45", "13:45", "14:45", "15:15", "16:30", "17:30", "18:30", "19:30", "20:00", "21:30", "22:15"],
+    Leknes: ["07:45", "08:30", "09:00", "10:45", "11:30", "12:00", "13:00", "14:00", "15:00", "16:45", "17:45", "18:45", "19:45", "21:15", "21:45", "22:30"],
+    Skår: ["11:45", "19:00"],
+    Trandal: ["09:35", "10:05", "15:35", "16:05", "20:20", "20:50"],
+    Standal: ["09:50", "15:50", "20:35"],
+  },
+};
+
+test("appen viser same Frå-tid som FRAM-PDF for kvardag, laurdag og søndag", () => {
+  setTestState({
+    routes: ruter,
+    kombirute: kombi,
+    messages: {
+      messages: [{ isLocal: true, text: SMS, routeMode: "kombi", validTo: "2099-01-01T00:00:00Z" }],
+    },
+  });
+  const dates = { weekday: WEEKDAY, saturday: "2026-08-29", sunday: "2026-08-30" };
+  for (const [kind, iso] of Object.entries(dates)) {
+    assert.equal(dayType(iso), kind);
+    const legs = legsForDate(iso);
+    for (const [quay, times] of Object.entries(FRAM_PDF_FROM[kind])) {
+      const got = [
+        ...new Set(
+          legs.filter((leg) => leg.from === quay).map((leg) => leg.departure.slice(0, 5))
+        ),
+      ].sort();
+      assert.deepEqual(got, times, `${kind} ${quay}`);
+    }
+    assert.ok(!legs.some((leg) => leg.from === "Standal" && leg.departure === "21:25:00"), kind);
+    assert.ok(!legs.some((leg) => leg.from === "Standal" && kind === "weekday" && leg.departure === "19:50:00"));
+  }
+  const sunday = legsForDate(dates.sunday);
+  assert.ok(sunday.some((leg) => leg.from === "Leknes" && leg.departure === "21:15:00"));
+  assert.ok(!sunday.some((leg) => leg.from === "Sæbø" && leg.departure === "21:15:00"));
+});
+
 test("kombirute finn ikkje opp tomflytting mellom overlappande rader", () => {
   setTestState({
     routes: ruter,
