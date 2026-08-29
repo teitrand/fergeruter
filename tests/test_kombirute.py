@@ -11,6 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "build_kombirute.py"
 
 # FRAM kombinasjonsrute 18.11.2025, «Frå»-kolonnar (Sæbø–Leknes–Skår–Trandal–Standal).
+# Bbox-sjekka på nytt 29.08.26 mot original-PDF.
 FRAM_PDF_FROM = {
     "weekday": {
         "Sæbø": "0600 0630 0715 0815 0845 0915 1030 1115 1245 1345 1445 1515 1630 1700 1730 1830 1900 2030 2100 2215",
