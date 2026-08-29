@@ -39,8 +39,8 @@ CROSSING = {
     ("Trandal", "Sæbø"): 20,
     ("Trandal", "Standal"): 15,
     ("Standal", "Trandal"): 15,
-    ("Leknes", "Trandal"): 25,
-    ("Trandal", "Leknes"): 25,
+    ("Leknes", "Trandal"): 20,
+    ("Trandal", "Leknes"): 20,
 }
 
 # Fotnote 1) i FRAM-PDF, per Frå-celle.

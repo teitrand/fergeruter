@@ -24,8 +24,8 @@
     "Trandal–Sæbø": 20,
     "Trandal–Standal": 15,
     "Standal–Trandal": 15,
-    "Leknes–Trandal": 25,
-    "Trandal–Leknes": 25
+    "Leknes–Trandal": 20,
+    "Trandal–Leknes": 20
   },
   "note": "Éi ferje, éi samanhengande rute. PDF-en har fem Frå-kolonnar (Sæbø, Leknes, Skår, Trandal, Standal) for måndag–fredag, laurdag og søndag. Neste fylte celle er neste stopp. Ankomst er avgang pluss overfartstid. Berre på signal seinast 1 time før avgang. PDF frå FRAM, ikkje Entur.",
   "legs": [
@@ -617,7 +617,7 @@
       "from": "Leknes",
       "to": "Trandal",
       "departure": "21:15:00",
-      "arrival": "21:40:00",
+      "arrival": "21:35:00",
       "requestStop": false,
       "signal": null,
       "days": [
@@ -1141,7 +1141,7 @@
       "from": "Trandal",
       "to": "Leknes",
       "departure": "20:50:00",
-      "arrival": "21:15:00",
+      "arrival": "21:10:00",
       "requestStop": false,
       "signal": null,
       "days": [
@@ -1781,7 +1781,7 @@
       "from": "Leknes",
       "to": "Trandal",
       "departure": "21:15:00",
-      "arrival": "21:40:00",
+      "arrival": "21:35:00",
       "requestStop": false,
       "signal": null,
       "days": [
