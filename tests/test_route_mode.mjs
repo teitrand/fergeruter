@@ -241,7 +241,7 @@ test("appen viser same Frå-tid som FRAM-PDF for kvardag, laurdag og søndag", (
   assert.ok(!sunday.some((leg) => leg.from === "Sæbø" && leg.departure === "21:15:00"));
 });
 
-test("Skår har anløp før avgang, same klokke som på 1136", () => {
+test("kombirute har éi hending per Frå-celle, ikkje ankomst same minutt", () => {
   setTestState({
     routes: ruter,
     kombirute: kombi,
@@ -250,25 +250,88 @@ test("Skår har anløp før avgang, same klokke som på 1136", () => {
     },
   });
   const legs = legsForDate(WEEKDAY);
-  const deps = legs.filter((leg) => leg.from === "Skår");
-  assert.deepEqual(
-    deps.map((leg) => leg.departure),
-    ["11:45:00", "18:00:00"]
+  const events = buildEvents(legs, null);
+  const saebo1100 = events.filter(
+    (event) => event.quays.includes("Sæbø") && event.at === 11 * 60
   );
-  for (const dep of deps) {
-    assert.ok(
-      legs.some((leg) => leg.to === "Skår" && leg.arrival === dep.departure && leg.from === "Sæbø"),
-      `ankomst før ${dep.departure}`
-    );
+  assert.deepEqual(saebo1100, []);
+  const saebo1115 = events.filter(
+    (event) => event.kind === "dep" && event.quays.includes("Sæbø") && event.at === 11 * 60 + 15
+  );
+  assert.equal(saebo1115.length, 1);
+  assert.equal(
+    legs.filter((leg) => leg.from === "Sæbø" && leg.departure === "11:15:00").length,
+    1
+  );
+  const skar = events.filter((event) => event.quays?.includes("Skår") && event.at === 11 * 60 + 45);
+  assert.deepEqual(
+    skar.map((event) => event.kind),
+    ["dep"]
+  );
+  const leknes = events.filter(
+    (event) => event.quays?.includes("Leknes") && event.at === 6 * 60 + 15
+  );
+  assert.deepEqual(
+    leknes.map((event) => event.kind),
+    ["dep"]
+  );
+  const doubles = [];
+  const byKey = new Map();
+  for (const event of events) {
+    const quay = event.quays?.[0];
+    if (!quay || (event.kind !== "arr" && event.kind !== "dep")) continue;
+    const key = `${quay}|${event.at}`;
+    const prev = byKey.get(key);
+    if (prev && prev !== event.kind) doubles.push(key);
+    byKey.set(key, event.kind);
   }
-  const noon = nextArrivalAt(legs, "Skår");
-  assert.equal(noon?.arrival, "11:45:00");
-  assert.equal(noon?.from, "Sæbø");
-  const events = buildEvents(legs, null).filter((event) => event.quays?.includes("Skår"));
-  const kinds = events.map((event) => event.kind);
-  assert.ok(kinds.includes("arr") && kinds.includes("dep"));
-  const firstSkar = events.find((event) => event.at === 11 * 60 + 45);
-  assert.equal(firstSkar?.kind, "arr");
+  assert.deepEqual(doubles, []);
+});
+
+test("1136 merkar berre PDF-fotnote 1) og 3) som signal", () => {
+  setTestState({ routes: ruter, kombirute: kombi, messages: { messages: [] } });
+  const friday = legsForDate("2026-08-28");
+  const standal0740 = friday.find((leg) => leg.from === "Standal" && leg.departure === "07:40:00");
+  const saebo0835 = friday.find((leg) => leg.from === "Sæbø" && leg.departure === "08:35:00");
+  const standal0645 = friday.find((leg) => leg.from === "Standal" && leg.departure === "06:45:00");
+  assert.ok(standal0740);
+  assert.equal(standal0740.signal, null);
+  assert.ok(saebo0835?.signal);
+  assert.equal(saebo0835.signal.minutesBefore, 60);
+  assert.ok(standal0645?.signal);
+
+  const saturday = legsForDate("2026-08-29");
+  const satStandal = saturday.find((leg) => leg.from === "Standal" && leg.departure === "07:40:00");
+  const satTrandal = saturday.find((leg) => leg.from === "Trandal" && leg.departure === "08:00:00");
+  assert.equal(satStandal?.signal, null);
+  assert.ok(satTrandal?.signal);
+
+  const wednesday = legsForDate("2026-09-02");
+  const valderoya = wednesday.find(
+    (leg) => leg.from === "Valderøya" && leg.departure === "11:10:00"
+  );
+  assert.ok(valderoya?.signal);
+  assert.equal(valderoya.signal.minutesBefore, 180);
+});
+
+test("1135 har inga PDF-fotnote og inga signalmerke", () => {
+  setTestState({
+    routes: ruter,
+    kombirute: kombi,
+    messages: {
+      messages: [
+        {
+          isLocal: true,
+          text: "Rute 1136 Standal-Trandal er innstilt inntil vidare.",
+          routeMode: "1135",
+          validTo: "2099-01-01T00:00:00Z",
+        },
+      ],
+    },
+  });
+  const legs = legsForDate(WEEKDAY);
+  assert.ok(legs.length > 0);
+  assert.ok(legs.every((leg) => !leg.signal));
 });
 
 test("kombirute merkar berre PDF-fotnote 1) som signal", () => {
@@ -289,7 +352,7 @@ test("kombirute merkar berre PDF-fotnote 1) som signal", () => {
   assert.ok(!legs.find((leg) => leg.from === "Sæbø" && leg.departure === "11:15:00" && leg.to === "Skår")?.signal);
 });
 
-test("kombirute finn ikkje opp tomflytting mellom overlappande rader", () => {
+test("kombirute er éi samanhengande rute utan tomflytting", () => {
   setTestState({
     routes: ruter,
     kombirute: kombi,
@@ -303,10 +366,20 @@ test("kombirute finn ikkje opp tomflytting mellom overlappande rader", () => {
   const events = buildEvents(legs, null);
   assert.ok(legs.some((leg) => leg.to === "Leknes"));
   assert.ok(
-    legs.some((a, i) => legs[i + 1] && a.to !== legs[i + 1].from),
-    "tabellen har rader som ikkje heng saman geografisk"
+    legs.every((a, i) => !legs[i + 1] || a.to === legs[i + 1].from),
+    "neste Frå-celle er neste anløp"
   );
   assert.ok(events.every((event) => event.kind !== "transfer"));
+  const stretch = events
+    .filter((event) => event.at >= 10 * 60 + 45 && event.at <= 12 * 60 + 15)
+    .map((event) => `${String(Math.floor(event.at / 60)).padStart(2, "0")}:${String(event.at % 60).padStart(2, "0")} ${event.kind} ${event.quays[0]}`);
+  assert.deepEqual(stretch, [
+    "10:45 dep Leknes",
+    "11:15 dep Sæbø",
+    "11:30 dep Leknes",
+    "11:45 dep Skår",
+    "12:00 dep Leknes",
+  ]);
   const status = ferryStatus(legs, 10 * 60 + 20, legs);
   assert.doesNotMatch(status?.text || "", /utan passasjerar/);
   assert.doesNotMatch(status?.short || "", /utan passasjerar/);
