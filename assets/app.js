@@ -734,7 +734,10 @@ function renderNextSummary(legs) {
       date: arrHit.date,
     });
   }
-  rows.sort((a, b) => a.sort.localeCompare(b.sort));
+  const kindOrder = { arr: 0, dep: 1 };
+  rows.sort(
+    (a, b) => a.sort.localeCompare(b.sort) || (kindOrder[a.kind] ?? 0) - (kindOrder[b.kind] ?? 0)
+  );
 
   const item = el("div", "next-item");
   for (const row of rows) item.append(buildNextRow(row));
