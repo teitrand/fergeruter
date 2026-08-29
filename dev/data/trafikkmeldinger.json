@@ -1,0 +1,20 @@
+{
+  "source": "https://www.fjord1.no/trafikkmeldingar",
+  "fetchedAt": "2026-08-29T16:53:23.990694+00:00",
+  "messages": [
+    {
+      "id": "RG9tYWluQ29udGVudDoyMTIyMDIyOQ==",
+      "heading": "Lavik-Oppedal",
+      "text": "Rute 1045 Lavik-Oppedal: Fjord1 overtek drifta av sambandet Lavik–Oppedal frå 1. september 2026. Ruter for sambandet er no tilgjengelege i vårt rutesøk, men fram til oppstartsdato er det dagens operatør som har ansvar for drifta og publisering av ruteinformasjon.  Vi tek derfor atterhald om endringar i rutedata før 1. september 2026. For informasjon om eventuelle avvik eller endringar fram til oppstart, viser vi til operatøren som driftar sambandet i dag.",
+      "publishedAt": "2026-07-14T08:47:00+00:00",
+      "validFrom": "2026-07-14T08:47:00+00:00",
+      "validTo": "2026-08-31T21:59:00+00:00",
+      "countyNumber": 14,
+      "connectionNumber": 1045,
+      "important": false,
+      "severity": "info",
+      "isRoute1136": false,
+      "isLocal": false
+    }
+  ]
+}

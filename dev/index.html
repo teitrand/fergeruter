@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="nn">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Trafikkmeldingar frå Fjord1 og seilingsplan for ferjesamband 1136 Standal–Trandal–Sæbø–Skår. Alle anløp i rekkjefølgje, med status for kvar ferja er akkurat no.">
+  <meta name="theme-color" content="#073b4c">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Fergeruter">
+  <title>Fergeruter 1136 · Standal–Trandal</title>
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,560;9..144,700&family=Outfit:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/styles.css">
+  <!-- Privacy-friendly analytics by Plausible -->
+  <script async src="https://plausible.io/js/pa-zLwKfsUV57HIZfM4j6wLS.js"></script>
+  <script>
+    window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}};
+    plausible.init({
+      transformRequest: function (payload) {
+        try {
+          var host = location.hostname;
+          var path = location.pathname || "";
+          if (host === "localhost" || host === "127.0.0.1" || path.indexOf("/dev/") !== -1) {
+            return null;
+          }
+        } catch (e) {}
+        return payload;
+      },
+      customProperties: function () {
+        var lang = "nn";
+        var app = "web";
+        try {
+          lang = document.documentElement.lang || "nn";
+          if ((window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || navigator.standalone) {
+            app = "pwa";
+          }
+        } catch (e) {}
+        return { lang: lang, app: app };
+      }
+    });
+  </script>
+  <script>
+    (function () {
+      var KEY = "fergeruter-lang-chosen";
+      var saved = null;
+      try { saved = localStorage.getItem(KEY); } catch (e) {}
+      var lang = saved === "nn" || saved === "en" || saved === "de" ? saved : null;
+      if (!lang) {
+        var list = navigator.languages && navigator.languages.length
+          ? navigator.languages
+          : [navigator.language];
+        for (var i = 0; i < list.length; i++) {
+          var primary = String(list[i] || "").toLowerCase().replace(/_/g, "-").split("-")[0];
+          if (primary === "nn" || primary === "nb" || primary === "no") { lang = "nn"; break; }
+          if (primary === "de") { lang = "de"; break; }
+          if (primary === "en") { lang = "en"; break; }
+        }
+      }
+      document.documentElement.lang = lang || "nn";
+    })();
+  </script>
+</head>
+<body>
+  <a class="skip-link" href="#innhald" data-i18n="skip">Hopp til innhald</a>
+  <div class="skyline" aria-hidden="true"></div>
+  <header class="site-header">
+    <div class="header-top">
+      <div class="brand">
+        <svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true">
+          <rect width="64" height="64" rx="14" fill="#073b4c"/>
+          <path d="M8 42c6 4 12 4 18 0s12-4 18 0 12 4 18 0" fill="none" stroke="#7ec8c3" stroke-width="3" stroke-linecap="round"/>
+          <path d="M14 38 32 20l10 6h8l-6 12H18z" fill="#f4efe4"/>
+          <rect x="28" y="16" width="3" height="10" fill="#e07a3d"/>
+        </svg>
+        <div>
+          <p class="eyebrow" data-i18n="eyebrow">Rute 1136 · Fjord1 / FRAM</p>
+          <h1 id="route-title">Standal–Trandal–Sæbø–Skår–Valderøya–Store Kalvøy</h1>
+        </div>
+      </div>
+      <div class="header-tools">
+        <div class="lang-switch" role="group" data-i18n-aria="lang.label" aria-label="Språk">
+          <button type="button" class="lang-btn" data-lang="nn" lang="nn" aria-label="Nynorsk" title="Nynorsk" aria-pressed="false">
+            <span class="lang-flag" aria-hidden="true">
+              <svg viewBox="0 0 22 16" focusable="false">
+                <rect width="22" height="16" fill="#ba0c2f"/>
+                <rect x="6" width="4" height="16" fill="#fff"/>
+                <rect y="6" width="22" height="4" fill="#fff"/>
+                <rect x="7" width="2" height="16" fill="#00205b"/>
+                <rect y="7" width="22" height="2" fill="#00205b"/>
+              </svg>
+            </span>
+            <span class="lang-code">NN</span>
+          </button>
+          <button type="button" class="lang-btn" data-lang="en" lang="en" aria-label="English" title="English" aria-pressed="false">
+            <span class="lang-flag" aria-hidden="true">
+              <svg viewBox="0 0 60 30" preserveAspectRatio="xMidYMid slice" focusable="false">
+                <rect width="60" height="30" fill="#012169"/>
+                <path d="M0 0l60 30M60 0L0 30" stroke="#fff" stroke-width="6"/>
+                <path d="M0 0l60 30M60 0L0 30" stroke="#c8102e" stroke-width="4"/>
+                <path d="M30 0v30M0 15h60" stroke="#fff" stroke-width="10"/>
+                <path d="M30 0v30M0 15h60" stroke="#c8102e" stroke-width="6"/>
+              </svg>
+            </span>
+            <span class="lang-code">EN</span>
+          </button>
+          <button type="button" class="lang-btn" data-lang="de" lang="de" aria-label="Deutsch" title="Deutsch" aria-pressed="false">
+            <span class="lang-flag" aria-hidden="true">
+              <svg viewBox="0 0 16 12" focusable="false">
+                <rect width="16" height="4" fill="#000"/>
+                <rect y="4" width="16" height="4" fill="#d00"/>
+                <rect y="8" width="16" height="4" fill="#ffce00"/>
+              </svg>
+            </span>
+            <span class="lang-code">DE</span>
+          </button>
+        </div>
+        <button type="button" id="install-btn" class="install-btn" hidden data-i18n="install.app">Installer app</button>
+      </div>
+    </div>
+    <p class="lede" id="lede-status" hidden></p>
+  </header>
+
+  <main id="innhald">
+    <section id="status-banner" class="status-banner" hidden></section>
+
+    <div class="layout" id="layout">
+      <section class="panel" id="messages-panel" aria-labelledby="meldingar-title" hidden>
+        <div class="panel-head">
+          <h2 id="meldingar-title" data-i18n="messages.title">Trafikkmeldingar</h2>
+          <p class="meta" id="messages-meta" data-i18n="messages.loading">Hentar frå Fjord1…</p>
+        </div>
+        <div class="filters" role="group" data-i18n-aria="messages.filterAria" aria-label="Filtrer meldingar">
+          <button type="button" class="chip is-active" data-filter="local" aria-pressed="true" data-i18n="messages.filterLocal">Hjørundfjorden</button>
+          <button type="button" class="chip" data-filter="route" aria-pressed="false" data-i18n="messages.filterRoute">Rute 1136</button>
+          <button type="button" class="chip" data-filter="issues" aria-pressed="false" data-i18n="messages.filterIssues">Berre avvik</button>
+        </div>
+        <div id="messages" class="message-list"></div>
+        <p class="footnote">
+          <span data-i18n="messages.source">Kjelde</span>:
+          <a href="https://www.fjord1.no/trafikkmeldingar" target="_blank" rel="noreferrer">fjord1.no/trafikkmeldingar</a>
+          ·
+          <a href="https://www.fjord1.no/kundeservice/foer-du-reiser/SMS-om-trafikken" target="_blank" rel="noreferrer" data-i18n="messages.sms">Få SMS</a>
+        </p>
+      </section>
+
+      <section class="panel" aria-labelledby="day-label">
+        <div class="daynav" role="group" data-i18n-aria="day.navAria" aria-label="Vel dag">
+          <button type="button" id="day-prev" class="daybtn" data-i18n-aria="day.prev" aria-label="Førre dag">‹</button>
+          <h2 id="day-label" class="day-label" data-i18n="day.loading">Lastar rutetabell…</h2>
+          <button type="button" id="day-next" class="daybtn" data-i18n-aria="day.next" aria-label="Neste dag">›</button>
+          <button type="button" id="day-today" class="daybtn daybtn-today" data-i18n="day.today">I dag</button>
+        </div>
+        <div id="next-summary" class="next-summary"></div>
+        <div id="stop-filter" class="filters stops" role="group" data-i18n-aria="stop.filterAria" aria-label="Filtrer på stoppestad"></div>
+        <div class="conn-row">
+          <span class="conn-label" id="conn-label" data-i18n="conn.label">Korrespondanse</span>
+          <div id="conn-filter" class="filters" role="group" aria-labelledby="conn-label"></div>
+        </div>
+        <div id="timeline-reveal"></div>
+        <div id="departures" class="timeline"></div>
+        <p class="footnote">
+          <span id="position-note" data-i18n="position.planned">Posisjonen er rekna ut frå rutetabellen når Entur ikkje sender køyretøyposisjon.</span>
+          <span data-i18n="footnote.signal">Signalturar må tingast på telefon innan fristen.</span>
+          <span id="connection-note"></span>
+          <span data-i18n="footnote.timetable">Rutetabellen lastast berre ned att når han er endra.</span>
+          <span id="timetable-updated"></span>
+          <span data-i18n="footnote.pdf">Papir-ruteplan</span>: <a id="timetable-pdf" href="https://www.fjord1.no/ruteoversikt/moere-og-romsdal/standal-trandal-valderoeya-store-kalvoey/(page)/pdf" target="_blank" rel="noreferrer">fjord1.no</a>
+          ·
+          <a href="https://frammr.no/" target="_blank" rel="noreferrer">frammr.no</a>
+          ·
+          <a href="https://nais.kystverket.no/" target="_blank" rel="noreferrer" data-i18n="footnote.nais">M/F Kvernes på NAIS</a>
+          <span data-i18n="footnote.ais">(AIS frå Kystverket)</span>
+        </p>
+      </section>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <p>
+      <span data-i18n="footer.operator">Operatør Fjord1. Ruteeigar FRAM. M/F Kvernes, tlf. 916 69 340.</span>
+      AIS: <a href="https://nais.kystverket.no/" target="_blank" rel="noreferrer">NAIS / Kystverket</a>.
+    </p>
+    <p data-i18n="footer.holidays">Nokre turar går berre på signal. Ved jul, nyttår og høgtid: sjå FRAM-appen.</p>
+    <p>
+      <button type="button" id="feedback-open" class="feedback-link" data-i18n="feedback.open">Gi tilbakemelding</button>
+    </p>
+  </footer>
+
+  <dialog id="feedback-dialog" class="feedback-dialog" aria-labelledby="feedback-title">
+    <h2 id="feedback-title" data-i18n="feedback.title">Tilbakemelding</h2>
+    <p id="feedback-lead" data-i18n="feedback.lead">Hjelper sida deg å finne ferja?</p>
+    <div class="feedback-ratings" role="group" aria-labelledby="feedback-lead">
+      <button type="button" class="feedback-rate" data-rating="yes" aria-pressed="false" data-i18n="feedback.yes">Ja, nyttig</button>
+      <button type="button" class="feedback-rate" data-rating="no" aria-pressed="false" data-i18n="feedback.no">Nei, noko manglar</button>
+    </div>
+    <p id="feedback-thanks" class="feedback-thanks" hidden aria-live="polite" data-i18n="feedback.thanks">Takk! Det hjelper oss å forstå korleis sida blir brukt.</p>
+    <div id="feedback-extra" hidden>
+      <label for="feedback-comment" data-i18n="feedback.commentLabel">Vil du seie meir? (valfritt)</label>
+      <textarea id="feedback-comment" name="feedback" rows="4" maxlength="700" data-i18n-placeholder="feedback.commentPlaceholder" placeholder="Til dømes kva som manglar, eller kva du brukar sida til."></textarea>
+    </div>
+    <p class="feedback-privacy" data-i18n="feedback.privacy">Ja/nei blir telt anonymt, utan namn eller e-post. Ei skriftleg melding opnar e-posten din og blir ikkje lagra i statistikken.</p>
+    <p class="feedback-alt">
+      <a id="feedback-github" href="https://github.com/teitrand/fergeruter/issues/new" target="_blank" rel="noreferrer" data-i18n="feedback.github">Eller meld ein feil på GitHub</a>
+    </p>
+    <div class="feedback-actions">
+      <button type="button" id="feedback-send" class="feedback-send" hidden data-i18n="feedback.send">Send melding</button>
+      <button type="button" id="feedback-cancel" class="feedback-cancel" data-i18n="feedback.close">Lukk</button>
+    </div>
+  </dialog>
+
+  <noscript>
+    <p>Slå på JavaScript for å sjå rutetabellen, eller opne <a href="https://www.fjord1.no/trafikkmeldingar">trafikkmeldingane hos Fjord1</a>.</p>
+  </noscript>
+  <script src="assets/app.js" type="module"></script>
+</body>
+</html>
