@@ -477,6 +477,7 @@ h2.day-label {
   left: -1.17rem;
 }
 
+.view-row,
 .conn-row {
   display: flex;
   align-items: center;
@@ -492,6 +493,7 @@ h2.day-label {
   color: var(--muted);
 }
 
+.view-row .filters,
 .conn-row .filters { margin-bottom: 0; }
 
 .chip-small {

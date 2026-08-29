@@ -32,6 +32,7 @@ const CANCEL_RE = /innstilt|innstilling/i;
 const KOMBI_RE = /kombinasjon|kombirute|kombinert rute/i;
 const HAS_1135_RE = /\b1135\b/;
 const HAS_1136_RE = /\b1136\b/;
+const HIDE_ARRIVALS_KEY = "fergeruter-hide-arrivals";
 const VESSEL_UTFORT_RE = /utført av\s+(?:m\/?f\.?\s*)?(geiranger|kvernes)/i;
 const DEFAULT_VESSELS = [
   { name: "M/F Geiranger", phone: "916 69 321" },
@@ -43,6 +44,7 @@ const state = {
   stopFilter: null,
   date: null,
   showPast: false,
+  hideArrivals: false,
   messages: null,
   routes: null,
   kombirute: null,
@@ -630,6 +632,32 @@ function isVisibleDeparture(leg) {
   return !leg.hideDeparture;
 }
 
+function readHideArrivals(storage) {
+  try {
+    const store =
+      storage ?? (typeof localStorage !== "undefined" ? localStorage : null);
+    return Boolean(store && store.getItem(HIDE_ARRIVALS_KEY) === "1");
+  } catch {
+    return false;
+  }
+}
+
+function writeHideArrivals(hide, storage) {
+  try {
+    const store =
+      storage ?? (typeof localStorage !== "undefined" ? localStorage : null);
+    if (!store) return;
+    if (hide) store.setItem(HIDE_ARRIVALS_KEY, "1");
+    else store.removeItem(HIDE_ARRIVALS_KEY);
+  } catch {
+    // localStorage kan vere stengt.
+  }
+}
+
+function showArrivals() {
+  return !state.hideArrivals;
+}
+
 function nextDepartureFrom(legs, quay, skipPassed = false) {
   return (
     legs.find(
@@ -712,11 +740,13 @@ function renderNextSummary(legs) {
     (leg) => isVisibleDeparture(leg) && (!quay || leg.from === quay)
   );
   const arrQuay = quay || depHit?.leg.from;
-  const arrHit = resolveAhead(
-    selected,
-    nextArrivalAt(legs, arrQuay, skipPassed),
-    (leg) => Boolean(arrQuay) && leg.to === arrQuay
-  );
+  const arrHit = showArrivals()
+    ? resolveAhead(
+        selected,
+        nextArrivalAt(legs, arrQuay, skipPassed),
+        (leg) => Boolean(arrQuay) && leg.to === arrQuay
+      )
+    : null;
   if (!depHit && !arrHit) return;
 
   const rows = [];
@@ -952,12 +982,14 @@ function buildEvents(legs, connections) {
         build: (past) => departureRow(leg, past, connections),
       });
     }
-    events.push({
-      at: clockMinutes(leg.arrival),
-      kind: "arr",
-      quays: [leg.to],
-      build: (past) => arrivalRow(leg, past, connections),
-    });
+    if (showArrivals()) {
+      events.push({
+        at: clockMinutes(leg.arrival),
+        kind: "arr",
+        quays: [leg.to],
+        build: (past) => arrivalRow(leg, past, connections),
+      });
+    }
     const next = legs[index + 1];
     if (!isCombinedTimetable() && next && leg.to !== next.from) {
       events.push({
@@ -1004,6 +1036,24 @@ function renderStopFilter(legs) {
     });
     root.append(btn);
   }
+}
+
+function renderViewFilter() {
+  const root = document.getElementById("view-filter");
+  if (!root) return;
+  root.replaceChildren();
+  const btn = el("button", "chip chip-small", t("view.arrivals"));
+  btn.type = "button";
+  const visible = showArrivals();
+  btn.setAttribute("aria-pressed", String(visible));
+  if (visible) btn.classList.add("is-active");
+  btn.addEventListener("click", () => {
+    state.hideArrivals = !state.hideArrivals;
+    writeHideArrivals(state.hideArrivals);
+    track(state.hideArrivals ? "Hide arrivals" : "Show arrivals");
+    renderTimeline();
+  });
+  root.append(btn);
 }
 
 function renderConnectionFilter() {
@@ -1181,6 +1231,7 @@ function renderLive() {
 function renderTimeline() {
   renderedDate = selectedDate();
   renderStopFilter(legsForDate(renderedDate));
+  renderViewFilter();
   renderConnectionFilter();
   renderLive();
 }
@@ -1650,6 +1701,7 @@ function resetTestState() {
   state.stopFilter = null;
   state.date = null;
   state.showPast = false;
+  state.hideArrivals = false;
   state.messages = null;
   state.routes = null;
   state.kombirute = null;
@@ -1683,19 +1735,23 @@ export {
   parseVehicleMonitoring,
   quayPlace,
   quaysInDay,
+  readHideArrivals,
   resetTestState,
   routeModeFromMessages,
   routeOverride,
   setTestState,
+  showArrivals,
   track,
   vesselFromText,
   visibleConnectionLines,
+  writeHideArrivals,
 };
 
 if (typeof document !== "undefined") {
   setLang(detectLang(), { persist: false });
   applyStaticTranslations();
   syncLangButtons();
+  state.hideArrivals = readHideArrivals();
   bindControls();
   registerServiceWorker();
   loadMessages();

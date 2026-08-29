@@ -17,6 +17,9 @@ import {
   setTestState,
   vesselFromText,
   visibleConnectionLines,
+  readHideArrivals,
+  showArrivals,
+  writeHideArrivals,
 } from "../assets/app.js";
 
 const ruter = JSON.parse(readFileSync(new URL("../data/ruter.json", import.meta.url), "utf8"));
@@ -205,6 +208,31 @@ test("appen viser same Frå-tid som kombirute-tabellen for alle daggrupper", () 
     const got = new Set(legs.map((leg) => `${leg.from}|${clockMin(leg.departure)}`));
     assert.deepEqual([...got].sort(), [...jsonFromKeys(kind)].sort(), kind);
   }
+});
+
+test("val kan skjule ankomsttider", () => {
+  useKombi();
+  const legs = legsForDate(WEEKDAY);
+  assert.equal(showArrivals(), true);
+  assert.ok(buildEvents(legs, null).some((event) => event.kind === "arr"));
+  setTestState({ hideArrivals: true });
+  assert.equal(showArrivals(), false);
+  assert.ok(buildEvents(legs, null).every((event) => event.kind !== "arr"));
+  assert.ok(buildEvents(legs, null).some((event) => event.kind === "dep"));
+});
+
+test("valet om ankomsttider vert hugsa", () => {
+  const store = new Map();
+  const storage = {
+    getItem: (key) => (store.has(key) ? store.get(key) : null),
+    setItem: (key, value) => store.set(key, String(value)),
+    removeItem: (key) => store.delete(key),
+  };
+  assert.equal(readHideArrivals(storage), false);
+  writeHideArrivals(true, storage);
+  assert.equal(readHideArrivals(storage), true);
+  writeHideArrivals(false, storage);
+  assert.equal(readHideArrivals(storage), false);
 });
 
 test("kombirute viser alle ankomstar frå overfartstid", () => {
