@@ -396,7 +396,11 @@ function homeQuay(legs) {
   return legs[0]?.from || HOME_QUAY;
 }
 
-/** Kombiruta er to ferjer i éi tabell. Tomflytting mellom rader er ikkje ekte. */
+/**
+ * Éi ferje køyrer både 1135 og 1136 som éi tabell. PDF-en har òg
+ * signalturar som overlappar i klokka (t.d. Skår og Leknes samstundes).
+ * Då er «flyttar seg utan passasjerar» ikkje ei ekte forflytting.
+ */
 function isCombinedTimetable() {
   return activeMode() === "kombi";
 }

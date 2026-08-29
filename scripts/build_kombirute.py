@@ -143,7 +143,11 @@ def build() -> dict:
             {"name": "M/F Geiranger", "phone": "916 69 321"},
             {"name": "M/F Kvernes", "phone": "916 69 340"},
         ],
-        "note": "Berre på signal seinast 1 time før avgang. PDF frå FRAM, ikkje Entur.",
+        "note": (
+            "Éi ferje køyrer både Sæbø–Leknes og Standal–Trandal–Sæbø–Skår som "
+            "éi kombinasjonsrute (det andre sambandsfartøyet er ute). "
+            "Berre på signal seinast 1 time før avgang. PDF frå FRAM, ikkje Entur."
+        ),
         "legs": legs,
     }
 

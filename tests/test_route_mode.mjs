@@ -181,7 +181,7 @@ test("quayPlace normaliserer Lekneset", () => {
   assert.equal(quayPlace("Lekneset ferjekai"), "Leknes");
 });
 
-test("kombirute finn ikkje opp tomflytting mellom to ferjer", () => {
+test("kombirute finn ikkje opp tomflytting mellom overlappande rader", () => {
   setTestState({
     routes: ruter,
     kombirute: kombi,
