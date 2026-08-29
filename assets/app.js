@@ -396,6 +396,11 @@ function homeQuay(legs) {
   return legs[0]?.from || HOME_QUAY;
 }
 
+/** Kombiruta er to ferjer i éi tabell. Tomflytting mellom rader er ikkje ekte. */
+function isCombinedTimetable() {
+  return activeMode() === "kombi";
+}
+
 function catalogKeys(leg) {
   if (leg.activeDates?.length) return leg.activeDates;
   if (leg.days?.length) return leg.days;
@@ -527,11 +532,12 @@ function ferryStatus(legs, now = nowMinutes(), allLegs = null) {
     };
   }
   if (now >= clockMinutes(last.arrival)) {
-    if (last.to === home) {
+    if (isCombinedTimetable() || last.to === home) {
+      const quay = last.to;
       return {
         at: 1441,
-        short: t("status.doneAt", { home }),
-        text: t("status.doneAtPeriod", { home }),
+        short: t("status.doneAt", { home: quay }),
+        text: t("status.doneAtPeriod", { home: quay }),
       };
     }
     return overnightStatus(last, home, now, catalog);
@@ -548,7 +554,7 @@ function ferryStatus(legs, now = nowMinutes(), allLegs = null) {
     }
     const next = legs[i + 1];
     if (next && now >= clockMinutes(leg.arrival) && now < clockMinutes(next.departure)) {
-      const moving = leg.to !== next.from;
+      const moving = !isCombinedTimetable() && leg.to !== next.from;
       return {
         at: clockMinutes(leg.arrival) + 0.5,
         underway: moving,
@@ -884,7 +890,7 @@ function buildEvents(legs, connections) {
       build: (past) => arrivalRow(leg, past, connections),
     });
     const next = legs[index + 1];
-    if (next && leg.to !== next.from) {
+    if (!isCombinedTimetable() && next && leg.to !== next.from) {
       events.push({
         at: clockMinutes(leg.arrival),
         kind: "transfer",
@@ -895,7 +901,7 @@ function buildEvents(legs, connections) {
   });
   const last = legs[legs.length - 1];
   const home = homeQuay(legs);
-  if (last && last.to !== home) {
+  if (!isCombinedTimetable() && last && last.to !== home) {
     events.push({
       at: clockMinutes(last.arrival),
       kind: "transfer",

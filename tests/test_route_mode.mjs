@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { beforeEach, test } from "node:test";
 import {
+  buildEvents,
   dayType,
+  ferryStatus,
   isPreview,
   legsForDate,
   modeFromText,
@@ -177,4 +179,27 @@ test("?rute= verkar berre på /dev/ og localhost", () => {
 
 test("quayPlace normaliserer Lekneset", () => {
   assert.equal(quayPlace("Lekneset ferjekai"), "Leknes");
+});
+
+test("kombirute finn ikkje opp tomflytting mellom to ferjer", () => {
+  setTestState({
+    routes: ruter,
+    kombirute: kombi,
+    messages: {
+      messages: [
+        { isLocal: true, text: SMS, routeMode: "kombi", validTo: "2099-01-01T00:00:00Z" },
+      ],
+    },
+  });
+  const legs = legsForDate(WEEKDAY);
+  const events = buildEvents(legs, null);
+  assert.ok(legs.some((leg) => leg.to === "Leknes"));
+  assert.ok(
+    legs.some((a, i) => legs[i + 1] && a.to !== legs[i + 1].from),
+    "tabellen har rader som ikkje heng saman geografisk"
+  );
+  assert.ok(events.every((event) => event.kind !== "transfer"));
+  const status = ferryStatus(legs, 10 * 60 + 20, legs);
+  assert.doesNotMatch(status?.text || "", /utan passasjerar/);
+  assert.doesNotMatch(status?.short || "", /utan passasjerar/);
 });
