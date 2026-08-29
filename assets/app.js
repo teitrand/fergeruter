@@ -626,10 +626,17 @@ function currentStatus(legs) {
   return liveStatus(state.live);
 }
 
+function isVisibleDeparture(leg) {
+  return !leg.hideDeparture;
+}
+
 function nextDepartureFrom(legs, quay, skipPassed = false) {
   return (
     legs.find(
-      (leg) => (!quay || leg.from === quay) && (!skipPassed || !hasPassed(leg.departure))
+      (leg) =>
+        isVisibleDeparture(leg) &&
+        (!quay || leg.from === quay) &&
+        (!skipPassed || !hasPassed(leg.departure))
     ) || null
   );
 }
@@ -697,7 +704,7 @@ function renderNextSummary(legs) {
   const depHit = resolveAhead(
     selected,
     nextDepartureFrom(legs, quay, skipPassed),
-    (leg) => !quay || leg.from === quay
+    (leg) => isVisibleDeparture(leg) && (!quay || leg.from === quay)
   );
   const arrQuay = quay || depHit?.leg.from;
   const arrHit = resolveAhead(
@@ -928,13 +935,18 @@ function compareTimelineEvents(a, b) {
 
 function buildEvents(legs, connections) {
   const events = [];
+  const seenDep = new Set();
   legs.forEach((leg, index) => {
-    events.push({
-      at: clockMinutes(leg.departure),
-      kind: "dep",
-      quays: [leg.from],
-      build: (past) => departureRow(leg, past, connections),
-    });
+    const depKey = `${leg.from}|${leg.departure}`;
+    if (isVisibleDeparture(leg) && !seenDep.has(depKey)) {
+      seenDep.add(depKey);
+      events.push({
+        at: clockMinutes(leg.departure),
+        kind: "dep",
+        quays: [leg.from],
+        build: (past) => departureRow(leg, past, connections),
+      });
+    }
     events.push({
       at: clockMinutes(leg.arrival),
       kind: "arr",
@@ -1070,7 +1082,7 @@ function renderLedeStatus() {
     return;
   }
   const status = currentStatus(legs);
-  const next = legs.find((leg) => !hasPassed(leg.departure));
+  const next = legs.find((leg) => isVisibleDeparture(leg) && !hasPassed(leg.departure));
   const parts = [];
   if (status) parts.push(status.short || status.text.replace(/\.$/, ""));
   if (next) {

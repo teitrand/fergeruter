@@ -82,6 +82,27 @@ class KombiruteTests(unittest.TestCase):
                     }
                     self.assertEqual(got, expected, f"{day} {quay}")
 
+    def test_one_from_row_per_quay_and_clock(self):
+        """Overlappande PDF-rad skal ikkje gje to «Frå Sæbø» same minutt."""
+        payload = mod.build()
+        for day in ("weekday", "saturday", "sunday"):
+            visible = [
+                (leg["from"], leg["departure"])
+                for leg in payload["legs"]
+                if day in leg["days"] and not leg.get("hideDeparture")
+            ]
+            self.assertEqual(len(visible), len(set(visible)), day)
+            saebo_1115 = [
+                leg
+                for leg in payload["legs"]
+                if day in leg["days"]
+                and leg["from"] == "Sæbø"
+                and leg["departure"] == "11:15:00"
+                and not leg.get("hideDeparture")
+            ]
+            self.assertEqual(len(saebo_1115), 1, day)
+            self.assertEqual(saebo_1115[0]["to"], "Leknes")
+
     def test_signal_stops_have_arrival_before_departure(self):
         """Skår (og Trandal 21:40) skal ha anløp same klokke som Frå."""
         payload = mod.build()
