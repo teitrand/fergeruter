@@ -143,6 +143,24 @@ class RouteModeTests(unittest.TestCase):
 
     def test_sms_example_is_kombi(self):
         self.assertEqual(mod.route_mode_from_text(self.SMS), "kombi")
+        self.assertIsNone(mod.switch_from_text(self.SMS))
+
+    def test_switch_from_clock_and_quay(self):
+        text = "Kombirute vert utført frå klokka 08:15 frå Sæbø."
+        self.assertEqual(
+            mod.switch_from_text(text),
+            {"time": "08:15:00", "quay": "Sæbø", "before": "1136", "after": "kombi"},
+        )
+        node = {
+            "id": "1",
+            "heading": "Standal-Trandal",
+            "content": text,
+            "connectionNumber": 132,
+            "date": "29.08.2026 12:00:00",
+            "validFrom": {"timestamp": 1788000000},
+            "validTo": {"timestamp": 1788086400},
+        }
+        self.assertEqual(mod.normalize_node(node)["routeSwitch"]["time"], "08:15:00")
 
     def test_normal_drift_overrides_false_innstilt(self):
         text = (

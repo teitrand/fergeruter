@@ -477,6 +477,20 @@ h2.day-label {
   left: -1.17rem;
 }
 
+.stop-split {
+  color: var(--fjord);
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.stop-split::before {
+  background: var(--fjord);
+  border: 2px solid var(--fjord);
+  width: 0.4rem;
+  height: 0.4rem;
+  left: -1.17rem;
+}
+
 .view-row,
 .conn-row {
   display: flex;

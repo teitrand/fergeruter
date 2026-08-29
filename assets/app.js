@@ -255,6 +255,68 @@ function routeOverride(loc) {
   }
 }
 
+function parseClockToken(raw) {
+  const text = String(raw || "").trim();
+  const match = text.match(/^(\d{1,2})[:.](\d{2})$/) || text.match(/^(\d{2})(\d{2})$/);
+  if (!match) return null;
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (hour > 23 || minute > 59) return null;
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}:00`;
+}
+
+function switchQuayFromToken(raw) {
+  if (!raw) return null;
+  const place = quayPlace(String(raw).replace(/[.,;:]+$/g, "").trim());
+  return place || null;
+}
+
+function beforeModeFor(after, text) {
+  if (after === "1136") return KOMBI_RE.test(text || "") ? "kombi" : "1135";
+  return "1136";
+}
+
+/** «utført frå klokka 08:15 frå Sæbø» — ikkje «fyrste avgang frå Sæbø ca. 08:15». */
+function switchFromText(text, afterMode = null) {
+  const blob = text || "";
+  const after = afterMode || modeFromText(blob);
+  const clockPlace = blob.match(
+    /(?:frå|fra)\s+(?:klokka|kl\.?)\s*(?:ca\.?\s*)?(\d{1,2})[:.](\d{2})(?:\s+(?:frå|fra)\s+([^\s.,;]+(?:\s+[^\s.,;]+)?))?/i
+  );
+  const performed = blob.match(
+    /(?:utført|gjeld)\s+frå\s+(?:klokka\s+|kl\.?\s*)?(?:ca\.?\s*)?(\d{1,2})[:.](\d{2})\s+frå\s+([^\s.,;]+)/i
+  );
+  const match = clockPlace || performed;
+  if (!match) return null;
+  const time = parseClockToken(`${match[1]}:${match[2]}`);
+  if (!time) return null;
+  return {
+    time,
+    quay: switchQuayFromToken(match[3]),
+    before: beforeModeFor(after, blob),
+    after,
+  };
+}
+
+function switchOverride(loc) {
+  const here = previewLocation(loc);
+  if (!isPreview(here)) return null;
+  try {
+    const params = new URL(here.href, "https://teitrand.github.io").searchParams;
+    const time = parseClockToken(params.get("frå") || params.get("fra"));
+    if (!time) return null;
+    const mode = routeOverride(here) || "kombi";
+    return {
+      time,
+      quay: switchQuayFromToken(params.get("kai")),
+      before: ALLOWED_MODES.has(params.get("før")) ? params.get("før") : beforeModeFor(mode, ""),
+      after: mode,
+    };
+  } catch {
+    return null;
+  }
+}
+
 function modeFromText(text) {
   const blob = text || "";
   const hasNormal = NORMAL_RE.test(blob);
@@ -272,6 +334,23 @@ function routeModeFromMessages(messages, now = Date.now()) {
   const latest = validMessages(messages || [], now).find((msg) => msg.isLocal);
   if (!latest) return "1136";
   return latest.routeMode || modeFromText(`${latest.heading || ""} ${latest.text || ""}`);
+}
+
+function routeSwitchFromMessages(messages, now = Date.now()) {
+  const latest = validMessages(messages || [], now).find((msg) => msg.isLocal);
+  if (!latest) return null;
+  if (latest.routeSwitch) return latest.routeSwitch;
+  const mode = latest.routeMode || modeFromText(`${latest.heading || ""} ${latest.text || ""}`);
+  return switchFromText(`${latest.heading || ""} ${latest.text || ""}`, mode);
+}
+
+function activePlan() {
+  const mode = activeMode();
+  const fromQuery = switchOverride();
+  if (fromQuery) return { mode: fromQuery.after || mode, switch: fromQuery };
+  const parsed = routeSwitchFromMessages(state.messages?.messages);
+  if (parsed && (parsed.after || mode) === mode) return { mode, switch: parsed };
+  return { mode, switch: null };
 }
 
 function titleVessel(name) {
@@ -339,17 +418,46 @@ function hasTimetable() {
   return Boolean(state.routes || state.kombirute);
 }
 
+function legsForMode(mode, date) {
+  const tagged =
+    mode === "kombi"
+      ? lineLegs("kombi")
+          .filter((leg) => (leg.days || []).includes(dayType(date)))
+          .map((leg) => ({ ...leg, table: "kombi" }))
+      : lineLegs(mode)
+          .filter((leg) => (leg.activeDates || []).includes(date))
+          .map((leg) => ({ ...leg, table: mode }));
+  return tagged;
+}
+
+function cutBeforeSwitch(legs, routeSwitch) {
+  const at = clockMinutes(routeSwitch.time);
+  return legs.filter((leg) => clockMinutes(leg.departure) < at);
+}
+
+function cutFromSwitch(legs, routeSwitch) {
+  const at = clockMinutes(routeSwitch.time);
+  const quay = routeSwitch.quay ? quayPlace(routeSwitch.quay) : null;
+  return legs.filter((leg) => {
+    const dep = clockMinutes(leg.departure);
+    if (dep > at) return true;
+    if (dep < at) return false;
+    return !quay || quayPlace(leg.from) === quay;
+  });
+}
+
+function sortDayLegs(legs) {
+  return [...legs].sort(
+    (a, b) => a.departure.localeCompare(b.departure) || a.from.localeCompare(b.from)
+  );
+}
+
 function legsForDate(date) {
-  const mode = activeMode();
-  if (mode === "kombi") {
-    const kind = dayType(date);
-    return lineLegs("kombi")
-      .filter((leg) => (leg.days || []).includes(kind))
-      .sort((a, b) => a.departure.localeCompare(b.departure) || a.from.localeCompare(b.from));
-  }
-  return lineLegs(mode)
-    .filter((leg) => (leg.activeDates || []).includes(date))
-    .sort((a, b) => a.departure.localeCompare(b.departure));
+  const plan = activePlan();
+  const after = legsForMode(plan.mode, date);
+  if (!plan.switch) return sortDayLegs(after);
+  const before = cutBeforeSwitch(legsForMode(plan.switch.before, date), plan.switch);
+  return sortDayLegs([...before, ...cutFromSwitch(after, plan.switch)]);
 }
 
 function hjorundfjordQuays() {
@@ -449,7 +557,8 @@ function homeQuay(legs) {
  * Då er «flyttar seg utan passasjerar» ikkje ei ekte forflytting.
  */
 function isCombinedTimetable() {
-  return activeMode() === "kombi";
+  const plan = activePlan();
+  return plan.mode === "kombi" || Boolean(plan.switch);
 }
 
 function catalogKeys(leg) {
@@ -930,6 +1039,25 @@ function arrivalRow(leg, past, index) {
   return row;
 }
 
+function splitRow(routeSwitch, table, past) {
+  const row = el("div", `stop stop-split${past ? " is-past" : ""}`);
+  row.append(el("span", "stop-time", hhmm(routeSwitch.time)));
+  const body = el("span", "stop-body");
+  body.append(
+    el(
+      "span",
+      "stop-name",
+      t("split.continues", {
+        table: t(`split.table.${table}`),
+        quay: routeSwitch.quay ? t("split.atQuay", { quay: routeSwitch.quay }) : "",
+      })
+    )
+  );
+  row.append(body);
+  row.append(el("span", "stop-state", ""));
+  return row;
+}
+
 function transferRow(from, to, past) {
   const row = el("div", `stop stop-transfer${past ? " is-past" : ""}`);
   row.append(el("span", "stop-time", ""));
@@ -961,7 +1089,7 @@ function matchesStop(quays) {
   return quays.includes(state.stopFilter);
 }
 
-const EVENT_SEQ = { arr: 0, transfer: 1, dep: 2, status: 3 };
+const EVENT_SEQ = { arr: 0, split: 1, transfer: 2, dep: 3, status: 4 };
 
 function compareTimelineEvents(a, b) {
   const seq = (event) => EVENT_SEQ[event.kind] ?? 0;
@@ -991,7 +1119,23 @@ function buildEvents(legs, connections) {
       });
     }
     const next = legs[index + 1];
-    if (!isCombinedTimetable() && next && leg.to !== next.from) {
+    if (next && leg.table && next.table && leg.table !== next.table) {
+      const routeSwitch = activePlan().switch;
+      if (routeSwitch) {
+        events.push({
+          at: clockMinutes(next.departure),
+          kind: "split",
+          quays: [next.from],
+          build: (past) => splitRow(routeSwitch, next.table, past),
+        });
+      }
+    }
+    if (
+      !isCombinedTimetable() &&
+      next &&
+      leg.to !== next.from &&
+      (!leg.table || !next.table || leg.table === next.table)
+    ) {
       events.push({
         at: clockMinutes(leg.arrival),
         kind: "transfer",
@@ -1307,6 +1451,21 @@ function renderMessages() {
 }
 
 function appendModeNote(banner, mode) {
+  const plan = activePlan();
+  if (plan.switch) {
+    banner.append(
+      el(
+        "p",
+        "banner-mode",
+        t("mode.switchNote", {
+          time: hhmm(plan.switch.time),
+          quay: plan.switch.quay ? t("split.atQuay", { quay: plan.switch.quay }) : "",
+          table: t(`split.table.${plan.mode}`),
+          before: t(`split.table.${plan.switch.before}`),
+        })
+      )
+    );
+  }
   if (mode === "kombi") {
     const note = el("p", "banner-mode");
     note.append(document.createTextNode(`${t("mode.kombiNote")} `));
@@ -1348,10 +1507,15 @@ function renderBanner(messages) {
 
 function renderRouteChrome() {
   const mode = activeMode();
+  const plan = activePlan();
   const title = document.getElementById("route-title");
   if (title) {
-    title.textContent =
-      mode === "kombi"
+    title.textContent = plan.switch
+      ? t("route.titleSwitch", {
+          before: t(`split.table.${plan.switch.before}`),
+          after: t(`split.table.${plan.mode}`),
+        })
+      : mode === "kombi"
         ? t("route.titleKombi")
         : mode === "1135"
           ? t("route.title1135")
@@ -1714,6 +1878,7 @@ function resetTestState() {
 export {
   FEEDBACK_MAIL,
   activeMode,
+  activePlan,
   appMode,
   buildEvents,
   compareTimelineEvents,
@@ -1739,6 +1904,8 @@ export {
   resetTestState,
   routeModeFromMessages,
   routeOverride,
+  switchFromText,
+  switchOverride,
   setTestState,
   showArrivals,
   track,
