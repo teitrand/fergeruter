@@ -73,6 +73,70 @@ class SignalTests(unittest.TestCase):
         for leg in legs:
             self.assertEqual(leg["signal"]["minutesBefore"], 60)
 
+    def test_pdf_overlay_keeps_only_marked_from_cells(self):
+        """Entur merkar heile turen; PDF 1) gjeld berre Sæbø 08:35 på kvardag."""
+        j = journey(
+            [
+                point("Standal", "07:40:00", None),
+                point("Trandal", "08:00:00", "07:55:00"),
+                point("Sæbø", "08:35:00", "08:20:00"),
+                point("Skår", None, "08:55:00"),
+            ],
+            ["2026-08-28"],
+            notices=["Berre på signal min. 1 time før, tlf. 91 66 93 40"],
+        )
+        legs = mod.legs_from_journey(j)
+        mod.apply_fram_pdf_signal("1136", legs)
+        marked = {
+            (leg["from"], leg["departure"][:5]): bool(leg.get("signal")) for leg in legs
+        }
+        self.assertEqual(
+            marked,
+            {
+                ("Standal", "07:40"): False,
+                ("Trandal", "08:00"): False,
+                ("Sæbø", "08:35"): True,
+            },
+        )
+
+    def test_pdf_overlay_marks_saturday_trandal_0800(self):
+        j = journey(
+            [
+                point("Standal", "07:40:00", None),
+                point("Trandal", "08:00:00", "07:55:00"),
+                point("Sæbø", None, "08:20:00"),
+            ],
+            ["2026-08-29"],
+            notices=["Berre på signal min. 1 time før, tlf. 91 66 93 40"],
+        )
+        legs = mod.legs_from_journey(j)
+        mod.apply_fram_pdf_signal("1136", legs)
+        standal = next(leg for leg in legs if leg["from"] == "Standal")
+        trandal = next(leg for leg in legs if leg["from"] == "Trandal")
+        self.assertIsNone(standal["signal"])
+        self.assertEqual(trandal["signal"]["minutesBefore"], 60)
+
+    def test_pdf_overlay_keeps_sunday_signal_on_holiday(self):
+        j = journey(
+            [point("Trandal", "10:20:00", None), point("Sæbø", None, "10:50:00")],
+            ["2026-08-30", "2027-01-01"],
+            notices=["Berre på signal min. 1 time før, tlf. 91 66 93 40"],
+        )
+        legs = mod.legs_from_journey(j)
+        mod.apply_fram_pdf_signal("1136", legs)
+        self.assertEqual(legs[0]["signal"]["minutesBefore"], 60)
+
+    def test_1135_pdf_overlay_clears_entur_notice(self):
+        j = journey(
+            [point("Sæbø", "08:15:00", None), point("Lekneset", None, "08:30:00")],
+            ["2026-08-28"],
+            notices=["Berre på signal min. 1 time før, tlf. 91 66 93 40"],
+        )
+        legs = mod.legs_from_journey(j)
+        self.assertIsNotNone(legs[0]["signal"])
+        mod.apply_fram_pdf_signal("1135", legs)
+        self.assertIsNone(legs[0]["signal"])
+
     def test_journey_without_notice_has_no_signal(self):
         j = journey(
             [point("Trandal", "07:05:00", None), point("Standal", None, "07:20:00")],
@@ -283,9 +347,33 @@ class StoredTimetableTests(unittest.TestCase):
         self.assertTrue(match[0]["arrival"].startswith("08:2"))
 
     def test_1135_pdf_has_no_signal_and_entur_matches(self):
-        """FRAM 1135-PDF 20.06.26 har inga fotnote 1)."""
+        """FRAM 1135-PDF (sommar 20.06.26 og haust 01.09.26) har inga fotnote 1)."""
         data = json.loads((ROOT / "data" / "ruter.json").read_text(encoding="utf-8"))
         self.assertTrue(all(leg.get("signal") is None for leg in data["lines"]["1135"]["legs"]))
+
+    def test_1136_signal_matches_fram_pdf_footnote(self):
+        """Berre 1)/3)-cellene i 1136-PDF-en skal vere merkte som signal."""
+        data = json.loads((ROOT / "data" / "ruter.json").read_text(encoding="utf-8"))
+        samples = {
+            "mtthf": "2026-08-31",
+            "wednesday": "2026-09-02",
+            "saturday": "2026-08-29",
+            "sunday": "2026-08-30",
+        }
+        for group, iso in samples.items():
+            expected = {
+                (quay, f"{hhmm[:2]}:{hhmm[2:]}:00"): hours
+                for quay, times in mod.PDF_SIGNAL_1136[group].items()
+                for hhmm, hours in times.items()
+            }
+            got = {}
+            for leg in data["lines"]["1136"]["legs"]:
+                if iso not in (leg.get("activeDates") or []):
+                    continue
+                key = (leg["from"], leg["departure"])
+                if leg.get("signal"):
+                    got[key] = 3 if leg["signal"]["minutesBefore"] == 180 else 1
+            self.assertEqual(got, expected, group)
 
 
 if __name__ == "__main__":
