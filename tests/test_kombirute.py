@@ -81,6 +81,33 @@ class KombiruteTests(unittest.TestCase):
                     }
                     self.assertEqual(got, expected, f"{day} {quay}")
 
+    def test_signal_stops_have_arrival_before_departure(self):
+        """Skår (og Trandal 21:40) skal ha anløp same klokke som Frå."""
+        payload = mod.build()
+        for day in ("weekday", "saturday", "sunday"):
+            for quay in ("Skår", "Trandal", "Standal", "Leknes"):
+                deps = [
+                    leg
+                    for leg in payload["legs"]
+                    if leg["from"] == quay and day in leg["days"]
+                ]
+                arrs = {
+                    leg["arrival"]
+                    for leg in payload["legs"]
+                    if leg["to"] == quay and day in leg["days"]
+                }
+                if quay == "Skår":
+                    self.assertTrue(deps, day)
+                    self.assertTrue(arrs, day)
+                for dep in deps:
+                    if quay == "Leknes" and dep["departure"] in {"12:00:00", "21:15:00"}:
+                        continue
+                    if quay == "Trandal" and dep["departure"] == "21:40:00":
+                        self.assertIn(dep["departure"], arrs, f"{day} Trandal 21:40")
+                        continue
+                    if quay == "Skår":
+                        self.assertIn(dep["departure"], arrs, f"{day} {quay} {dep['departure']}")
+
 
 if __name__ == "__main__":
     unittest.main()

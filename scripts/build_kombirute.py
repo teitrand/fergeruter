@@ -68,6 +68,14 @@ def fjord_back(days, trandal, saebo_arr=None, standal=None, signal=True):
     return items
 
 
+def skar_roundtrip(days, saebo, skar):
+    """Signaltur Sæbø–Skår. Ankomst og avgang same klokke, som på 1136."""
+    return [
+        leg("Sæbø", "Skår", saebo, skar, days, signal=True, request=True),
+        leg("Skår", "Sæbø", skar, plus(skar, 20), days, signal=True, request=True),
+    ]
+
+
 def build() -> dict:
     wd, sa, su = ["weekday"], ["saturday"], ["sunday"]
     all_days = wd + sa + su
@@ -132,9 +140,17 @@ def build() -> dict:
     # Søndag: PDF har «Frå Leknes» 21:15 etter kveldsreturen (ikkje Sæbø-ankomst).
     legs.append(leg("Leknes", "Sæbø", "2115", "2130", su))
 
-    # Signalturar Skår.
-    for days, dep in [(wd + sa, "1800"), (su, "1900"), (all_days, "1145")]:
-        legs.append(leg("Skår", "Sæbø", dep, plus(dep, 20), days, signal=True, request=True))
+    # Signalturar Skår. Same PDF-rad som Sæbø 1115 / 1730 / 1830; innbound
+    # slik at tidslinja får anløp før «Frå Skår» (som på 1136).
+    for days, saebo, skar in [
+        (all_days, "1115", "1145"),
+        (wd + sa, "1730", "1800"),
+        (su, "1830", "1900"),
+    ]:
+        legs.extend(skar_roundtrip(days, saebo, skar))
+
+    # 2140 er berre Trandal i PDF-en; same rad som Sæbø 2100.
+    legs.append(leg("Sæbø", "Trandal", "2100", "2140", wd + sa, signal=True))
 
     # Laurdag morgon inn fjorden på signal.
     legs.extend(fjord_out(sa, "0700", "0725", "0740", signal=True))

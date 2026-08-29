@@ -780,6 +780,22 @@
       "id": "kombi-Sæbø-1830-Leknes-sunday"
     },
     {
+      "from": "Sæbø",
+      "to": "Skår",
+      "departure": "18:30:00",
+      "arrival": "19:00:00",
+      "requestStop": true,
+      "signal": {
+        "minutesBefore": 60,
+        "text": "Berre på signal seinast 1 time før avgang",
+        "phone": null
+      },
+      "days": [
+        "sunday"
+      ],
+      "id": "kombi-Sæbø-1830-Skår-sunday"
+    },
+    {
       "from": "Leknes",
       "to": "Sæbø",
       "departure": "18:45:00",
@@ -1168,6 +1184,24 @@
       "id": "kombi-Sæbø-1115-Leknes-weekday"
     },
     {
+      "from": "Sæbø",
+      "to": "Skår",
+      "departure": "11:15:00",
+      "arrival": "11:45:00",
+      "requestStop": true,
+      "signal": {
+        "minutesBefore": 60,
+        "text": "Berre på signal seinast 1 time før avgang",
+        "phone": null
+      },
+      "days": [
+        "weekday",
+        "saturday",
+        "sunday"
+      ],
+      "id": "kombi-Sæbø-1115-Skår-weekday,saturday,sunday"
+    },
+    {
       "from": "Leknes",
       "to": "Sæbø",
       "departure": "11:30:00",
@@ -1410,6 +1444,23 @@
       "id": "kombi-Sæbø-1730-Leknes-weekday"
     },
     {
+      "from": "Sæbø",
+      "to": "Skår",
+      "departure": "17:30:00",
+      "arrival": "18:00:00",
+      "requestStop": true,
+      "signal": {
+        "minutesBefore": 60,
+        "text": "Berre på signal seinast 1 time før avgang",
+        "phone": null
+      },
+      "days": [
+        "weekday",
+        "saturday"
+      ],
+      "id": "kombi-Sæbø-1730-Skår-weekday,saturday"
+    },
+    {
       "from": "Leknes",
       "to": "Sæbø",
       "departure": "17:45:00",
@@ -1553,6 +1604,23 @@
         "weekday"
       ],
       "id": "kombi-Sæbø-2100-Leknes-weekday"
+    },
+    {
+      "from": "Sæbø",
+      "to": "Trandal",
+      "departure": "21:00:00",
+      "arrival": "21:40:00",
+      "requestStop": true,
+      "signal": {
+        "minutesBefore": 60,
+        "text": "Berre på signal seinast 1 time før avgang",
+        "phone": null
+      },
+      "days": [
+        "weekday",
+        "saturday"
+      ],
+      "id": "kombi-Sæbø-2100-Trandal-weekday,saturday"
     },
     {
       "from": "Leknes",
