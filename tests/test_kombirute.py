@@ -117,6 +117,40 @@ class KombiruteTests(unittest.TestCase):
             )
         )
 
+    def test_arrival_is_next_from_cell(self):
+        """Ankomst er neste Frå-tid, ikkje +15 min."""
+        weekday = [leg for leg in mod.build()["legs"] if "weekday" in leg["days"]]
+        leknes_1045 = next(
+            leg
+            for leg in weekday
+            if leg["from"] == "Leknes" and leg["departure"] == "10:45:00"
+        )
+        self.assertEqual(leknes_1045["to"], "Sæbø")
+        self.assertEqual(leknes_1045["arrival"], "11:15:00")
+        self.assertFalse(
+            any(leg["to"] == "Sæbø" and leg["arrival"] == "11:00:00" for leg in weekday)
+        )
+        skar_1145 = next(
+            leg
+            for leg in weekday
+            if leg["from"] == "Skår" and leg["departure"] == "11:45:00"
+        )
+        self.assertEqual(skar_1145["to"], "Leknes")
+        self.assertEqual(skar_1145["arrival"], "12:00:00")
+        leknes_1200 = next(
+            leg
+            for leg in weekday
+            if leg["from"] == "Leknes" and leg["departure"] == "12:00:00"
+        )
+        self.assertEqual(leknes_1200["to"], "Sæbø")
+        self.assertEqual(leknes_1200["arrival"], "12:45:00")
+        last = next(
+            leg
+            for leg in weekday
+            if leg["from"] == "Leknes" and leg["departure"] == "22:30:00"
+        )
+        self.assertEqual(last["to"], "Sæbø")
+
     def test_signal_matches_fram_pdf_footnote(self):
         """Berre 1)-cellene i PDF-en skal vere merkte som signal."""
         stored = json.loads((ROOT / "data" / "kombirute.json").read_text(encoding="utf-8"))

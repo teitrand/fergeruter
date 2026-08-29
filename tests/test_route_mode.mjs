@@ -251,6 +251,10 @@ test("kombirute har éi hending per Frå-celle, ikkje ankomst same minutt", () =
   });
   const legs = legsForDate(WEEKDAY);
   const events = buildEvents(legs, null);
+  const saebo1100 = events.filter(
+    (event) => event.quays.includes("Sæbø") && event.at === 11 * 60
+  );
+  assert.deepEqual(saebo1100, []);
   const saebo1115 = events.filter(
     (event) => event.kind === "dep" && event.quays.includes("Sæbø") && event.at === 11 * 60 + 15
   );
