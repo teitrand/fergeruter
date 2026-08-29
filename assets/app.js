@@ -630,17 +630,6 @@ function isVisibleDeparture(leg) {
   return !leg.hideDeparture;
 }
 
-/** PDF-en har berre Frå-celler. Ikkje vis Ankomst same minutt som Frå. */
-function isSameClockFrom(arrivalLeg, dayLegs) {
-  if (!isCombinedTimetable()) return false;
-  return dayLegs.some(
-    (other) =>
-      isVisibleDeparture(other) &&
-      other.from === arrivalLeg.to &&
-      other.departure === arrivalLeg.arrival
-  );
-}
-
 function nextDepartureFrom(legs, quay, skipPassed = false) {
   return (
     legs.find(
@@ -658,7 +647,6 @@ function nextArrivalAt(legs, quay, skipPassed = false) {
     legs.find((leg) => {
       if (leg.to !== quay) return false;
       if (skipPassed && hasPassed(leg.arrival)) return false;
-      if (isSameClockFrom(leg, legs)) return false;
       return true;
     }) || null
   );
@@ -727,8 +715,7 @@ function renderNextSummary(legs) {
   const arrHit = resolveAhead(
     selected,
     nextArrivalAt(legs, arrQuay, skipPassed),
-    (leg, dayLegs) =>
-      Boolean(arrQuay) && leg.to === arrQuay && !isSameClockFrom(leg, dayLegs || legs)
+    (leg) => Boolean(arrQuay) && leg.to === arrQuay
   );
   if (!depHit && !arrHit) return;
 
@@ -965,14 +952,12 @@ function buildEvents(legs, connections) {
         build: (past) => departureRow(leg, past, connections),
       });
     }
-    if (!isSameClockFrom(leg, legs)) {
-      events.push({
-        at: clockMinutes(leg.arrival),
-        kind: "arr",
-        quays: [leg.to],
-        build: (past) => arrivalRow(leg, past, connections),
-      });
-    }
+    events.push({
+      at: clockMinutes(leg.arrival),
+      kind: "arr",
+      quays: [leg.to],
+      build: (past) => arrivalRow(leg, past, connections),
+    });
     const next = legs[index + 1];
     if (!isCombinedTimetable() && next && leg.to !== next.from) {
       events.push({
