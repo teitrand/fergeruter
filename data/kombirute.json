@@ -13,7 +13,21 @@
       "phone": "916 69 340"
     }
   ],
-  "note": "Éi ferje, éi samanhengande rute. PDF-en har fem Frå-kolonnar (Sæbø, Leknes, Skår, Trandal, Standal) for måndag–fredag, laurdag og søndag. Neste fylte celle er neste anløp. Berre på signal seinast 1 time før avgang. PDF frå FRAM, ikkje Entur.",
+  "crossingMinutes": {
+    "Sæbø–Leknes": 15,
+    "Leknes–Sæbø": 15,
+    "Leknes–Skår": 15,
+    "Skår–Leknes": 15,
+    "Sæbø–Skår": 20,
+    "Skår–Sæbø": 20,
+    "Sæbø–Trandal": 20,
+    "Trandal–Sæbø": 20,
+    "Trandal–Standal": 15,
+    "Standal–Trandal": 15,
+    "Leknes–Trandal": 25,
+    "Trandal–Leknes": 25
+  },
+  "note": "Éi ferje, éi samanhengande rute. PDF-en har fem Frå-kolonnar (Sæbø, Leknes, Skår, Trandal, Standal) for måndag–fredag, laurdag og søndag. Neste fylte celle er neste stopp. Ankomst er avgang pluss overfartstid. Berre på signal seinast 1 time før avgang. PDF frå FRAM, ikkje Entur.",
   "legs": [
     {
       "from": "Sæbø",
@@ -43,7 +57,7 @@
       "from": "Sæbø",
       "to": "Trandal",
       "departure": "07:00:00",
-      "arrival": "07:25:00",
+      "arrival": "07:20:00",
       "requestStop": true,
       "signal": {
         "minutesBefore": 60,
@@ -191,7 +205,7 @@
       "from": "Trandal",
       "to": "Sæbø",
       "departure": "10:05:00",
-      "arrival": "10:30:00",
+      "arrival": "10:25:00",
       "requestStop": true,
       "signal": {
         "minutesBefore": 60,
@@ -219,7 +233,7 @@
       "from": "Leknes",
       "to": "Sæbø",
       "departure": "10:45:00",
-      "arrival": "11:15:00",
+      "arrival": "11:00:00",
       "requestStop": false,
       "signal": null,
       "days": [
@@ -275,7 +289,7 @@
       "from": "Leknes",
       "to": "Sæbø",
       "departure": "12:00:00",
-      "arrival": "12:45:00",
+      "arrival": "12:15:00",
       "requestStop": false,
       "signal": null,
       "days": [
@@ -299,7 +313,7 @@
       "from": "Leknes",
       "to": "Sæbø",
       "departure": "13:00:00",
-      "arrival": "13:45:00",
+      "arrival": "13:15:00",
       "requestStop": false,
       "signal": null,
       "days": [
@@ -323,7 +337,7 @@
       "from": "Leknes",
       "to": "Sæbø",
       "departure": "14:00:00",
-      "arrival": "14:45:00",
+      "arrival": "14:15:00",
       "requestStop": false,
       "signal": null,
       "days": [
@@ -395,7 +409,7 @@
       "from": "Trandal",
       "to": "Sæbø",
       "departure": "16:05:00",
-      "arrival": "16:30:00",
+      "arrival": "16:25:00",
       "requestStop": false,
       "signal": null,
       "days": [
@@ -479,7 +493,7 @@
       "from": "Skår",
       "to": "Sæbø",
       "departure": "18:00:00",
-      "arrival": "18:30:00",
+      "arrival": "18:20:00",
       "requestStop": true,
       "signal": {
         "minutesBefore": 60,
@@ -519,7 +533,7 @@
       "from": "Sæbø",
       "to": "Trandal",
       "departure": "19:00:00",
-      "arrival": "19:35:00",
+      "arrival": "19:20:00",
       "requestStop": false,
       "signal": null,
       "days": [
@@ -555,7 +569,7 @@
       "from": "Trandal",
       "to": "Sæbø",
       "departure": "20:05:00",
-      "arrival": "20:30:00",
+      "arrival": "20:25:00",
       "requestStop": false,
       "signal": null,
       "days": [
@@ -615,7 +629,7 @@
       "from": "Trandal",
       "to": "Sæbø",
       "departure": "21:40:00",
-      "arrival": "22:15:00",
+      "arrival": "22:00:00",
       "requestStop": true,
       "signal": {
         "minutesBefore": 60,
@@ -667,7 +681,7 @@
       "from": "Leknes",
       "to": "Sæbø",
       "departure": "07:45:00",
-      "arrival": "08:15:00",
+      "arrival": "08:00:00",
       "requestStop": false,
       "signal": null,
       "days": [
@@ -763,7 +777,7 @@
       "from": "Trandal",
       "to": "Sæbø",
       "departure": "10:05:00",
-      "arrival": "10:30:00",
+      "arrival": "10:25:00",
       "requestStop": true,
       "signal": {
         "minutesBefore": 60,
@@ -791,7 +805,7 @@
       "from": "Leknes",
       "to": "Sæbø",
       "departure": "10:45:00",
-      "arrival": "11:15:00",
+      "arrival": "11:00:00",
       "requestStop": false,
       "signal": null,
       "days": [
@@ -847,7 +861,7 @@
       "from": "Leknes",
       "to": "Sæbø",
       "departure": "12:00:00",
-      "arrival": "12:45:00",
+      "arrival": "12:15:00",
       "requestStop": false,
       "signal": null,
       "days": [
@@ -871,7 +885,7 @@
       "from": "Leknes",
       "to": "Sæbø",
       "departure": "13:00:00",
-      "arrival": "13:45:00",
+      "arrival": "13:15:00",
       "requestStop": false,
       "signal": null,
       "days": [
@@ -895,7 +909,7 @@
       "from": "Leknes",
       "to": "Sæbø",
       "departure": "14:00:00",
-      "arrival": "14:45:00",
+      "arrival": "14:15:00",
       "requestStop": false,
       "signal": null,
       "days": [
@@ -967,7 +981,7 @@
       "from": "Trandal",
       "to": "Sæbø",
       "departure": "16:05:00",
-      "arrival": "16:30:00",
+      "arrival": "16:25:00",
       "requestStop": false,
       "signal": null,
       "days": [
@@ -991,7 +1005,7 @@
       "from": "Leknes",
       "to": "Sæbø",
       "departure": "16:45:00",
-      "arrival": "17:30:00",
+      "arrival": "17:00:00",
       "requestStop": false,
       "signal": null,
       "days": [
@@ -1015,7 +1029,7 @@
       "from": "Leknes",
       "to": "Sæbø",
       "departure": "17:45:00",
-      "arrival": "18:30:00",
+      "arrival": "18:00:00",
       "requestStop": false,
       "signal": null,
       "days": [
@@ -1051,7 +1065,7 @@
       "from": "Skår",
       "to": "Sæbø",
       "departure": "19:00:00",
-      "arrival": "19:30:00",
+      "arrival": "19:20:00",
       "requestStop": true,
       "signal": {
         "minutesBefore": 60,
@@ -1163,7 +1177,7 @@
       "from": "Leknes",
       "to": "Sæbø",
       "departure": "21:45:00",
-      "arrival": "22:15:00",
+      "arrival": "22:00:00",
       "requestStop": false,
       "signal": null,
       "days": [
@@ -1235,7 +1249,7 @@
       "from": "Leknes",
       "to": "Sæbø",
       "departure": "06:45:00",
-      "arrival": "07:15:00",
+      "arrival": "07:00:00",
       "requestStop": false,
       "signal": null,
       "days": [
@@ -1259,7 +1273,7 @@
       "from": "Leknes",
       "to": "Sæbø",
       "departure": "07:30:00",
-      "arrival": "08:15:00",
+      "arrival": "07:45:00",
       "requestStop": false,
       "signal": null,
       "days": [
@@ -1355,7 +1369,7 @@
       "from": "Trandal",
       "to": "Sæbø",
       "departure": "10:05:00",
-      "arrival": "10:30:00",
+      "arrival": "10:25:00",
       "requestStop": true,
       "signal": {
         "minutesBefore": 60,
@@ -1383,7 +1397,7 @@
       "from": "Leknes",
       "to": "Sæbø",
       "departure": "10:45:00",
-      "arrival": "11:15:00",
+      "arrival": "11:00:00",
       "requestStop": false,
       "signal": null,
       "days": [
@@ -1439,7 +1453,7 @@
       "from": "Leknes",
       "to": "Sæbø",
       "departure": "12:00:00",
-      "arrival": "12:45:00",
+      "arrival": "12:15:00",
       "requestStop": false,
       "signal": null,
       "days": [
@@ -1463,7 +1477,7 @@
       "from": "Leknes",
       "to": "Sæbø",
       "departure": "13:00:00",
-      "arrival": "13:45:00",
+      "arrival": "13:15:00",
       "requestStop": false,
       "signal": null,
       "days": [
@@ -1487,7 +1501,7 @@
       "from": "Leknes",
       "to": "Sæbø",
       "departure": "14:00:00",
-      "arrival": "14:45:00",
+      "arrival": "14:15:00",
       "requestStop": false,
       "signal": null,
       "days": [
@@ -1559,7 +1573,7 @@
       "from": "Trandal",
       "to": "Sæbø",
       "departure": "16:05:00",
-      "arrival": "16:30:00",
+      "arrival": "16:25:00",
       "requestStop": false,
       "signal": null,
       "days": [
@@ -1643,7 +1657,7 @@
       "from": "Skår",
       "to": "Sæbø",
       "departure": "18:00:00",
-      "arrival": "18:30:00",
+      "arrival": "18:20:00",
       "requestStop": true,
       "signal": {
         "minutesBefore": 60,
@@ -1683,7 +1697,7 @@
       "from": "Sæbø",
       "to": "Trandal",
       "departure": "19:00:00",
-      "arrival": "19:25:00",
+      "arrival": "19:20:00",
       "requestStop": false,
       "signal": null,
       "days": [
@@ -1695,7 +1709,7 @@
       "from": "Trandal",
       "to": "Standal",
       "departure": "19:25:00",
-      "arrival": "19:45:00",
+      "arrival": "19:40:00",
       "requestStop": false,
       "signal": null,
       "days": [
@@ -1707,7 +1721,7 @@
       "from": "Standal",
       "to": "Trandal",
       "departure": "19:45:00",
-      "arrival": "20:05:00",
+      "arrival": "20:00:00",
       "requestStop": false,
       "signal": null,
       "days": [
@@ -1719,7 +1733,7 @@
       "from": "Trandal",
       "to": "Sæbø",
       "departure": "20:05:00",
-      "arrival": "20:30:00",
+      "arrival": "20:25:00",
       "requestStop": false,
       "signal": null,
       "days": [
@@ -1779,7 +1793,7 @@
       "from": "Trandal",
       "to": "Sæbø",
       "departure": "21:40:00",
-      "arrival": "22:15:00",
+      "arrival": "22:00:00",
       "requestStop": true,
       "signal": {
         "minutesBefore": 60,

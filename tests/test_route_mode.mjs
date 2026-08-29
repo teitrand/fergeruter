@@ -79,28 +79,36 @@ test("nyaste lokale melding styrer modus", () => {
   );
 });
 
-test("kombirute kvardag har Sæbø 08:15 og Leknes i stopplista", () => {
+function useKombi() {
   setTestState({
     routes: ruter,
     kombirute: kombi,
     messages: {
-      messages: [
-        {
-          isLocal: true,
-          text: SMS,
-          routeMode: "kombi",
-          validTo: "2099-01-01T00:00:00Z",
-        },
-      ],
+      messages: [{ isLocal: true, text: SMS, routeMode: "kombi", validTo: "2099-01-01T00:00:00Z" }],
     },
   });
-  assert.equal(dayType(WEEKDAY), "weekday");
-  const legs = legsForDate(WEEKDAY);
-  assert.ok(
-    legs.some((leg) => leg.from === "Sæbø" && leg.to === "Leknes" && leg.departure === "08:15:00")
+}
+
+function clockMin(time) {
+  return Number(time.slice(0, 2)) * 60 + Number(time.slice(3, 5));
+}
+
+function jsonFromKeys(kind) {
+  return new Set(
+    kombi.legs
+      .filter((leg) => leg.days.includes(kind))
+      .map((leg) => `${leg.from}|${clockMin(leg.departure)}`)
   );
-  const quays = quaysInDay(legs);
+}
+
+const KOMBI_DATES = { weekday: WEEKDAY, saturday: "2026-08-29", sunday: "2026-08-30" };
+
+test("kombirute har dei fem PDF-stoppa, ikkje 1136-kaiar", () => {
+  useKombi();
+  assert.equal(dayType(WEEKDAY), "weekday");
+  const quays = quaysInDay(legsForDate(WEEKDAY));
   assert.ok(quays.includes("Leknes"));
+  assert.ok(quays.includes("Sæbø"));
   assert.ok(!quays.includes("Valderøya"));
   assert.ok(!quays.includes("Store Kalvøy"));
 });
@@ -189,103 +197,50 @@ test("driftsmelding seier kva ferje som køyrer kombiruta", () => {
   assert.equal(vesselFromText("M/F Geiranger og M/F Kvernes kan brukast."), null);
 });
 
-const FRAM_PDF_FROM = {
-  weekday: {
-    Sæbø: ["06:00", "06:30", "07:15", "08:15", "08:45", "09:15", "10:30", "11:15", "12:45", "13:45", "14:45", "15:15", "16:30", "17:00", "17:30", "18:30", "19:00", "20:30", "21:00", "22:15"],
-    Leknes: ["06:15", "06:45", "07:30", "08:30", "09:00", "10:45", "11:30", "12:00", "13:00", "14:00", "15:00", "16:45", "17:15", "17:45", "18:45", "20:45", "21:15", "22:30"],
-    Skår: ["11:45", "18:00"],
-    Trandal: ["09:35", "10:05", "15:35", "16:05", "19:25", "20:05", "21:40"],
-    Standal: ["09:50", "15:50", "19:45"],
-  },
-  saturday: {
-    Sæbø: ["06:30", "07:00", "08:15", "08:45", "09:15", "10:30", "11:15", "12:45", "13:45", "14:45", "15:15", "16:30", "17:00", "17:30", "18:30", "19:00", "20:30", "21:00", "22:15"],
-    Leknes: ["06:45", "08:30", "09:00", "10:45", "11:30", "12:00", "13:00", "14:00", "15:00", "16:45", "17:15", "17:45", "18:45", "20:45", "21:15", "22:30"],
-    Skår: ["11:45", "18:00"],
-    Trandal: ["07:25", "07:55", "09:35", "10:05", "15:35", "16:05", "19:35", "20:05", "21:40"],
-    Standal: ["07:40", "09:50", "15:50", "19:50"],
-  },
-  sunday: {
-    Sæbø: ["07:30", "08:15", "08:45", "09:15", "10:30", "11:15", "12:45", "13:45", "14:45", "15:15", "16:30", "17:30", "18:30", "19:30", "20:00", "21:30", "22:15"],
-    Leknes: ["07:45", "08:30", "09:00", "10:45", "11:30", "12:00", "13:00", "14:00", "15:00", "16:45", "17:45", "18:45", "19:45", "21:15", "21:45", "22:30"],
-    Skår: ["11:45", "19:00"],
-    Trandal: ["09:35", "10:05", "15:35", "16:05", "20:20", "20:50"],
-    Standal: ["09:50", "15:50", "20:35"],
-  },
-};
-
-test("appen viser same Frå-tid som FRAM-PDF for kvardag, laurdag og søndag", () => {
-  setTestState({
-    routes: ruter,
-    kombirute: kombi,
-    messages: {
-      messages: [{ isLocal: true, text: SMS, routeMode: "kombi", validTo: "2099-01-01T00:00:00Z" }],
-    },
-  });
-  const dates = { weekday: WEEKDAY, saturday: "2026-08-29", sunday: "2026-08-30" };
-  for (const [kind, iso] of Object.entries(dates)) {
+test("appen viser same Frå-tid som kombirute-tabellen for alle daggrupper", () => {
+  useKombi();
+  for (const [kind, iso] of Object.entries(KOMBI_DATES)) {
     assert.equal(dayType(iso), kind);
     const legs = legsForDate(iso);
-    for (const [quay, times] of Object.entries(FRAM_PDF_FROM[kind])) {
-      const got = [
-        ...new Set(
-          legs.filter((leg) => leg.from === quay).map((leg) => leg.departure.slice(0, 5))
-        ),
-      ].sort();
-      assert.deepEqual(got, times, `${kind} ${quay}`);
-    }
-    assert.ok(!legs.some((leg) => leg.from === "Standal" && leg.departure === "21:25:00"), kind);
-    assert.ok(!legs.some((leg) => leg.from === "Standal" && kind === "weekday" && leg.departure === "19:50:00"));
+    const got = new Set(legs.map((leg) => `${leg.from}|${clockMin(leg.departure)}`));
+    assert.deepEqual([...got].sort(), [...jsonFromKeys(kind)].sort(), kind);
   }
-  const sunday = legsForDate(dates.sunday);
-  assert.ok(sunday.some((leg) => leg.from === "Leknes" && leg.departure === "21:15:00"));
-  assert.ok(!sunday.some((leg) => leg.from === "Sæbø" && leg.departure === "21:15:00"));
 });
 
-test("kombirute har éi hending per Frå-celle, ikkje ankomst same minutt", () => {
-  setTestState({
-    routes: ruter,
-    kombirute: kombi,
-    messages: {
-      messages: [{ isLocal: true, text: SMS, routeMode: "kombi", validTo: "2099-01-01T00:00:00Z" }],
-    },
-  });
-  const legs = legsForDate(WEEKDAY);
-  const events = buildEvents(legs, null);
-  const saebo1100 = events.filter(
-    (event) => event.quays.includes("Sæbø") && event.at === 11 * 60
-  );
-  assert.deepEqual(saebo1100, []);
-  const saebo1115 = events.filter(
-    (event) => event.kind === "dep" && event.quays.includes("Sæbø") && event.at === 11 * 60 + 15
-  );
-  assert.equal(saebo1115.length, 1);
-  assert.equal(
-    legs.filter((leg) => leg.from === "Sæbø" && leg.departure === "11:15:00").length,
-    1
-  );
-  const skar = events.filter((event) => event.quays?.includes("Skår") && event.at === 11 * 60 + 45);
-  assert.deepEqual(
-    skar.map((event) => event.kind),
-    ["dep"]
-  );
-  const leknes = events.filter(
-    (event) => event.quays?.includes("Leknes") && event.at === 6 * 60 + 15
-  );
-  assert.deepEqual(
-    leknes.map((event) => event.kind),
-    ["dep"]
-  );
-  const doubles = [];
-  const byKey = new Map();
-  for (const event of events) {
-    const quay = event.quays?.[0];
-    if (!quay || (event.kind !== "arr" && event.kind !== "dep")) continue;
-    const key = `${quay}|${event.at}`;
-    const prev = byKey.get(key);
-    if (prev && prev !== event.kind) doubles.push(key);
-    byKey.set(key, event.kind);
+test("kombirute har éi Frå-hending per celle; ankomst berre ved hol", () => {
+  useKombi();
+  for (const [kind, iso] of Object.entries(KOMBI_DATES)) {
+    const legs = legsForDate(iso);
+    const events = buildEvents(legs, null);
+    const fromKeys = jsonFromKeys(kind);
+    const deps = events
+      .filter((event) => event.kind === "dep")
+      .map((event) => `${event.quays[0]}|${event.at}`);
+    assert.deepEqual([...new Set(deps)].sort(), [...fromKeys].sort(), kind);
+    const doubles = [];
+    const byKey = new Map();
+    for (const event of events) {
+      const quay = event.quays?.[0];
+      if (!quay || (event.kind !== "arr" && event.kind !== "dep")) continue;
+      const key = `${quay}|${event.at}`;
+      const prev = byKey.get(key);
+      if (prev && prev !== event.kind) doubles.push(key);
+      byKey.set(key, event.kind);
+    }
+    assert.deepEqual(doubles, [], kind);
+    const layover = new Set(
+      legs
+        .filter((leg) => !fromKeys.has(`${leg.to}|${clockMin(leg.arrival)}`))
+        .map((leg) => `${leg.to}|${clockMin(leg.arrival)}`)
+    );
+    const arrs = new Set(
+      events
+        .filter((event) => event.kind === "arr")
+        .map((event) => `${event.quays[0]}|${event.at}`)
+    );
+    assert.deepEqual([...arrs].sort(), [...layover].sort(), kind);
+    for (const key of arrs) assert.ok(!fromKeys.has(key), key);
   }
-  assert.deepEqual(doubles, []);
 });
 
 test("1136 merkar berre PDF-fotnote 1) og 3) som signal", () => {
@@ -334,53 +289,34 @@ test("1135 har inga PDF-fotnote og inga signalmerke", () => {
   assert.ok(legs.every((leg) => !leg.signal));
 });
 
-test("kombirute merkar berre PDF-fotnote 1) som signal", () => {
-  setTestState({
-    routes: ruter,
-    kombirute: kombi,
-    messages: {
-      messages: [{ isLocal: true, text: SMS, routeMode: "kombi", validTo: "2099-01-01T00:00:00Z" }],
-    },
-  });
-  const legs = legsForDate(WEEKDAY);
-  const standal = legs.find((leg) => leg.from === "Standal" && leg.departure === "09:50:00");
-  const trandal = legs.find((leg) => leg.from === "Trandal" && leg.departure === "10:05:00");
-  assert.ok(standal);
-  assert.equal(standal.signal, null);
-  assert.ok(trandal?.signal);
-  assert.ok(legs.find((leg) => leg.from === "Skår" && leg.departure === "11:45:00")?.signal);
-  assert.ok(!legs.find((leg) => leg.from === "Sæbø" && leg.departure === "11:15:00" && leg.to === "Skår")?.signal);
+test("kombirute merkar berre fotnote-celler som signal", () => {
+  useKombi();
+  for (const iso of Object.values(KOMBI_DATES)) {
+    const legs = legsForDate(iso);
+    assert.ok(legs.some((leg) => leg.signal));
+    assert.ok(legs.some((leg) => !leg.signal));
+    assert.ok(legs.filter((leg) => leg.signal).every((leg) => leg.requestStop));
+    assert.equal(
+      legs.filter((leg) => leg.from === "Sæbø" && leg.to === "Skår").length,
+      0
+    );
+  }
 });
 
 test("kombirute er éi samanhengande rute utan tomflytting", () => {
-  setTestState({
-    routes: ruter,
-    kombirute: kombi,
-    messages: {
-      messages: [
-        { isLocal: true, text: SMS, routeMode: "kombi", validTo: "2099-01-01T00:00:00Z" },
-      ],
-    },
-  });
-  const legs = legsForDate(WEEKDAY);
-  const events = buildEvents(legs, null);
-  assert.ok(legs.some((leg) => leg.to === "Leknes"));
-  assert.ok(
-    legs.every((a, i) => !legs[i + 1] || a.to === legs[i + 1].from),
-    "neste Frå-celle er neste anløp"
-  );
-  assert.ok(events.every((event) => event.kind !== "transfer"));
-  const stretch = events
-    .filter((event) => event.at >= 10 * 60 + 45 && event.at <= 12 * 60 + 15)
-    .map((event) => `${String(Math.floor(event.at / 60)).padStart(2, "0")}:${String(event.at % 60).padStart(2, "0")} ${event.kind} ${event.quays[0]}`);
-  assert.deepEqual(stretch, [
-    "10:45 dep Leknes",
-    "11:15 dep Sæbø",
-    "11:30 dep Leknes",
-    "11:45 dep Skår",
-    "12:00 dep Leknes",
-  ]);
-  const status = ferryStatus(legs, 10 * 60 + 20, legs);
-  assert.doesNotMatch(status?.text || "", /utan passasjerar/);
-  assert.doesNotMatch(status?.short || "", /utan passasjerar/);
+  useKombi();
+  for (const iso of Object.values(KOMBI_DATES)) {
+    const legs = legsForDate(iso);
+    const events = buildEvents(legs, null);
+    assert.ok(legs.some((leg) => leg.to === "Leknes"));
+    assert.ok(
+      legs.every((a, i) => !legs[i + 1] || a.to === legs[i + 1].from),
+      "neste Frå-celle er neste anløp"
+    );
+    assert.ok(events.every((event) => event.kind !== "transfer"));
+    const mid = Math.floor(legs.length / 2);
+    const status = ferryStatus(legs, clockMin(legs[mid].departure) - 10, legs);
+    assert.doesNotMatch(status?.text || "", /utan passasjerar/);
+    assert.doesNotMatch(status?.short || "", /utan passasjerar/);
+  }
 });

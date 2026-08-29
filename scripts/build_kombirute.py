@@ -6,7 +6,8 @@ https://frammr.no/_f/p2/i2e02cdba-2cdc-4a23-b9bf-f6a6bd437bbe/kombinasjonsrute-s
 
 PDF-en er fem Frå-kolonnar (Sæbø, Leknes, Skår, Trandal, Standal) for
 måndag–fredag, så laurdag, så søndag. Les linje for linje som éi
-samanhengande rute: neste fylte celle er neste anløp (ankomst = den Frå-tida).
+samanhengande rute: neste fylte celle er neste stopp. Ankomst =
+avgang + overfartstid for det paret.
 """
 
 from __future__ import annotations
@@ -24,6 +25,23 @@ SIGNAL = {
     "phone": None,
 }
 QUAYS = ("Sæbø", "Leknes", "Skår", "Trandal", "Standal")
+
+# Seglingstid i minutt (ikkje hol på kai). Når PDF-en byter klokkeslett,
+# desse står. Ankomst = avgang + overfart.
+CROSSING = {
+    ("Sæbø", "Leknes"): 15,
+    ("Leknes", "Sæbø"): 15,
+    ("Leknes", "Skår"): 15,
+    ("Skår", "Leknes"): 15,
+    ("Sæbø", "Skår"): 20,
+    ("Skår", "Sæbø"): 20,
+    ("Sæbø", "Trandal"): 20,
+    ("Trandal", "Sæbø"): 20,
+    ("Trandal", "Standal"): 15,
+    ("Standal", "Trandal"): 15,
+    ("Leknes", "Trandal"): 25,
+    ("Trandal", "Leknes"): 25,
+}
 
 # Fotnote 1) i FRAM-PDF, per Frå-celle.
 PDF_SIGNAL = {
@@ -46,6 +64,8 @@ PDF_SIGNAL = {
     },
 }
 
+# Gjeldande FRAM-tabell. Når PDF-en byter: oppdater berre desse radene og
+# PDF_SIGNAL. Testane låser leseregelen, ikkje klokkesletta.
 # Tom streng = tom celle. Rekkjefølgje: Sæbø, Leknes, Skår, Trandal, Standal.
 PDF_ROWS = {
     "weekday": [
@@ -137,6 +157,16 @@ def plus_minutes(hhmm: str, minutes: int) -> str:
     return f"{total // 60:02d}{total % 60:02d}"
 
 
+def crossing_minutes(origin: str, dest: str) -> int:
+    if origin == dest:
+        raise ValueError(f"same quay: {origin}")
+    return CROSSING[(origin, dest)]
+
+
+def arrival_at(origin: str, dest: str, departure: str) -> str:
+    return plus_minutes(departure, crossing_minutes(origin, dest))
+
+
 def hhmm_key(value: str) -> str:
     return value[:2] + value[3:5] if ":" in value else value
 
@@ -167,12 +197,12 @@ def legs_from_rows(day: str, rows: list[tuple[str, str, str, str, str]]) -> list
     cells = filled_cells(rows)
     days = [day]
     legs = []
-    for index, ((origin, departure), (dest, arrival)) in enumerate(zip(cells, cells[1:])):
+    for index, ((origin, departure), (dest, _next_from)) in enumerate(zip(cells, cells[1:])):
         item = {
             "from": origin,
             "to": dest,
             "departure": clock(departure),
-            "arrival": clock(arrival),
+            "arrival": clock(arrival_at(origin, dest, departure)),
             "requestStop": False,
             "signal": None,
             "days": days,
@@ -183,7 +213,7 @@ def legs_from_rows(day: str, rows: list[tuple[str, str, str, str, str]]) -> list
     if cells:
         origin, departure = cells[-1]
         dest = "Sæbø" if origin != "Sæbø" else "Leknes"
-        arrival = plus_minutes(departure, 15)
+        arrival = arrival_at(origin, dest, departure)
         legs.append(
             {
                 "from": origin,
@@ -214,10 +244,12 @@ def build() -> dict:
             {"name": "M/F Geiranger", "phone": "916 69 321"},
             {"name": "M/F Kvernes", "phone": "916 69 340"},
         ],
+        "crossingMinutes": {f"{a}–{b}": mins for (a, b), mins in CROSSING.items()},
         "note": (
             "Éi ferje, éi samanhengande rute. PDF-en har fem Frå-kolonnar "
             "(Sæbø, Leknes, Skår, Trandal, Standal) for måndag–fredag, laurdag "
-            "og søndag. Neste fylte celle er neste anløp. "
+            "og søndag. Neste fylte celle er neste stopp. Ankomst er avgang "
+            "pluss overfartstid. "
             "Berre på signal seinast 1 time før avgang. PDF frå FRAM, ikkje Entur."
         ),
         "legs": legs,
