@@ -108,6 +108,42 @@ class KombiruteTests(unittest.TestCase):
                     if quay == "Skår":
                         self.assertIn(dep["departure"], arrs, f"{day} {quay} {dep['departure']}")
 
+    def test_signal_matches_fram_pdf_footnote(self):
+        """Berre 1)-cellene i PDF-en skal vere merkte som signal."""
+        stored = json.loads((ROOT / "data" / "kombirute.json").read_text(encoding="utf-8"))
+        for payload in (mod.build(), stored):
+            for day, stops in mod.PDF_SIGNAL.items():
+                for quay, times in stops.items():
+                    got = {
+                        leg["departure"][:2] + leg["departure"][3:5]
+                        for leg in payload["legs"]
+                        if quay == leg["from"] and day in leg["days"] and leg.get("signal")
+                    }
+                    self.assertEqual(got, times, f"signal {day} {quay}")
+            extras = [
+                (day, leg["from"], leg["departure"])
+                for day in ("weekday", "saturday", "sunday")
+                for leg in payload["legs"]
+                if day in leg["days"]
+                and leg.get("signal")
+                and (leg["departure"][:2] + leg["departure"][3:5])
+                not in mod.PDF_SIGNAL.get(day, {}).get(leg["from"], set())
+            ]
+            self.assertEqual(extras, [])
+            weekday = [leg for leg in payload["legs"] if "weekday" in leg["days"]]
+            standal_0950 = next(
+                leg
+                for leg in weekday
+                if leg["from"] == "Standal" and leg["departure"] == "09:50:00"
+            )
+            self.assertIsNone(standal_0950["signal"])
+            trandal_1005 = next(
+                leg
+                for leg in weekday
+                if leg["from"] == "Trandal" and leg["departure"] == "10:05:00"
+            )
+            self.assertIsNotNone(trandal_1005["signal"])
+
 
 if __name__ == "__main__":
     unittest.main()

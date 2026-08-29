@@ -20,6 +20,28 @@ SIGNAL = {
     "phone": None,
 }
 
+# Fotnote 1) i FRAM-PDF, per Frå-celle. Ikkje heile turen (t.d. Standal 09:50
+# er vanleg, Trandal 10:05 på same retur er på signal).
+PDF_SIGNAL = {
+    "weekday": {
+        "Leknes": {"1130"},
+        "Skår": {"1145", "1800"},
+        "Trandal": {"1005", "2140"},
+    },
+    "saturday": {
+        "Sæbø": {"0700"},
+        "Leknes": {"1130"},
+        "Skår": {"1145", "1800"},
+        "Trandal": {"0725", "0755", "1005", "2140"},
+        "Standal": {"0740"},
+    },
+    "sunday": {
+        "Leknes": {"1130"},
+        "Skår": {"1145", "1900"},
+        "Trandal": {"1005"},
+    },
+}
+
 
 def clock(hhmm: str) -> str:
     return f"{hhmm[:2]}:{hhmm[2:]}:00"
@@ -58,7 +80,24 @@ def fjord_out(days, saebo, trandal, standal, signal=False):
     ]
 
 
-def fjord_back(days, trandal, saebo_arr=None, standal=None, signal=True):
+def hhmm_key(value: str) -> str:
+    return value[:2] + value[3:5] if ":" in value else value
+
+
+def is_pdf_signal(quay: str, departure: str, days: list[str]) -> bool:
+    time = hhmm_key(departure)
+    return bool(days) and all(time in PDF_SIGNAL.get(day, {}).get(quay, set()) for day in days)
+
+
+def apply_pdf_signal(legs: list[dict]) -> None:
+    """Berre cellene med 1) i PDF-en får signal-merke."""
+    for item in legs:
+        marked = is_pdf_signal(item["from"], item["departure"], item["days"])
+        item["signal"] = SIGNAL if marked else None
+        item["requestStop"] = marked
+
+
+def fjord_back(days, trandal, saebo_arr=None, standal=None, signal=False):
     """Retur. Standal-avgang berre når PDF-en har «Frå Standal»."""
     items = []
     if standal:
@@ -69,10 +108,10 @@ def fjord_back(days, trandal, saebo_arr=None, standal=None, signal=True):
 
 
 def skar_roundtrip(days, saebo, skar):
-    """Signaltur Sæbø–Skår. Ankomst og avgang same klokke, som på 1136."""
+    """Sæbø–Skår. Berre Frå Skår er 1) i PDF-en; apply_pdf_signal set merket."""
     return [
-        leg("Sæbø", "Skår", saebo, skar, days, signal=True, request=True),
-        leg("Skår", "Sæbø", skar, plus(skar, 20), days, signal=True, request=True),
+        leg("Sæbø", "Skår", saebo, skar, days),
+        leg("Skår", "Sæbø", skar, plus(skar, 20), days),
     ]
 
 
@@ -157,6 +196,7 @@ def build() -> dict:
     legs.append(leg("Standal", "Trandal", "0740", "0755", sa, signal=True))
     legs.append(leg("Trandal", "Sæbø", "0755", "0815", sa, signal=True))
 
+    apply_pdf_signal(legs)
     legs.sort(key=lambda item: (item["days"][0], item["departure"], item["from"], item["to"]))
     return {
         "source": SOURCE,

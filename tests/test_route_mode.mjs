@@ -271,6 +271,24 @@ test("Skår har anløp før avgang, same klokke som på 1136", () => {
   assert.equal(firstSkar?.kind, "arr");
 });
 
+test("kombirute merkar berre PDF-fotnote 1) som signal", () => {
+  setTestState({
+    routes: ruter,
+    kombirute: kombi,
+    messages: {
+      messages: [{ isLocal: true, text: SMS, routeMode: "kombi", validTo: "2099-01-01T00:00:00Z" }],
+    },
+  });
+  const legs = legsForDate(WEEKDAY);
+  const standal = legs.find((leg) => leg.from === "Standal" && leg.departure === "09:50:00");
+  const trandal = legs.find((leg) => leg.from === "Trandal" && leg.departure === "10:05:00");
+  assert.ok(standal);
+  assert.equal(standal.signal, null);
+  assert.ok(trandal?.signal);
+  assert.ok(legs.find((leg) => leg.from === "Skår" && leg.departure === "11:45:00")?.signal);
+  assert.ok(!legs.find((leg) => leg.from === "Sæbø" && leg.departure === "11:15:00" && leg.to === "Skår")?.signal);
+});
+
 test("kombirute finn ikkje opp tomflytting mellom overlappande rader", () => {
   setTestState({
     routes: ruter,

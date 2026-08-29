@@ -412,12 +412,8 @@
       "to": "Trandal",
       "departure": "19:50:00",
       "arrival": "20:05:00",
-      "requestStop": true,
-      "signal": {
-        "minutesBefore": 60,
-        "text": "Berre på signal seinast 1 time før avgang",
-        "phone": null
-      },
+      "requestStop": false,
+      "signal": null,
       "days": [
         "saturday"
       ],
@@ -428,12 +424,8 @@
       "to": "Sæbø",
       "departure": "20:05:00",
       "arrival": "20:30:00",
-      "requestStop": true,
-      "signal": {
-        "minutesBefore": 60,
-        "text": "Berre på signal seinast 1 time før avgang",
-        "phone": null
-      },
+      "requestStop": false,
+      "signal": null,
       "days": [
         "saturday"
       ],
@@ -784,12 +776,8 @@
       "to": "Skår",
       "departure": "18:30:00",
       "arrival": "19:00:00",
-      "requestStop": true,
-      "signal": {
-        "minutesBefore": 60,
-        "text": "Berre på signal seinast 1 time før avgang",
-        "phone": null
-      },
+      "requestStop": false,
+      "signal": null,
       "days": [
         "sunday"
       ],
@@ -876,12 +864,8 @@
       "to": "Trandal",
       "departure": "20:35:00",
       "arrival": "20:50:00",
-      "requestStop": true,
-      "signal": {
-        "minutesBefore": 60,
-        "text": "Berre på signal seinast 1 time før avgang",
-        "phone": null
-      },
+      "requestStop": false,
+      "signal": null,
       "days": [
         "sunday"
       ],
@@ -892,12 +876,8 @@
       "to": "Sæbø",
       "departure": "20:50:00",
       "arrival": "21:10:00",
-      "requestStop": true,
-      "signal": {
-        "minutesBefore": 60,
-        "text": "Berre på signal seinast 1 time før avgang",
-        "phone": null
-      },
+      "requestStop": false,
+      "signal": null,
       "days": [
         "sunday"
       ],
@@ -1116,12 +1096,8 @@
       "to": "Trandal",
       "departure": "09:50:00",
       "arrival": "10:05:00",
-      "requestStop": true,
-      "signal": {
-        "minutesBefore": 60,
-        "text": "Berre på signal seinast 1 time før avgang",
-        "phone": null
-      },
+      "requestStop": false,
+      "signal": null,
       "days": [
         "weekday",
         "saturday",
@@ -1188,12 +1164,8 @@
       "to": "Skår",
       "departure": "11:15:00",
       "arrival": "11:45:00",
-      "requestStop": true,
-      "signal": {
-        "minutesBefore": 60,
-        "text": "Berre på signal seinast 1 time før avgang",
-        "phone": null
-      },
+      "requestStop": false,
+      "signal": null,
       "days": [
         "weekday",
         "saturday",
@@ -1352,12 +1324,8 @@
       "to": "Trandal",
       "departure": "15:50:00",
       "arrival": "16:05:00",
-      "requestStop": true,
-      "signal": {
-        "minutesBefore": 60,
-        "text": "Berre på signal seinast 1 time før avgang",
-        "phone": null
-      },
+      "requestStop": false,
+      "signal": null,
       "days": [
         "weekday",
         "saturday",
@@ -1370,12 +1338,8 @@
       "to": "Sæbø",
       "departure": "16:05:00",
       "arrival": "16:30:00",
-      "requestStop": true,
-      "signal": {
-        "minutesBefore": 60,
-        "text": "Berre på signal seinast 1 time før avgang",
-        "phone": null
-      },
+      "requestStop": false,
+      "signal": null,
       "days": [
         "weekday",
         "saturday",
@@ -1448,12 +1412,8 @@
       "to": "Skår",
       "departure": "17:30:00",
       "arrival": "18:00:00",
-      "requestStop": true,
-      "signal": {
-        "minutesBefore": 60,
-        "text": "Berre på signal seinast 1 time før avgang",
-        "phone": null
-      },
+      "requestStop": false,
+      "signal": null,
       "days": [
         "weekday",
         "saturday"
@@ -1542,12 +1502,8 @@
       "to": "Trandal",
       "departure": "19:45:00",
       "arrival": "20:05:00",
-      "requestStop": true,
-      "signal": {
-        "minutesBefore": 60,
-        "text": "Berre på signal seinast 1 time før avgang",
-        "phone": null
-      },
+      "requestStop": false,
+      "signal": null,
       "days": [
         "weekday"
       ],
@@ -1558,12 +1514,8 @@
       "to": "Sæbø",
       "departure": "20:05:00",
       "arrival": "20:30:00",
-      "requestStop": true,
-      "signal": {
-        "minutesBefore": 60,
-        "text": "Berre på signal seinast 1 time før avgang",
-        "phone": null
-      },
+      "requestStop": false,
+      "signal": null,
       "days": [
         "weekday"
       ],
@@ -1610,12 +1562,8 @@
       "to": "Trandal",
       "departure": "21:00:00",
       "arrival": "21:40:00",
-      "requestStop": true,
-      "signal": {
-        "minutesBefore": 60,
-        "text": "Berre på signal seinast 1 time før avgang",
-        "phone": null
-      },
+      "requestStop": false,
+      "signal": null,
       "days": [
         "weekday",
         "saturday"
