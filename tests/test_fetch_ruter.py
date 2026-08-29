@@ -282,6 +282,11 @@ class StoredTimetableTests(unittest.TestCase):
         self.assertTrue(match, "1135 skal ha Sæbø 08:15 mot Leknes på kvardag")
         self.assertTrue(match[0]["arrival"].startswith("08:2"))
 
+    def test_1135_pdf_has_no_signal_and_entur_matches(self):
+        """FRAM 1135-PDF 20.06.26 har inga fotnote 1)."""
+        data = json.loads((ROOT / "data" / "ruter.json").read_text(encoding="utf-8"))
+        self.assertTrue(all(leg.get("signal") is None for leg in data["lines"]["1135"]["legs"]))
+
 
 if __name__ == "__main__":
     unittest.main()

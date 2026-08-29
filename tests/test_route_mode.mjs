@@ -8,6 +8,7 @@ import {
   isPreview,
   legsForDate,
   modeFromText,
+  nextArrivalAt,
   quayPlace,
   quaysInDay,
   resetTestState,
@@ -238,6 +239,54 @@ test("appen viser same Frå-tid som FRAM-PDF for kvardag, laurdag og søndag", (
   const sunday = legsForDate(dates.sunday);
   assert.ok(sunday.some((leg) => leg.from === "Leknes" && leg.departure === "21:15:00"));
   assert.ok(!sunday.some((leg) => leg.from === "Sæbø" && leg.departure === "21:15:00"));
+});
+
+test("Skår har anløp før avgang, same klokke som på 1136", () => {
+  setTestState({
+    routes: ruter,
+    kombirute: kombi,
+    messages: {
+      messages: [{ isLocal: true, text: SMS, routeMode: "kombi", validTo: "2099-01-01T00:00:00Z" }],
+    },
+  });
+  const legs = legsForDate(WEEKDAY);
+  const deps = legs.filter((leg) => leg.from === "Skår");
+  assert.deepEqual(
+    deps.map((leg) => leg.departure),
+    ["11:45:00", "18:00:00"]
+  );
+  for (const dep of deps) {
+    assert.ok(
+      legs.some((leg) => leg.to === "Skår" && leg.arrival === dep.departure && leg.from === "Sæbø"),
+      `ankomst før ${dep.departure}`
+    );
+  }
+  const noon = nextArrivalAt(legs, "Skår");
+  assert.equal(noon?.arrival, "11:45:00");
+  assert.equal(noon?.from, "Sæbø");
+  const events = buildEvents(legs, null).filter((event) => event.quays?.includes("Skår"));
+  const kinds = events.map((event) => event.kind);
+  assert.ok(kinds.includes("arr") && kinds.includes("dep"));
+  const firstSkar = events.find((event) => event.at === 11 * 60 + 45);
+  assert.equal(firstSkar?.kind, "arr");
+});
+
+test("kombirute merkar berre PDF-fotnote 1) som signal", () => {
+  setTestState({
+    routes: ruter,
+    kombirute: kombi,
+    messages: {
+      messages: [{ isLocal: true, text: SMS, routeMode: "kombi", validTo: "2099-01-01T00:00:00Z" }],
+    },
+  });
+  const legs = legsForDate(WEEKDAY);
+  const standal = legs.find((leg) => leg.from === "Standal" && leg.departure === "09:50:00");
+  const trandal = legs.find((leg) => leg.from === "Trandal" && leg.departure === "10:05:00");
+  assert.ok(standal);
+  assert.equal(standal.signal, null);
+  assert.ok(trandal?.signal);
+  assert.ok(legs.find((leg) => leg.from === "Skår" && leg.departure === "11:45:00")?.signal);
+  assert.ok(!legs.find((leg) => leg.from === "Sæbø" && leg.departure === "11:15:00" && leg.to === "Skår")?.signal);
 });
 
 test("kombirute finn ikkje opp tomflytting mellom overlappande rader", () => {
