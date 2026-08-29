@@ -73,6 +73,70 @@ class SignalTests(unittest.TestCase):
         for leg in legs:
             self.assertEqual(leg["signal"]["minutesBefore"], 60)
 
+    def test_pdf_overlay_keeps_only_marked_from_cells(self):
+        """Entur merkar heile turen; PDF 1) gjeld berre Sæbø 08:35 på kvardag."""
+        j = journey(
+            [
+                point("Standal", "07:40:00", None),
+                point("Trandal", "08:00:00", "07:55:00"),
+                point("Sæbø", "08:35:00", "08:20:00"),
+                point("Skår", None, "08:55:00"),
+            ],
+            ["2026-08-28"],
+            notices=["Berre på signal min. 1 time før, tlf. 91 66 93 40"],
+        )
+        legs = mod.legs_from_journey(j)
+        mod.apply_fram_pdf_signal("1136", legs)
+        marked = {
+            (leg["from"], leg["departure"][:5]): bool(leg.get("signal")) for leg in legs
+        }
+        self.assertEqual(
+            marked,
+            {
+                ("Standal", "07:40"): False,
+                ("Trandal", "08:00"): False,
+                ("Sæbø", "08:35"): True,
+            },
+        )
+
+    def test_pdf_overlay_marks_saturday_trandal_0800(self):
+        j = journey(
+            [
+                point("Standal", "07:40:00", None),
+                point("Trandal", "08:00:00", "07:55:00"),
+                point("Sæbø", None, "08:20:00"),
+            ],
+            ["2026-08-29"],
+            notices=["Berre på signal min. 1 time før, tlf. 91 66 93 40"],
+        )
+        legs = mod.legs_from_journey(j)
+        mod.apply_fram_pdf_signal("1136", legs)
+        standal = next(leg for leg in legs if leg["from"] == "Standal")
+        trandal = next(leg for leg in legs if leg["from"] == "Trandal")
+        self.assertIsNone(standal["signal"])
+        self.assertEqual(trandal["signal"]["minutesBefore"], 60)
+
+    def test_pdf_overlay_keeps_sunday_signal_on_holiday(self):
+        j = journey(
+            [point("Trandal", "10:20:00", None), point("Sæbø", None, "10:50:00")],
+            ["2026-08-30", "2027-01-01"],
+            notices=["Berre på signal min. 1 time før, tlf. 91 66 93 40"],
+        )
+        legs = mod.legs_from_journey(j)
+        mod.apply_fram_pdf_signal("1136", legs)
+        self.assertEqual(legs[0]["signal"]["minutesBefore"], 60)
+
+    def test_1135_pdf_overlay_clears_entur_notice(self):
+        j = journey(
+            [point("Sæbø", "08:15:00", None), point("Lekneset", None, "08:30:00")],
+            ["2026-08-28"],
+            notices=["Berre på signal min. 1 time før, tlf. 91 66 93 40"],
+        )
+        legs = mod.legs_from_journey(j)
+        self.assertIsNotNone(legs[0]["signal"])
+        mod.apply_fram_pdf_signal("1135", legs)
+        self.assertIsNone(legs[0]["signal"])
+
     def test_journey_without_notice_has_no_signal(self):
         j = journey(
             [point("Trandal", "07:05:00", None), point("Standal", None, "07:20:00")],
@@ -267,6 +331,74 @@ class FetchTests(unittest.TestCase):
             self.assertEqual(data["lines"]["1135"]["legs"][0]["departure"], "08:15:00")
 
 
+# FRAM 1136 frå 17.08.26, Frå-kolonnar (bbox 29.08.26). Onsdag har eiga tabell.
+FRAM_PDF_FROM_1136 = {
+    "mtthf": {
+        "Standal": "0645 0740 1310 1545 1845 2000",
+        "Trandal": "0705 0800 0945 1425 1515 1625 1810 1940 2020",
+        "Sæbø": "0835 0920 1450 1650 1745",
+        "Skår": "0855 1710",
+    },
+    "wednesday": {
+        "Standal": "0740 1440 1610",
+        "Trandal": "0800 1500 1550 1630",
+        "Sæbø": "0835 1525",
+        "Valderøya": "1110 1900",
+        "Store Kalvøy": "1210 1925",
+    },
+    "saturday": {
+        "Standal": "0740 1605 1845 2000",
+        "Trandal": "0800 0945 1625 1810 1940 2020",
+        "Sæbø": "0835 0920 1650 1745",
+        "Skår": "0855 1710",
+        "Valderøya": "1215",
+        "Store Kalvøy": "1315",
+    },
+    "sunday": {
+        "Standal": "0900 1000 1530 1655 2000 2040",
+        "Trandal": "0920 1020 1215 1550 1715 1900 2020 2100",
+        "Sæbø": "1050 1150 1750 1835",
+        "Skår": "1120 1815",
+    },
+}
+
+# FRAM 1135. Sommar og haust har same kvardag; helg mister 10:00 og 11:15 frå 01.09.
+FRAM_PDF_FROM_1135_SUMMER = {
+    "weekday": {
+        "Sæbø": "0600 0630 0715 0815 0915 1030 1145 1245 1345 1445 1545 1630 1700 1730 1830 2000 2100 2215",
+        "Leknes": "0615 0645 0730 0830 0930 1045 1200 1300 1400 1500 1600 1645 1715 1745 1845 2015 2115 2230",
+    },
+    "saturday": {
+        "Sæbø": "0630 0830 0900 1000 1030 1115 1145 1245 1345 1445 1545 1630 1730 1830 2030 2115 2215",
+        "Leknes": "0645 0845 0915 1015 1045 1130 1200 1300 1400 1500 1600 1645 1745 1845 2045 2130 2230",
+    },
+    "sunday": {
+        "Sæbø": "0730 0815 0900 1000 1030 1115 1145 1245 1345 1445 1545 1630 1730 1800 1830 2030 2115 2215",
+        "Leknes": "0745 0830 0915 1015 1045 1130 1200 1300 1400 1500 1600 1645 1745 1815 1845 2045 2130 2230",
+    },
+}
+FRAM_PDF_FROM_1135_AUTUMN = {
+    "weekday": FRAM_PDF_FROM_1135_SUMMER["weekday"],
+    "saturday": {
+        "Sæbø": "0630 0830 0900 1030 1145 1245 1345 1445 1545 1630 1730 1830 2030 2115 2215",
+        "Leknes": "0645 0845 0915 1045 1200 1300 1400 1500 1600 1645 1745 1845 2045 2130 2230",
+    },
+    "sunday": {
+        "Sæbø": "0730 0815 0900 1030 1145 1245 1345 1445 1545 1630 1730 1800 1830 2030 2115 2215",
+        "Leknes": "0745 0830 0915 1045 1200 1300 1400 1500 1600 1645 1745 1815 1845 2045 2130 2230",
+    },
+}
+
+
+def _from_times(legs, iso):
+    got = {}
+    for leg in legs:
+        if iso not in (leg.get("activeDates") or []):
+            continue
+        got.setdefault(leg["from"], set()).add(leg["departure"][:2] + leg["departure"][3:5])
+    return got
+
+
 class StoredTimetableTests(unittest.TestCase):
     def test_1135_saebo_0815_weekday_from_entur(self):
         data = json.loads((ROOT / "data" / "ruter.json").read_text(encoding="utf-8"))
@@ -283,9 +415,70 @@ class StoredTimetableTests(unittest.TestCase):
         self.assertTrue(match[0]["arrival"].startswith("08:2"))
 
     def test_1135_pdf_has_no_signal_and_entur_matches(self):
-        """FRAM 1135-PDF 20.06.26 har inga fotnote 1)."""
+        """FRAM 1135-PDF (sommar 20.06.26 og haust 01.09.26) har inga fotnote 1)."""
         data = json.loads((ROOT / "data" / "ruter.json").read_text(encoding="utf-8"))
         self.assertTrue(all(leg.get("signal") is None for leg in data["lines"]["1135"]["legs"]))
+
+    def test_1136_signal_matches_fram_pdf_footnote(self):
+        """Berre 1)/3)-cellene i 1136-PDF-en skal vere merkte som signal."""
+        data = json.loads((ROOT / "data" / "ruter.json").read_text(encoding="utf-8"))
+        samples = {
+            "mtthf": "2026-08-31",
+            "wednesday": "2026-09-02",
+            "saturday": "2026-08-29",
+            "sunday": "2026-08-30",
+        }
+        for group, iso in samples.items():
+            expected = {
+                (quay, f"{hhmm[:2]}:{hhmm[2:]}:00"): hours
+                for quay, times in mod.PDF_SIGNAL_1136[group].items()
+                for hhmm, hours in times.items()
+            }
+            got = {}
+            for leg in data["lines"]["1136"]["legs"]:
+                if iso not in (leg.get("activeDates") or []):
+                    continue
+                key = (leg["from"], leg["departure"])
+                if leg.get("signal"):
+                    got[key] = 3 if leg["signal"]["minutesBefore"] == 180 else 1
+            self.assertEqual(got, expected, group)
+
+    def test_1136_from_times_match_fram_pdf(self):
+        """Frå-kolonnane i FRAM 1136-PDF 17.08.26."""
+        data = json.loads((ROOT / "data" / "ruter.json").read_text(encoding="utf-8"))
+        samples = {
+            "mtthf": "2026-08-31",
+            "wednesday": "2026-09-02",
+            "saturday": "2026-08-29",
+            "sunday": "2026-08-30",
+        }
+        legs = data["lines"]["1136"]["legs"]
+        for group, iso in samples.items():
+            got = _from_times(legs, iso)
+            expected = {
+                quay: set(times.split()) for quay, times in FRAM_PDF_FROM_1136[group].items()
+            }
+            for quay, times in got.items():
+                self.assertEqual(times, expected.get(quay, set()), f"{group} {quay}")
+            for quay, times in expected.items():
+                self.assertEqual(got.get(quay, set()), times, f"{group} {quay}")
+
+    def test_1135_from_times_match_fram_pdf_seasons(self):
+        """1135 sommar til 31.08, haust frå 01.09. Inga 1)."""
+        data = json.loads((ROOT / "data" / "ruter.json").read_text(encoding="utf-8"))
+        legs = data["lines"]["1135"]["legs"]
+        samples = [
+            (FRAM_PDF_FROM_1135_SUMMER["weekday"], "2026-08-31"),
+            (FRAM_PDF_FROM_1135_SUMMER["saturday"], "2026-08-29"),
+            (FRAM_PDF_FROM_1135_SUMMER["sunday"], "2026-08-30"),
+            (FRAM_PDF_FROM_1135_AUTUMN["weekday"], "2026-09-01"),
+            (FRAM_PDF_FROM_1135_AUTUMN["saturday"], "2026-09-05"),
+            (FRAM_PDF_FROM_1135_AUTUMN["sunday"], "2026-09-06"),
+        ]
+        for expected, iso in samples:
+            got = _from_times(legs, iso)
+            for quay, times in expected.items():
+                self.assertEqual(got.get(quay, set()), set(times.split()), f"{iso} {quay}")
 
 
 if __name__ == "__main__":

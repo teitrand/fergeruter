@@ -11,6 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "build_kombirute.py"
 
 # FRAM kombinasjonsrute 18.11.2025, «Frå»-kolonnar (Sæbø–Leknes–Skår–Trandal–Standal).
+# Bbox-sjekka på nytt 29.08.26 mot original-PDF.
 FRAM_PDF_FROM = {
     "weekday": {
         "Sæbø": "0600 0630 0715 0815 0845 0915 1030 1115 1245 1345 1445 1515 1630 1700 1730 1830 1900 2030 2100 2215",
@@ -81,32 +82,74 @@ class KombiruteTests(unittest.TestCase):
                     }
                     self.assertEqual(got, expected, f"{day} {quay}")
 
-    def test_signal_stops_have_arrival_before_departure(self):
-        """Skår (og Trandal 21:40) skal ha anløp same klokke som Frå."""
+    def test_one_from_row_per_quay_and_clock(self):
+        """Overlappande PDF-rad skal ikkje gje to «Frå Sæbø» same minutt."""
         payload = mod.build()
         for day in ("weekday", "saturday", "sunday"):
-            for quay in ("Skår", "Trandal", "Standal", "Leknes"):
-                deps = [
-                    leg
-                    for leg in payload["legs"]
-                    if leg["from"] == quay and day in leg["days"]
-                ]
-                arrs = {
-                    leg["arrival"]
-                    for leg in payload["legs"]
-                    if leg["to"] == quay and day in leg["days"]
-                }
-                if quay == "Skår":
-                    self.assertTrue(deps, day)
-                    self.assertTrue(arrs, day)
-                for dep in deps:
-                    if quay == "Leknes" and dep["departure"] in {"12:00:00", "21:15:00"}:
-                        continue
-                    if quay == "Trandal" and dep["departure"] == "21:40:00":
-                        self.assertIn(dep["departure"], arrs, f"{day} Trandal 21:40")
-                        continue
-                    if quay == "Skår":
-                        self.assertIn(dep["departure"], arrs, f"{day} {quay} {dep['departure']}")
+            visible = [
+                (leg["from"], leg["departure"])
+                for leg in payload["legs"]
+                if day in leg["days"] and not leg.get("hideDeparture")
+            ]
+            self.assertEqual(len(visible), len(set(visible)), day)
+            saebo_1115 = [
+                leg
+                for leg in payload["legs"]
+                if day in leg["days"]
+                and leg["from"] == "Sæbø"
+                and leg["departure"] == "11:15:00"
+                and not leg.get("hideDeparture")
+            ]
+            self.assertEqual(len(saebo_1115), 1, day)
+            self.assertEqual(saebo_1115[0]["to"], "Leknes")
+
+    def test_no_invented_from_on_overlapping_row(self):
+        """Same PDF-rad (t.d. 11:15 / 11:30 / 11:45) er fem Frå-kolonnar, ikkje to Sæbø-avgangar."""
+        payload = mod.build()
+        weekday = [leg for leg in payload["legs"] if "weekday" in leg["days"]]
+        self.assertFalse(
+            any(leg["from"] == "Sæbø" and leg["to"] == "Skår" for leg in weekday)
+        )
+        self.assertTrue(
+            any(
+                leg["from"] == "Skår" and leg["departure"] == "11:45:00"
+                for leg in weekday
+            )
+        )
+
+    def test_arrival_is_next_from_cell(self):
+        """Ankomst er neste Frå-tid, ikkje +15 min."""
+        weekday = [leg for leg in mod.build()["legs"] if "weekday" in leg["days"]]
+        leknes_1045 = next(
+            leg
+            for leg in weekday
+            if leg["from"] == "Leknes" and leg["departure"] == "10:45:00"
+        )
+        self.assertEqual(leknes_1045["to"], "Sæbø")
+        self.assertEqual(leknes_1045["arrival"], "11:15:00")
+        self.assertFalse(
+            any(leg["to"] == "Sæbø" and leg["arrival"] == "11:00:00" for leg in weekday)
+        )
+        skar_1145 = next(
+            leg
+            for leg in weekday
+            if leg["from"] == "Skår" and leg["departure"] == "11:45:00"
+        )
+        self.assertEqual(skar_1145["to"], "Leknes")
+        self.assertEqual(skar_1145["arrival"], "12:00:00")
+        leknes_1200 = next(
+            leg
+            for leg in weekday
+            if leg["from"] == "Leknes" and leg["departure"] == "12:00:00"
+        )
+        self.assertEqual(leknes_1200["to"], "Sæbø")
+        self.assertEqual(leknes_1200["arrival"], "12:45:00")
+        last = next(
+            leg
+            for leg in weekday
+            if leg["from"] == "Leknes" and leg["departure"] == "22:30:00"
+        )
+        self.assertEqual(last["to"], "Sæbø")
 
     def test_signal_matches_fram_pdf_footnote(self):
         """Berre 1)-cellene i PDF-en skal vere merkte som signal."""
