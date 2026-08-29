@@ -81,6 +81,69 @@ class KombiruteTests(unittest.TestCase):
                     }
                     self.assertEqual(got, expected, f"{day} {quay}")
 
+    def test_signal_stops_have_arrival_before_departure(self):
+        """Skår (og Trandal 21:40) skal ha anløp same klokke som Frå."""
+        payload = mod.build()
+        for day in ("weekday", "saturday", "sunday"):
+            for quay in ("Skår", "Trandal", "Standal", "Leknes"):
+                deps = [
+                    leg
+                    for leg in payload["legs"]
+                    if leg["from"] == quay and day in leg["days"]
+                ]
+                arrs = {
+                    leg["arrival"]
+                    for leg in payload["legs"]
+                    if leg["to"] == quay and day in leg["days"]
+                }
+                if quay == "Skår":
+                    self.assertTrue(deps, day)
+                    self.assertTrue(arrs, day)
+                for dep in deps:
+                    if quay == "Leknes" and dep["departure"] in {"12:00:00", "21:15:00"}:
+                        continue
+                    if quay == "Trandal" and dep["departure"] == "21:40:00":
+                        self.assertIn(dep["departure"], arrs, f"{day} Trandal 21:40")
+                        continue
+                    if quay == "Skår":
+                        self.assertIn(dep["departure"], arrs, f"{day} {quay} {dep['departure']}")
+
+    def test_signal_matches_fram_pdf_footnote(self):
+        """Berre 1)-cellene i PDF-en skal vere merkte som signal."""
+        stored = json.loads((ROOT / "data" / "kombirute.json").read_text(encoding="utf-8"))
+        for payload in (mod.build(), stored):
+            for day, stops in mod.PDF_SIGNAL.items():
+                for quay, times in stops.items():
+                    got = {
+                        leg["departure"][:2] + leg["departure"][3:5]
+                        for leg in payload["legs"]
+                        if quay == leg["from"] and day in leg["days"] and leg.get("signal")
+                    }
+                    self.assertEqual(got, times, f"signal {day} {quay}")
+            extras = [
+                (day, leg["from"], leg["departure"])
+                for day in ("weekday", "saturday", "sunday")
+                for leg in payload["legs"]
+                if day in leg["days"]
+                and leg.get("signal")
+                and (leg["departure"][:2] + leg["departure"][3:5])
+                not in mod.PDF_SIGNAL.get(day, {}).get(leg["from"], set())
+            ]
+            self.assertEqual(extras, [])
+            weekday = [leg for leg in payload["legs"] if "weekday" in leg["days"]]
+            standal_0950 = next(
+                leg
+                for leg in weekday
+                if leg["from"] == "Standal" and leg["departure"] == "09:50:00"
+            )
+            self.assertIsNone(standal_0950["signal"])
+            trandal_1005 = next(
+                leg
+                for leg in weekday
+                if leg["from"] == "Trandal" and leg["departure"] == "10:05:00"
+            )
+            self.assertIsNotNone(trandal_1005["signal"])
+
 
 if __name__ == "__main__":
     unittest.main()
