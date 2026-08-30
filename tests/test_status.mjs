@@ -5,6 +5,7 @@ import {
   compareTimelineEvents,
   delayMinutes,
   ferryStatus,
+  ferryTrack,
   firstKnownQuay,
   homeQuay,
   isLiveFresh,
@@ -56,6 +57,32 @@ test("før fyrste avgang ligg ferja på Standal", () => {
   const status = ferryStatus(wednesday, 7 * 60 + 10, wednesday);
   assert.equal(status.short, "Ferja ligg til kai på Standal");
   assert.equal(status.underway, undefined);
+});
+
+test("ferjespora fylgjer overfarta frå 0 til 100 prosent", () => {
+  const legs = [
+    leg("Standal", "Trandal", "07:40:00", "07:55:00"),
+    leg("Trandal", "Standal", "08:00:00", "08:15:00"),
+  ];
+  const before = ferryTrack(legs, 7 * 3600 + 10 * 60);
+  assert.equal(before.progress, 0);
+  assert.equal(before.phase, "waiting");
+  assert.equal(before.from, "Standal");
+  const start = ferryTrack(legs, 7 * 3600 + 40 * 60);
+  assert.equal(start.progress, 0);
+  assert.equal(start.phase, "sailing");
+  const mid = ferryTrack(legs, 7 * 3600 + 47 * 60 + 30);
+  assert.equal(mid.phase, "sailing");
+  assert.equal(mid.to, "Trandal");
+  assert.ok(Math.abs(mid.progress - 0.5) < 0.02);
+  const moored = ferryTrack(legs, 7 * 3600 + 56 * 60);
+  assert.equal(moored.phase, "moored");
+  assert.equal(moored.progress, 0);
+  assert.equal(moored.from, "Trandal");
+  const done = ferryTrack(legs, 8 * 3600 + 20 * 60);
+  assert.equal(done.progress, 1);
+  assert.equal(done.phase, "done");
+  assert.equal(done.quay, "Standal");
 });
 
 test("på veg i ein passasjertur", () => {

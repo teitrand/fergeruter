@@ -56,6 +56,7 @@ const state = {
 
 let renderedDate = null;
 let tickTimer = null;
+let trackTimer = null;
 
 function el(tag, className, text) {
   const node = document.createElement(tag);
@@ -745,6 +746,135 @@ function overnightStatus(last, home, now, allLegs) {
   };
 }
 
+function clamp01(value) {
+  if (!Number.isFinite(value)) return 0;
+  return Math.min(1, Math.max(0, value));
+}
+
+function progressBetween(startSec, endSec, nowSec) {
+  const span = endSec - startSec;
+  if (span <= 0) return nowSec >= endSec ? 1 : 0;
+  return clamp01((nowSec - startSec) / span);
+}
+
+/** Posisjon på noverande strekning, 0 = frå-kai, 1 = til-kai. */
+function ferryTrack(legs, nowSec = osloSecondsOfDay(), allLegs = null) {
+  if (!legs.length) return null;
+  const first = legs[0];
+  const last = legs[legs.length - 1];
+  const home = homeQuay(legs);
+  const catalog = allLegs || legs;
+
+  if (nowSec < clockSeconds(first.departure)) {
+    return { from: first.from, to: first.to, progress: 0, phase: "waiting" };
+  }
+
+  for (let i = 0; i < legs.length; i += 1) {
+    const leg = legs[i];
+    const dep = clockSeconds(leg.departure);
+    const arr = clockSeconds(leg.arrival);
+    if (nowSec >= dep && nowSec < arr) {
+      return {
+        from: leg.from,
+        to: leg.to,
+        progress: progressBetween(dep, arr, nowSec),
+        phase: "sailing",
+      };
+    }
+    const next = legs[i + 1];
+    if (next && nowSec >= arr && nowSec < clockSeconds(next.departure)) {
+      if (!isCombinedTimetable() && leg.to !== next.from) {
+        return {
+          from: leg.to,
+          to: next.from,
+          progress: progressBetween(arr, clockSeconds(next.departure), nowSec),
+          phase: "reposition",
+        };
+      }
+      return {
+        from: next.from,
+        to: next.to,
+        progress: 0,
+        phase: "moored",
+        quay: leg.to,
+      };
+    }
+  }
+
+  if (nowSec >= clockSeconds(last.arrival)) {
+    if (isCombinedTimetable() || last.to === home) {
+      return { from: last.from, to: last.to, progress: 1, phase: "done", quay: last.to };
+    }
+    const deadhead = minDeadheadMinutes(catalog, last.to, home);
+    const sinceMin = (nowSec - clockSeconds(last.arrival)) / 60;
+    if (deadhead != null && sinceMin < deadhead) {
+      return {
+        from: last.to,
+        to: home,
+        progress: clamp01(sinceMin / deadhead),
+        phase: "reposition",
+      };
+    }
+    if (deadhead == null) {
+      return { from: last.to, to: home, progress: 0.5, phase: "reposition" };
+    }
+    return { from: last.from, to: home, progress: 1, phase: "done", quay: home };
+  }
+  return null;
+}
+
+function trackCaption(track) {
+  if (track.phase === "sailing") {
+    return t("track.sailing", { from: track.from, to: track.to });
+  }
+  if (track.phase === "reposition") {
+    return t("track.reposition", { from: track.from, to: track.to });
+  }
+  if (track.phase === "waiting") {
+    return t("track.waiting", { quay: track.from, to: track.to });
+  }
+  if (track.phase === "done") {
+    return t("track.done", { quay: track.quay || track.to });
+  }
+  return t("track.moored", { quay: track.quay || track.from });
+}
+
+function renderFerryTrack() {
+  const root = document.getElementById("fjord-track");
+  if (!root) return;
+  const legs = hasTimetable() ? legsForDate(todayIso()) : [];
+  const track = ferryTrack(legs);
+  if (!track) {
+    root.hidden = true;
+    return;
+  }
+  root.hidden = false;
+  root.classList.toggle("is-underway", track.phase === "sailing" || track.phase === "reposition");
+  root.style.setProperty("--progress", String(track.progress));
+  const from = document.getElementById("fjord-from");
+  const to = document.getElementById("fjord-to");
+  const caption = document.getElementById("fjord-caption");
+  if (from) from.textContent = track.from;
+  if (to) to.textContent = track.to;
+  if (caption) caption.textContent = trackCaption(track);
+  root.setAttribute(
+    "aria-label",
+    t("track.aria", {
+      from: track.from,
+      to: track.to,
+      percent: String(Math.round(track.progress * 100)),
+    })
+  );
+}
+
+function scheduleFerryTrack() {
+  clearTimeout(trackTimer);
+  trackTimer = setTimeout(() => {
+    renderFerryTrack();
+    scheduleFerryTrack();
+  }, 15000);
+}
+
 /** Kvar ferja er akkurat no, rekna ut frå rutetabellen. */
 function ferryStatus(legs, now = nowMinutes(), allLegs = null) {
   if (!legs.length) return null;
@@ -1359,6 +1489,7 @@ function renderLedeStatus() {
   if (!legs.length) {
     lede.hidden = false;
     lede.textContent = t("lede.noTripsToday");
+    renderFerryTrack();
     return;
   }
   const status = currentStatus(legs);
@@ -1377,6 +1508,7 @@ function renderLedeStatus() {
   lede.hidden = false;
   lede.textContent = `${parts.join(". ")}.`;
   renderPositionNote();
+  renderFerryTrack();
 }
 
 function renderPositionNote() {
@@ -1998,6 +2130,7 @@ export {
   delayMinutes,
   feedbackMailto,
   ferryStatus,
+  ferryTrack,
   firstKnownQuay,
   homeQuay,
   isLiveFresh,
@@ -2039,6 +2172,7 @@ if (typeof document !== "undefined") {
   loadMessages();
   loadRoutes();
   scheduleTick();
+  scheduleFerryTrack();
   setInterval(loadMessages, 3 * 60 * 1000);
   track(`Visit ${getLang()}`, { app: appMode() }, { interactive: false });
   if (appMode() === "pwa") track("Visit pwa", null, { interactive: false });
