@@ -99,6 +99,9 @@ const STRINGS = {
     "footer.operator": "Operatør Fjord1. Ruteeigar FRAM. M/F Kvernes, tlf. 916 69 340.",
     "footer.holidays":
       "Nokre turar går berre på signal. Ved jul, nyttår og høgtid: sjå FRAM-appen.",
+    "app.versionUpdated": "Versjon {version} · Sist oppdatert {date}",
+    "app.timetableFetched": "Rutetabell {date}",
+    "app.messagesFetched": "Trafikkmeldingar {when}",
     "severity.normal": "Normal drift",
     "severity.delay": "Forsinking",
     "severity.cancelled": "Innstilt",
@@ -243,6 +246,9 @@ const STRINGS = {
     "footer.operator": "Operator Fjord1. Route owner FRAM. M/F Kvernes, tel. 916 69 340.",
     "footer.holidays":
       "Some sailings are on request only. At Christmas, New Year and public holidays: see the FRAM app.",
+    "app.versionUpdated": "Version {version} · Last updated {date}",
+    "app.timetableFetched": "Timetable {date}",
+    "app.messagesFetched": "Traffic notices {when}",
     "severity.normal": "Normal service",
     "severity.delay": "Delay",
     "severity.cancelled": "Cancelled",
@@ -390,6 +396,9 @@ const STRINGS = {
     "footer.operator": "Betreiber Fjord1. Auftraggeber FRAM. M/F Kvernes, Tel. 916 69 340.",
     "footer.holidays":
       "Einige Fahrten verkehren nur auf Signal. An Weihnachten, Neujahr und Feiertagen: siehe FRAM-App.",
+    "app.versionUpdated": "Version {version} · Zuletzt aktualisiert {date}",
+    "app.timetableFetched": "Fahrplan {date}",
+    "app.messagesFetched": "Verkehrsmeldungen {when}",
     "severity.normal": "Normalbetrieb",
     "severity.delay": "Verspätung",
     "severity.cancelled": "Ausgefallen",

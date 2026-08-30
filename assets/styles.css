@@ -181,6 +181,22 @@ h1 {
   max-width: 18ch;
 }
 
+.app-build {
+  margin: 0.45rem 0 0;
+  font-size: 0.82rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  opacity: 0.78;
+}
+
+.app-meta {
+  color: #7a6550;
+}
+
+.app-meta #app-data-updated:not(:empty)::before {
+  content: " · ";
+}
+
 .lede {
   margin: 0.9rem 0 0;
   max-width: 46ch;

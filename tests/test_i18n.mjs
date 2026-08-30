@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { ferryStatus } from "../assets/app.js";
+import { APP_UPDATED, APP_VERSION, ferryStatus } from "../assets/app.js";
 import {
   SUPPORTED,
   STORAGE_KEY,
@@ -20,6 +20,27 @@ const wednesday = [
   leg("Standal", "Trandal", "07:40:00", "07:55:00"),
   leg("Trandal", "Sæbø", "08:00:00", "08:30:00"),
 ];
+
+test("versjon og sist oppdatert har fast kjelde", () => {
+  assert.match(APP_VERSION, /^\d+\.\d+$/);
+  assert.match(APP_UPDATED, /^\d{4}-\d{2}-\d{2}$/);
+  setLang("nn");
+  assert.equal(
+    t("app.versionUpdated", { version: "1.12", date: "30. august 2026" }),
+    "Versjon 1.12 · Sist oppdatert 30. august 2026"
+  );
+  setLang("en");
+  assert.equal(
+    t("app.versionUpdated", { version: "1.12", date: "30 August 2026" }),
+    "Version 1.12 · Last updated 30 August 2026"
+  );
+  setLang("de");
+  assert.equal(
+    t("app.versionUpdated", { version: "1.12", date: "30. August 2026" }),
+    "Version 1.12 · Zuletzt aktualisiert 30. August 2026"
+  );
+  setLang("nn");
+});
 
 test("same i18n keys in nn, en and de", () => {
   const nn = stringKeys();

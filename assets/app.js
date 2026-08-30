@@ -8,6 +8,7 @@ import {
   t,
   weekdays,
 } from "./i18n.js";
+import { APP_UPDATED, APP_VERSION } from "./version.js";
 
 const MESSAGES_URL = "data/trafikkmeldinger.json";
 const ROUTES_URL = "data/ruter.json";
@@ -1616,6 +1617,31 @@ function renderBanner(messages) {
   appendModeNote(banner, mode);
 }
 
+function appUpdatedLabel() {
+  return t("app.versionUpdated", {
+    version: APP_VERSION,
+    date: formatDateOnly(`${APP_UPDATED}T12:00:00+02:00`),
+  });
+}
+
+function renderAppMeta() {
+  const label = appUpdatedLabel();
+  const header = document.getElementById("app-build");
+  if (header) header.textContent = label;
+  const footer = document.getElementById("app-build-footer");
+  if (footer) footer.textContent = label;
+  const data = document.getElementById("app-data-updated");
+  if (!data) return;
+  const parts = [];
+  if (state.routes?.fetchedAt) {
+    parts.push(t("app.timetableFetched", { date: formatDateOnly(state.routes.fetchedAt) }));
+  }
+  if (state.messages?.fetchedAt) {
+    parts.push(t("app.messagesFetched", { when: formatDateTime(state.messages.fetchedAt) }));
+  }
+  data.textContent = parts.join(" · ");
+}
+
 function renderRouteChrome() {
   const mode = activeMode();
   const plan = activePlan();
@@ -1669,6 +1695,7 @@ async function loadMessages() {
     if (!response.ok) throw new Error(response.statusText);
     state.messages = await response.json();
     renderMessages();
+    renderAppMeta();
     if (hasTimetable()) {
       renderRouteChrome();
       renderTimeline();
@@ -1738,6 +1765,7 @@ async function loadRoutes() {
     if (kombiRes?.ok) state.kombirute = await kombiRes.json();
     await loadConnections();
     renderRouteChrome();
+    renderAppMeta();
     renderTimeline();
     renderLedeStatus();
     const updated = document.getElementById("timetable-updated");
@@ -1800,6 +1828,7 @@ function applyLanguage(next) {
   setLang(next);
   applyStaticTranslations();
   syncLangButtons();
+  renderAppMeta();
   const install = document.getElementById("install-btn");
   if (install) install.textContent = t("install.app");
   renderRouteChrome();
@@ -1987,6 +2016,8 @@ function resetTestState() {
 }
 
 export {
+  APP_UPDATED,
+  APP_VERSION,
   FEEDBACK_MAIL,
   activeMode,
   activePlan,
@@ -2033,6 +2064,7 @@ if (typeof document !== "undefined") {
   setLang(detectLang(), { persist: false });
   applyStaticTranslations();
   syncLangButtons();
+  renderAppMeta();
   state.hideArrivals = readHideArrivals();
   bindControls();
   registerServiceWorker();
