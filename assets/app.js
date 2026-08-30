@@ -270,17 +270,105 @@ function beforeModeFor(after, text) {
   return "1136";
 }
 
-/** «utført frå klokka 08:15» — ikkje «fyrste avgang frå Sæbø ca. 08:15». Kai kjem frå tabellen. */
+const HJORUNDFJORD_RE =
+  /\b(?:1135|1136)\b|trandal|standal|sæbø|skår|lekne|valderøy|store kalvøy|kombinasjon|kombirute|kombinert rute/i;
+const ONLY_1049_RE = /\b1049\b|festøy|hundeidvik/i;
+const WEEKDAY_TOKEN =
+  "(?:mandag|tysdag|tirsdag|onsdag|torsdag|fredag|laurdag|lørdag|søndag)\\s+";
+const NUMDATE_TOKEN = "(\\d{1,2})\\.(\\d{1,2})(?:\\.(\\d{2,4}))?";
+
+function messageBlob(msg) {
+  if (typeof msg === "string") return msg || "";
+  return `${msg?.heading || ""} ${msg?.text || ""}`;
+}
+
+function is1049Only(heading, text) {
+  const blob = `${heading || ""} ${text || ""}`;
+  return ONLY_1049_RE.test(blob) && !HJORUNDFJORD_RE.test(blob);
+}
+
+function isRouteControl(msg) {
+  if (!msg) return false;
+  if (msg.isRouteControl === true) return true;
+  if (msg.isRouteControl === false) return false;
+  const heading = msg.heading || "";
+  const text = msg.text || "";
+  if (is1049Only(heading, text)) return false;
+  if (msg.isLocal === false) return false;
+  if (msg.isLocal === true) return true;
+  return HJORUNDFJORD_RE.test(`${heading} ${text}`);
+}
+
+function osloIsoFromMs(ms = Date.now()) {
+  const parts = osloParts(new Date(ms));
+  return `${parts.year}-${parts.month}-${parts.day}`;
+}
+
+function parseNumDate(day, month, year, refIso) {
+  const d = Number(day);
+  const m = Number(month);
+  if (!d || !m || m > 12 || d > 31) return null;
+  const ref = refIso || osloIsoFromMs();
+  const refYear = Number(ref.slice(0, 4));
+  let y = year ? Number(year) : refYear;
+  if (y && y < 100) y += 2000;
+  if (!year) {
+    const candidate = `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    const diff =
+      (Date.parse(`${ref}T12:00:00Z`) - Date.parse(`${candidate}T12:00:00Z`)) /
+      86400000;
+    if (diff > 45) y += 1;
+  }
+  const iso = `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+  return Number.isNaN(Date.parse(`${iso}T12:00:00Z`)) ? null : iso;
+}
+
+function windowFromText(text, published) {
+  const blob = text || "";
+  const ref = osloIsoFromInstant(published) || osloIsoFromMs();
+  const range = blob.match(
+    new RegExp(
+      `(?:frå|fra)\\s+(?:rutestart\\s+)?(?:${WEEKDAY_TOKEN})?${NUMDATE_TOKEN}\\s+(?:til(?:\\s+og\\s+med)?|tom)\\s+(?:${WEEKDAY_TOKEN})?${NUMDATE_TOKEN}`,
+      "i"
+    )
+  );
+  if (range) {
+    const start = parseNumDate(range[1], range[2], range[3], ref);
+    const end = parseNumDate(range[4], range[5], range[6], ref);
+    if (start || end) return { from: start, to: end };
+  }
+  const fromMatch = blob.match(
+    new RegExp(`(?:frå|fra)\\s+(?:rutestart\\s+)?(?:${WEEKDAY_TOKEN})?${NUMDATE_TOKEN}`, "i")
+  );
+  const untilMatch = blob.match(
+    new RegExp(`til\\s+og\\s+med\\s+(?:${WEEKDAY_TOKEN})?${NUMDATE_TOKEN}`, "i")
+  );
+  const start = fromMatch ? parseNumDate(fromMatch[1], fromMatch[2], fromMatch[3], ref) : null;
+  const end = untilMatch
+    ? parseNumDate(untilMatch[1], untilMatch[2], untilMatch[3], ref)
+    : null;
+  if (start || end) return { from: start, to: end };
+  return null;
+}
+
+function activateAtFromText(text) {
+  const match = String(text || "").match(
+    /normal drift.{0,40}(?:frå|fra)\s+(?:klokka|kl\.?)\s*(?:ca\.?\s*)?(\d{1,2})[:.](\d{2})/is
+  );
+  return match ? parseClockToken(`${match[1]}:${match[2]}`) : null;
+}
+
+/** Skøyt berre når meldinga seier at tabellen byter («kombirute frå klokka»). */
 function switchFromText(text, afterMode = null) {
   const blob = text || "";
   const after = afterMode || modeFromText(blob);
-  const clockPlace = blob.match(
-    /(?:frå|fra)\s+(?:klokka|kl\.?)\s*(?:ca\.?\s*)?(\d{1,2})[:.](\d{2})/i
+  const kombiClock = blob.match(
+    /(?:kombinasjon\w*|kombirute|kombinert rute)[\s\S]{0,80}(?:frå|fra)\s+(?:klokka|kl\.?)\s*(?:ca\.?\s*)?(\d{1,2})[:.](\d{2})/i
   );
   const performed = blob.match(
     /(?:utført|gjeld)\s+frå\s+(?:klokka\s+|kl\.?\s*)?(?:ca\.?\s*)?(\d{1,2})[:.](\d{2})/i
   );
-  const match = clockPlace || performed;
+  const match = kombiClock || performed;
   if (!match) return null;
   const time = parseClockToken(`${match[1]}:${match[2]}`);
   if (!time) return null;
@@ -382,24 +470,82 @@ function modeFromText(text) {
   return "1136";
 }
 
-function routeModeFromMessages(messages, now = Date.now()) {
-  const latest = validMessages(messages || [], now).find((msg) => msg.isLocal);
-  if (!latest) return "1136";
-  return latest.routeMode || modeFromText(`${latest.heading || ""} ${latest.text || ""}`);
+function messageMode(msg) {
+  if (!msg) return "1136";
+  return msg.routeMode || modeFromText(messageBlob(msg));
 }
 
-function routeSwitchFromMessages(messages, now = Date.now()) {
-  const latest = validMessages(messages || [], now).find((msg) => msg.isLocal);
-  if (!latest) return null;
-  if (latest.routeSwitch) return latest.routeSwitch;
-  const mode = latest.routeMode || modeFromText(`${latest.heading || ""} ${latest.text || ""}`);
-  return switchFromText(`${latest.heading || ""} ${latest.text || ""}`, mode);
+function publishedMs(msg) {
+  const ms = Date.parse(msg?.publishedAt || msg?.validFrom || "");
+  return Number.isFinite(ms) ? ms : 0;
+}
+
+function messageWindow(msg) {
+  const textWin =
+    msg.routeWindow || windowFromText(messageBlob(msg), msg.publishedAt || msg.validFrom);
+  const fromDate =
+    textWin?.from || osloIsoFromInstant(msg.validFrom) || osloIsoFromInstant(msg.publishedAt);
+  const toDate = textWin?.to || osloIsoFromInstant(msg.validTo);
+  return { from: fromDate || null, to: toDate || null };
+}
+
+function messageAppliesToDate(msg, date, now = Date.now()) {
+  if (!isRouteControl(msg)) return false;
+  const today = osloIsoFromMs(now);
+  if (msg.validTo) {
+    const until = new Date(msg.validTo).getTime();
+    if (Number.isFinite(until) && now > until + 60 * 60 * 1000 && date >= today) {
+      return false;
+    }
+  }
+  const win = messageWindow(msg);
+  if (win.from && date < win.from) return false;
+  if (win.to && date > win.to) return false;
+  return true;
+}
+
+function controllingMessages(messages, date, now = Date.now()) {
+  return validMessages(messages || [], now)
+    .filter((msg) => messageAppliesToDate(msg, date, now))
+    .sort((a, b) => publishedMs(b) - publishedMs(a));
+}
+
+function firstDayOf(msg) {
+  const win = messageWindow(msg);
+  return win.from || osloIsoFromInstant(msg.publishedAt) || osloIsoFromInstant(msg.validFrom);
+}
+
+function resolveRoutePlan(messages, now = Date.now(), date = osloIsoFromMs(now)) {
+  const matches = controllingMessages(messages, date, now);
+  const latest = matches[0];
+  if (!latest) return { mode: "1136", switch: null, message: null };
+  const mode = messageMode(latest);
+  const blob = messageBlob(latest);
+  let parsed = latest.routeSwitch || switchFromText(blob, mode);
+  const activateAt = latest.activateAt || activateAtFromText(blob);
+  if (!parsed && activateAt && date === firstDayOf(latest)) {
+    const previous = matches[1];
+    const before = previous ? messageMode(previous) : null;
+    if (before && before !== mode) {
+      parsed = { time: activateAt, quay: null, before, after: mode, acute: null };
+    }
+  }
+  return { mode, switch: parsed, message: latest };
+}
+
+function routeModeFromMessages(messages, now = Date.now(), date = osloIsoFromMs(now)) {
+  return resolveRoutePlan(messages, now, date).mode;
+}
+
+function routeSwitchFromMessages(messages, now = Date.now(), date = osloIsoFromMs(now)) {
+  return resolveRoutePlan(messages, now, date).switch;
 }
 
 function activePlan(date = selectedDate()) {
-  const mode = activeMode();
   const fromQuery = switchOverride();
-  const parsed = fromQuery || routeSwitchFromMessages(state.messages?.messages);
+  const resolved = resolveRoutePlan(state.messages?.messages, Date.now(), date);
+  const mode = routeOverride() || (fromQuery ? fromQuery.after : resolved.mode) || "1136";
+  const parsed = fromQuery || resolved.switch;
   if (!parsed || (parsed.after || mode) !== mode) {
     return { mode, switch: null, notice: null, uncertain: false };
   }
@@ -433,6 +579,8 @@ function vesselFromText(text) {
 }
 
 function latestLocalMessage(now = Date.now()) {
+  const plan = resolveRoutePlan(state.messages?.messages, now, selectedDate());
+  if (plan.message) return plan.message;
   return validMessages(state.messages?.messages || [], now).find((msg) => msg.isLocal) || null;
 }
 
@@ -454,7 +602,7 @@ function vesselInfo(name) {
 }
 
 function activeMode() {
-  return routeOverride() || routeModeFromMessages(state.messages?.messages) || "1136";
+  return routeOverride() || activePlan().mode || "1136";
 }
 
 function dayType(iso) {
@@ -1988,6 +2136,7 @@ function resetTestState() {
 
 export {
   FEEDBACK_MAIL,
+  activateAtFromText,
   activeMode,
   activePlan,
   appMode,
@@ -2003,6 +2152,7 @@ export {
   isLiveFresh,
   isUncertainDeparture,
   isPreview,
+  isRouteControl,
   keepTimelineEvent,
   legsForDate,
   liveStatus,
@@ -2017,6 +2167,7 @@ export {
   quaysInDay,
   readHideArrivals,
   resetTestState,
+  resolveRoutePlan,
   routeModeFromMessages,
   routeOverride,
   switchFromText,
@@ -2025,6 +2176,7 @@ export {
   showArrivals,
   track,
   vesselFromText,
+  windowFromText,
   visibleConnectionLines,
   writeHideArrivals,
 };
