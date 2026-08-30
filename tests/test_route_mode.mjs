@@ -205,7 +205,7 @@ test("frå klokka skøyt to tabellar, kai kjem frå tabellen", () => {
   assert.ok(events.every((event) => event.kind !== "transfer"));
 });
 
-test("melding same dag gøymer upålitelege avgangar før start", () => {
+test("usikre avgangar er berre hol mellom melding og start", () => {
   const text = "Kombirute vert utført frå klokka 08:15.";
   setTestState({
     routes: ruter,
@@ -218,17 +218,41 @@ test("melding same dag gøymer upålitelege avgangar før start", () => {
           text,
           routeMode: "kombi",
           routeSwitch: switchFromText(text),
-          publishedAt: "2026-08-28T06:10:00+02:00",
+          publishedAt: "2026-08-28T07:00:00+02:00",
           validTo: "2099-01-01T00:00:00Z",
         },
       ],
     },
   });
   const legs = legsForDate(WEEKDAY);
-  assert.ok(legs.every((leg) => leg.table === "kombi"));
-  assert.ok(legs.every((leg) => leg.departure >= "08:15:00"));
+  assert.ok(legs.some((leg) => leg.table === "1136" && leg.departure === "06:45:00"));
+  assert.ok(legs.every((leg) => !(leg.table === "1136" && leg.departure > "07:00:00")));
+  assert.ok(legs.every((leg) => !(leg.table === "kombi" && leg.departure < "08:15:00")));
   assert.ok(legs.some((leg) => leg.from === "Sæbø" && leg.departure === "08:15:00"));
-  assert.ok(buildEvents(legs, null).every((event) => event.kind !== "split"));
+  assert.equal(buildEvents(legs, null).filter((event) => event.kind === "split").length, 1);
+});
+
+test("melding dagen før gjev heile fyrste tabellen", () => {
+  const text = "Kombirute vert utført frå klokka 08:15.";
+  setTestState({
+    routes: ruter,
+    kombirute: kombi,
+    date: WEEKDAY,
+    messages: {
+      messages: [
+        {
+          isLocal: true,
+          text,
+          routeMode: "kombi",
+          routeSwitch: switchFromText(text),
+          publishedAt: "2026-08-27T20:00:00+02:00",
+          validTo: "2099-01-01T00:00:00Z",
+        },
+      ],
+    },
+  });
+  const legs = legsForDate(WEEKDAY);
+  assert.ok(legs.some((leg) => leg.table === "1136" && leg.departure === "07:40:00"));
 });
 
 test("?frå= på /dev/ set skøyt utan melding", () => {
@@ -238,7 +262,7 @@ test("?frå= på /dev/ set skøyt utan melding", () => {
       pathname: "/",
       href: "http://localhost:8080/?rute=kombi&frå=14:00&kai=Standal",
     }),
-    { time: "14:00:00", quay: null, before: "1136", after: "kombi", acute: false }
+    { time: "14:00:00", quay: null, before: "1136", after: "kombi", notice: null, acute: null }
   );
   assert.equal(
     switchOverride({

@@ -302,12 +302,14 @@ function switchOverride(loc) {
     if (!time) return null;
     const mode = routeOverride(here) || "kombi";
     const acuteFlag = params.get("akutt");
+    const notice = parseClockToken(params.get("melding") || params.get("varsla"));
     return {
       time,
       quay: null,
       before: ALLOWED_MODES.has(params.get("før")) ? params.get("før") : beforeModeFor(mode, ""),
       after: mode,
-      acute: acuteFlag === "1" || acuteFlag === "true" ? true : acuteFlag === "0" ? false : false,
+      notice,
+      acute: acuteFlag === "1" || acuteFlag === "true" ? true : acuteFlag === "0" ? false : null,
     };
   } catch {
     return null;
@@ -337,12 +339,34 @@ function resolveSwitch(raw, date) {
   };
 }
 
-function planIsAcute(routeSwitch, date) {
-  if (routeSwitch?.acute === true) return true;
-  if (routeSwitch?.acute === false) return false;
+function clockFromInstant(iso) {
+  if (!iso) return null;
+  const when = new Date(iso);
+  if (Number.isNaN(when.getTime())) return null;
+  const parts = osloParts(when);
+  return `${parts.hour}:${parts.minute}:00`;
+}
+
+function clockFromNow() {
+  const parts = osloParts();
+  return `${parts.hour}:${parts.minute}:00`;
+}
+
+/** Klokka meldinga kom. Berre same dag som tabellen gjev eit usikkert hol. */
+function resolveNotice(raw, date) {
+  if (raw?.notice) return raw.notice;
+  if (raw?.acute === true) return date === todayIso() ? clockFromNow() : "00:00:00";
+  if (raw?.acute === false) return null;
   const latest = latestLocalMessage();
-  const published = osloIsoFromInstant(latest?.publishedAt || latest?.validFrom);
-  return Boolean(published && published === date);
+  const iso = latest?.publishedAt || latest?.validFrom;
+  if (!iso || osloIsoFromInstant(iso) !== date) return null;
+  return clockFromInstant(iso);
+}
+
+function isUncertainDeparture(departure, notice, switchTime) {
+  if (!notice || !switchTime) return false;
+  const dep = clockMinutes(departure);
+  return dep > clockMinutes(notice) && dep < clockMinutes(switchTime);
 }
 
 function modeFromText(text) {
@@ -376,12 +400,16 @@ function activePlan(date = selectedDate()) {
   const mode = activeMode();
   const fromQuery = switchOverride();
   const parsed = fromQuery || routeSwitchFromMessages(state.messages?.messages);
-  if (!parsed || (parsed.after || mode) !== mode) return { mode, switch: null, acute: false };
+  if (!parsed || (parsed.after || mode) !== mode) {
+    return { mode, switch: null, notice: null, uncertain: false };
+  }
   const routeSwitch = resolveSwitch(parsed, date);
+  const notice = resolveNotice(parsed, date);
   return {
     mode: routeSwitch.after || mode,
-    switch: routeSwitch,
-    acute: planIsAcute(routeSwitch, date),
+    switch: { ...routeSwitch, notice },
+    notice,
+    uncertain: Boolean(notice && clockMinutes(notice) < clockMinutes(routeSwitch.time)),
   };
 }
 
@@ -462,9 +490,13 @@ function legsForMode(mode, date) {
   return tagged;
 }
 
-function cutBeforeSwitch(legs, routeSwitch) {
+function cutBeforeSwitch(legs, routeSwitch, notice = null) {
   const at = clockMinutes(routeSwitch.time);
-  return legs.filter((leg) => clockMinutes(leg.departure) < at);
+  return legs.filter((leg) => {
+    const dep = clockMinutes(leg.departure);
+    if (dep >= at) return false;
+    return !isUncertainDeparture(leg.departure, notice, routeSwitch.time);
+  });
 }
 
 function cutFromSwitch(legs, routeSwitch) {
@@ -489,8 +521,11 @@ function legsForDate(date) {
   const after = legsForMode(plan.mode, date);
   if (!plan.switch) return sortDayLegs(after);
   const fromAfter = cutFromSwitch(after, plan.switch);
-  if (plan.acute) return sortDayLegs(fromAfter);
-  const before = cutBeforeSwitch(legsForMode(plan.switch.before, date), plan.switch);
+  const before = cutBeforeSwitch(
+    legsForMode(plan.switch.before, date),
+    plan.switch,
+    plan.notice
+  );
   return sortDayLegs([...before, ...fromAfter]);
 }
 
@@ -1091,6 +1126,15 @@ function splitRow(routeSwitch, table, past) {
   row.append(
     el("span", "split-before", t("split.before", { before: t(`split.table.${routeSwitch.before}`) }))
   );
+  if (routeSwitch.notice) {
+    row.append(
+      el(
+        "span",
+        "split-before",
+        t("mode.acuteNote", { from: hhmm(routeSwitch.notice), to: hhmm(routeSwitch.time) })
+      )
+    );
+  }
   return row;
 }
 
@@ -1510,20 +1554,16 @@ function renderMessages() {
 
 function appendModeNote(banner, mode) {
   const plan = activePlan();
-  if (plan.switch && plan.acute) {
-    banner.append(el("p", "banner-mode", t("mode.acuteNote")));
+  if (plan.switch && plan.uncertain && plan.notice) {
     banner.append(
       el(
         "p",
         "banner-mode",
-        t("route.titleAcute", {
-          table: t(`split.table.${plan.mode}`),
-          time: hhmm(plan.switch.time),
-          quay: plan.switch.quay ? t("split.atQuay", { quay: plan.switch.quay }) : "",
-        })
+        t("mode.acuteNote", { from: hhmm(plan.notice), to: hhmm(plan.switch.time) })
       )
     );
-  } else if (plan.switch) {
+  }
+  if (plan.switch) {
     banner.append(
       el(
         "p",
@@ -1581,13 +1621,7 @@ function renderRouteChrome() {
   const plan = activePlan();
   const title = document.getElementById("route-title");
   if (title) {
-    title.textContent = plan.switch && plan.acute
-      ? t("route.titleAcute", {
-          table: t(`split.table.${plan.mode}`),
-          time: hhmm(plan.switch.time),
-          quay: plan.switch.quay ? t("split.atQuay", { quay: plan.switch.quay }) : "",
-        })
-      : plan.switch
+    title.textContent = plan.switch
       ? t("route.titleSwitch", {
           before: t(`split.table.${plan.switch.before}`),
           after: t(`split.table.${plan.mode}`),
@@ -1967,6 +2001,7 @@ export {
   firstKnownQuay,
   homeQuay,
   isLiveFresh,
+  isUncertainDeparture,
   isPreview,
   keepTimelineEvent,
   legsForDate,
