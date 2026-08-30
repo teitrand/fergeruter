@@ -94,6 +94,33 @@ test("ferjespora fylgjer overfarta frå 0 til 100 prosent", () => {
   assert.equal(home.quay, "Standal");
 });
 
+test("ferja går vekselvis for kvar tur", () => {
+  const legs = [
+    leg("Standal", "Trandal", "07:40:00", "07:55:00"),
+    leg("Trandal", "Sæbø", "08:00:00", "08:30:00"),
+    leg("Sæbø", "Trandal", "08:35:00", "08:55:00"),
+  ];
+  const firstMid = ferryTrack(legs, 7 * 3600 + 47 * 60 + 30);
+  assert.equal(firstMid.outbound, true);
+  assert.ok(Math.abs(firstMid.at - 0.5) < 0.02);
+  const moored = ferryTrack(legs, 7 * 3600 + 58 * 60);
+  assert.equal(moored.phase, "moored");
+  assert.equal(moored.at, 1);
+  assert.equal(moored.outbound, false);
+  const secondMid = ferryTrack(legs, 8 * 3600 + 15 * 60);
+  assert.equal(secondMid.to, "Sæbø");
+  assert.equal(secondMid.outbound, false);
+  assert.ok(Math.abs(secondMid.progress - 0.5) < 0.02);
+  assert.ok(Math.abs(secondMid.at - 0.5) < 0.02);
+  const atSaebo = ferryTrack(legs, 8 * 3600 + 32 * 60);
+  assert.equal(atSaebo.phase, "moored");
+  assert.equal(atSaebo.at, 0);
+  assert.equal(atSaebo.outbound, true);
+  const thirdMid = ferryTrack(legs, 8 * 3600 + 45 * 60);
+  assert.equal(thirdMid.outbound, true);
+  assert.ok(Math.abs(thirdMid.at - 0.5) < 0.02);
+});
+
 test("på veg i ein passasjertur", () => {
   const status = ferryStatus(wednesday, 7 * 60 + 45, wednesday);
   assert.equal(status.text, "Ferja er på veg mot Trandal");
