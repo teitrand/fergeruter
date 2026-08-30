@@ -1,8 +1,8 @@
 # Fergeruter 1136
 
-Statisk oversikt over **trafikkmeldingar frå Fjord1** og **seilingsplanen** for Hjørundfjorden. Til vanleg viser sida rute **1136** Standal–Trandal–Sæbø–Skår–Valderøya–Store Kalvøy. Når Fjord1 innstiller 1136 (eller innfører kombirute), byter sida tabell automatisk.
+Statisk oversikt over **trafikkmeldingar frå Fjord1** og **seglingsplanen** for Hjørundfjorden. Til vanleg viser sida rute **1136** Standal–Trandal–Sæbø–Skår–Valderøya–Store Kalvøy. Når Fjord1 innstiller 1136 (eller innfører kombirute), byter sida tabell automatisk.
 
-Sida viser heile dagen som ei samanhengande tidslinje med alle anløpa i rekkjefølgje, og ei **Nå**-linje som fortel om ferja ligg til kai eller er på veg. Posisjonen er i utgangspunktet rekna ut frå den aktive tabellen. Når Entur sender køyretøyposisjon for 1136 eller 1135, visest den som sanntid. Etter siste passasjertur (t.d. onsdag på Valderøya) reknar sida med at ferja går tilbake til Standal utan passasjerar og ligg der over natta — den turen står ikkje i Entur.
+Sida viser heile dagen som ei samanhengande tidslinje med alle anløpa i rekkjefølgje, og ei **No**-linje som fortel om ferja ligg til kai eller er på veg. Posisjonen er i utgangspunktet rekna ut frå den aktive tabellen. Når Entur sender køyretøyposisjon for 1136 eller 1135, visest den som sanntid. Etter siste passasjertur (t.d. onsdag på Valderøya) reknar sida med at ferja går tilbake til Standal utan passasjerar og ligg der over natta — den turen står ikkje i Entur.
 
 Rutetabellane for 1136 og 1135 blir lasta ned frå Entur og lagra i `data/ruter.json`. Dei blir berre henta på nytt når innhaldet faktisk er endra. Kombinasjonsruta ligg ikkje i Entur; ho er transkribert frå FRAM-PDF til `data/kombirute.json`. Trafikkmeldingar og rutetabell kjem frå lokale JSON-filer; nettlesaren kallar Entur berre for valfri køyretøyposisjon (CORS er open).
 
@@ -59,7 +59,7 @@ Pages kjem framleis frå `main` (legacy). Testhosten blir derfor kopiert inn som
 
 `github-pages`-miljøet tillèt berre `main`, så Actions-deploy frå `dev` feilar. Når de byter Pages til **GitHub Actions** (Settings → Pages → Source), kan `.github/workflows/pages.yml` køyrast frå `main` og publisere både rot og `/dev/` i same steg.
 
-- **Alltid via `dev` før prod.** Feature-grein frå `dev` → PR mot `dev` → test på `/dev/` → først då merge `dev` → `main`. Ikkje opne feature-PR mot `main`.
+- **Alltid via `dev` før prod.** `dev` skal vere føre `main`. Feature-grein frå `dev` → PR mot `dev` → test på `/dev/` → først då merge `dev` → `main`. Ikkje opne feature-PR mot `main`.
 - Service worker på `/dev/` har eige scope og eige cache-namn, så testinga ikkje stal cache frå prod
 - Plausible tel ikkje på `/dev/` (same som localhost)
 - Trafikkmelding-jobben køyrer framleis berre på `main`
@@ -112,7 +112,7 @@ Sjølve meldingsteksten blir **ikkje** send til Plausible.
 
 ## Tilbakemelding
 
-Nedst på sida ligg **Gi tilbakemelding**. Brukarane kan svare ja/nei (anonymt) og eventuelt skrive ei melding som opnar e-post til vedlikehaldaren, eller opne eit GitHub-issue.
+Nedst på sida ligg **Gje tilbakemelding**. Brukarane kan svare ja/nei (anonymt) og eventuelt skrive ei melding som opnar e-post til vedlikehaldaren, eller opne eit GitHub-issue.
 
 ## Testar
 

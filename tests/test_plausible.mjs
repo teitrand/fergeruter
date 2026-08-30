@@ -48,12 +48,12 @@ test("header har ikkje ferjegrafikk mellom kaiene", () => {
 
 test("sida har den dekorative stiplede streken øverst", () => {
   assert.match(html, /class="skyline"/);
-  assert.match(html, /assets\/styles\.css\?v=21/);
+  assert.match(html, /assets\/styles\.css\?v=23/);
   const css = readFileSync(new URL("../assets/styles.css", import.meta.url), "utf8");
   assert.match(css, /\.skyline\s*\{[^}]*repeating-linear-gradient/s);
   assert.match(css, /safe-area-inset-top/);
   const sw = readFileSync(new URL("../sw.js", import.meta.url), "utf8");
-  assert.match(sw, /fergeruter-dev-v21/);
+  assert.match(sw, /fergeruter-dev-v23/);
   assert.match(sw, /shell \? networkFirst|data \|\| shell \? networkFirst/);
 });
 
