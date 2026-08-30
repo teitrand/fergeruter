@@ -1006,6 +1006,17 @@ function nextArrivalAt(legs, quay, skipPassed = false) {
   );
 }
 
+/**
+ * Neste tur i oversiktsboksen: fyrste avgang (frå valt kai, eller fyrste i
+ * tabellen) og ankomst for same strekning. Ikkje neste innkomst attende på
+ * avgangskaia — 06:45 Standal–Trandal skal vise 07:00 Trandal, ikkje 07:20 Standal.
+ */
+function nextOverview(legs, quay, skipPassed = false) {
+  const dep = nextDepartureFrom(legs, quay, skipPassed);
+  if (!dep) return null;
+  return { dep, arr: dep };
+}
+
 /** Fyrste treffet på ein seinare dag, så boksen ikkje står tom om kvelden. */
 function lookAhead(fromDate, matches, maxDays = 7) {
   for (let step = 1; step <= maxDays; step += 1) {
@@ -1052,7 +1063,7 @@ function buildNextRow(row) {
   return node;
 }
 
-/** Boks med neste avgang (og destinasjon) og neste anløp på same kai. */
+/** Boks med neste avgang og ankomst for same tur. */
 function renderNextSummary(legs) {
   const root = document.getElementById("next-summary");
   root.replaceChildren();
@@ -1060,26 +1071,17 @@ function renderNextSummary(legs) {
   const skipPassed = isToday();
   const quay = state.stopFilter;
 
+  const overview = nextOverview(legs, quay, skipPassed);
   const depHit = resolveAhead(
     selected,
-    nextDepartureFrom(legs, quay, skipPassed),
+    overview?.dep ?? null,
     (leg) => isVisibleDeparture(leg) && (!quay || leg.from === quay)
   );
-  const arrQuay = quay || depHit?.leg.from;
-  const arrHit = showArrivals()
-    ? resolveAhead(
-        selected,
-        nextArrivalAt(legs, arrQuay, skipPassed),
-        (leg) => Boolean(arrQuay) && leg.to === arrQuay
-      )
-    : null;
-  if (!depHit && !arrHit) return;
+  if (!depHit) return;
 
-  const rows = [];
-  if (depHit) {
-    const live = depHit.date === todayIso();
-    rows.push({
-      sort: `${depHit.date}T${depHit.leg.departure}`,
+  const live = depHit.date === todayIso();
+  const rows = [
+    {
       time: depHit.leg.departure,
       name: t("next.fromTo", { from: depHit.leg.from, to: depHit.leg.to }),
       state: overviewState(depHit.prefix, depHit.leg.departure, live),
@@ -1087,25 +1089,19 @@ function renderNextSummary(legs) {
       leg: depHit.leg,
       kind: "dep",
       date: depHit.date,
-    });
-  }
-  if (arrHit) {
-    const live = arrHit.date === todayIso();
+    },
+  ];
+  if (showArrivals()) {
     rows.push({
-      sort: `${arrHit.date}T${arrHit.leg.arrival}`,
-      time: arrHit.leg.arrival,
-      name: t("next.arrival", { to: arrHit.leg.to }),
-      state: overviewState(arrHit.prefix, arrHit.leg.arrival, live),
+      time: depHit.leg.arrival,
+      name: t("next.arrival", { to: depHit.leg.to }),
+      state: overviewState(depHit.prefix, depHit.leg.arrival, live),
       live,
-      leg: arrHit.leg,
+      leg: depHit.leg,
       kind: "arr",
-      date: arrHit.date,
+      date: depHit.date,
     });
   }
-  const kindOrder = { arr: 0, dep: 1 };
-  rows.sort(
-    (a, b) => a.sort.localeCompare(b.sort) || (kindOrder[a.kind] ?? 0) - (kindOrder[b.kind] ?? 0)
-  );
 
   const item = el("div", "next-item");
   for (const row of rows) item.append(buildNextRow(row));
@@ -2161,6 +2157,7 @@ export {
   modeFromText,
   nextArrivalAt,
   nextDepartureFrom,
+  nextOverview,
   parseVehicleMonitoring,
   quayAtStart,
   quayPlace,
