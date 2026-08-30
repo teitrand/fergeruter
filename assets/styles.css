@@ -480,14 +480,14 @@ h2.day-label {
 .stop-split {
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
-  margin: 0.65rem 0 0.65rem -0.9rem;
-  padding: 0.7rem 0.85rem 0.75rem;
-  border: 2px solid var(--fjord);
+  gap: 0.2rem;
+  margin: 0.75rem 0 0.75rem -0.9rem;
+  padding: 0.85rem 0.95rem 0.9rem;
+  border: none;
   border-radius: 12px;
-  background: var(--foam);
-  color: var(--fjord);
-  box-shadow: 0 0 0 4px rgba(7, 59, 76, 0.06);
+  background: #e07a3d;
+  color: #fffaf1;
+  box-shadow: 0 0 0 3px rgba(224, 122, 61, 0.35);
 }
 
 .stop-split .split-kicker {
@@ -495,22 +495,23 @@ h2.day-label {
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--water);
+  color: #fff6e8;
 }
 
 .stop-split .split-title {
-  font-size: 1.02rem;
+  font-size: 1.05rem;
   font-weight: 700;
   line-height: 1.3;
+  color: #fffaf1;
 }
 
 .stop-split .split-before {
-  font-size: 0.84rem;
-  color: var(--muted);
+  font-size: 0.86rem;
+  color: #fff3e4;
 }
 
 .stop-split.is-past {
-  opacity: 0.7;
+  opacity: 0.78;
 }
 
 .view-row,
