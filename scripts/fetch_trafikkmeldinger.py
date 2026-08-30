@@ -8,7 +8,7 @@ import re
 import sys
 import urllib.error
 import urllib.request
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -27,7 +27,47 @@ NORMAL_RE = re.compile(r"normal drift", re.I)
 CANCEL_RE = re.compile(r"innstilt|innstilling", re.I)
 DELAY_RE = re.compile(r"forsink", re.I)
 CAPACITY_RE = re.compile(r"kapasitet|kapasistet|farleg last|farlig last", re.I)
-
+KOMBI_RE = re.compile(r"kombinasjon|kombirute|kombinert rute", re.I)
+HAS_1135_RE = re.compile(r"\b1135\b")
+HAS_1136_RE = re.compile(r"\b1136\b")
+HJORUNDFJORD_RE = re.compile(
+    r"\b(?:1135|1136)\b|trandal|standal|sæbø|skår|lekne|valderøy|store kalvøy|"
+    r"kombinasjon|kombirute|kombinert rute",
+    re.I,
+)
+ONLY_1049_RE = re.compile(r"\b1049\b|festøy|hundeidvik", re.I)
+VESSEL_UTFORT_RE = re.compile(r"utført av\s+(?:m/?f\.?\s*)?(geiranger|kvernes)", re.I)
+VESSEL_NAME_RE = re.compile(r"\b(?:m/?f\.?\s*)?(geiranger|kvernes)\b", re.I)
+SWITCH_KOMBI_RE = re.compile(
+    r"(?:kombinasjon\w*|kombirute|kombinert rute).{0,80}"
+    r"(?:frå|fra)\s+(?:klokka|kl\.?)\s*(?:ca\.?\s*)?(\d{1,2})[:.](\d{2})",
+    re.I | re.S,
+)
+SWITCH_UTFORT_RE = re.compile(
+    r"(?:utført|gjeld)\s+frå\s+(?:klokka\s+|kl\.?\s*)?(?:ca\.?\s*)?(\d{1,2})[:.](\d{2})",
+    re.I,
+)
+ACTIVATE_CLOCK_RE = re.compile(
+    r"normal drift.{0,40}(?:frå|fra)\s+(?:klokka|kl\.?)\s*(?:ca\.?\s*)?(\d{1,2})[:.](\d{2})",
+    re.I | re.S,
+)
+WEEKDAY_RE = (
+    r"(?:mandag|tysdag|tirsdag|onsdag|torsdag|fredag|laurdag|lørdag|søndag)\s+"
+)
+NUMDATE_RE = r"(\d{1,2})\.(\d{1,2})(?:\.(\d{2,4}))?"
+WINDOW_RANGE_RE = re.compile(
+    rf"(?:frå|fra)\s+(?:rutestart\s+)?(?:{WEEKDAY_RE})?{NUMDATE_RE}"
+    rf"\s+(?:til(?:\s+og\s+med)?|tom)\s+(?:{WEEKDAY_RE})?{NUMDATE_RE}",
+    re.I,
+)
+WINDOW_FROM_RE = re.compile(
+    rf"(?:frå|fra)\s+(?:rutestart\s+)?(?:{WEEKDAY_RE})?{NUMDATE_RE}",
+    re.I,
+)
+WINDOW_UNTIL_RE = re.compile(
+    rf"til\s+og\s+med\s+(?:{WEEKDAY_RE})?{NUMDATE_RE}",
+    re.I,
+)
 QUERY = """
 {
   content {
@@ -83,6 +123,154 @@ def is_route_1136(heading: str, text: str, connection_number: int | None) -> boo
     return bool(ROUTE_RE.search(blob))
 
 
+def route_mode_from_text(text: str) -> str:
+    """1136, 1135 eller kombi ut frå Fjord1-meldingstekst."""
+    blob = text or ""
+    has_normal = bool(NORMAL_RE.search(blob))
+    has_cancel = bool(CANCEL_RE.search(blob))
+    has_kombi = bool(KOMBI_RE.search(blob))
+    has_1135 = bool(HAS_1135_RE.search(blob))
+    has_1136 = bool(HAS_1136_RE.search(blob))
+    if has_normal and has_cancel and not has_kombi:
+        return "1136"
+    if has_kombi or (has_cancel and has_1135 and has_1136):
+        return "kombi"
+    if has_cancel and has_1136 and not has_1135:
+        return "1135"
+    return "1136"
+
+
+def is_1049_only(heading: str, text: str) -> bool:
+    blob = f"{heading or ''} {text or ''}"
+    return bool(ONLY_1049_RE.search(blob)) and not HJORUNDFJORD_RE.search(blob)
+
+
+def is_route_control(heading: str, text: str, is_local: bool | None = None) -> bool:
+    """Meldingar som kan byte 1136/1135/kombirute — ikkje berre 1049."""
+    if is_1049_only(heading, text):
+        return False
+    if is_local:
+        return True
+    blob = f"{heading or ''} {text or ''}"
+    return bool(HJORUNDFJORD_RE.search(blob))
+
+
+def _ref_date(published: str | None) -> date:
+    if published:
+        try:
+            instant = datetime.fromisoformat(published.replace("Z", "+00:00"))
+            if instant.tzinfo is None:
+                instant = instant.replace(tzinfo=OSLO)
+            return instant.astimezone(OSLO).date()
+        except ValueError:
+            pass
+    return datetime.now(OSLO).date()
+
+
+def _parse_numdate(day: str, month: str, year: str | None, ref: date):
+    try:
+        d, m = int(day), int(month)
+    except (TypeError, ValueError):
+        return None
+    if m < 1 or m > 12 or d < 1 or d > 31:
+        return None
+    if year:
+        y = int(year)
+        if y < 100:
+            y += 2000
+    else:
+        y = ref.year
+        try:
+            candidate = date(y, m, d)
+        except ValueError:
+            return None
+        if (ref - candidate).days > 45:
+            y += 1
+    try:
+        return date(y, m, d)
+    except ValueError:
+        return None
+
+
+def window_from_text(text: str, published: str | None = None) -> dict | None:
+    """Les «frå 14.06 til 18.06» og «frå rutestart fredag 05.06»."""
+    blob = text or ""
+    ref = _ref_date(published)
+    match = WINDOW_RANGE_RE.search(blob)
+    if match:
+        start = _parse_numdate(match.group(1), match.group(2), match.group(3), ref)
+        end = _parse_numdate(match.group(4), match.group(5), match.group(6), ref)
+        if start or end:
+            return {
+                "from": start.isoformat() if start else None,
+                "to": end.isoformat() if end else None,
+            }
+    start = None
+    from_match = WINDOW_FROM_RE.search(blob)
+    if from_match:
+        start = _parse_numdate(
+            from_match.group(1), from_match.group(2), from_match.group(3), ref
+        )
+    end = None
+    until_match = WINDOW_UNTIL_RE.search(blob)
+    if until_match:
+        end = _parse_numdate(
+            until_match.group(1), until_match.group(2), until_match.group(3), ref
+        )
+    if start or end:
+        return {
+            "from": start.isoformat() if start else None,
+            "to": end.isoformat() if end else None,
+        }
+    return None
+
+
+def _clock(hour: str, minute: str) -> str | None:
+    h, m = int(hour), int(minute)
+    if h > 23 or m > 59:
+        return None
+    return f"{h:02d}:{m:02d}:00"
+
+
+def _before_mode(after: str, text: str) -> str:
+    if after == "1136":
+        return "kombi" if KOMBI_RE.search(text or "") else "1135"
+    return "1136"
+
+
+def switch_from_text(text: str, after: str | None = None) -> dict | None:
+    """Skøyt berre når meldinga seier at tabellen byter («kombirute frå klokka»)."""
+    blob = text or ""
+    mode = after or route_mode_from_text(blob)
+    match = SWITCH_KOMBI_RE.search(blob) or SWITCH_UTFORT_RE.search(blob)
+    if not match:
+        return None
+    time = _clock(match.group(1), match.group(2))
+    if not time:
+        return None
+    return {"time": time, "quay": None, "before": _before_mode(mode, blob), "after": mode}
+
+
+def activate_at_from_text(text: str) -> str | None:
+    """Klokka «normal drift» startar. Ikkje eit skøyt i seg sjølv."""
+    match = ACTIVATE_CLOCK_RE.search(text or "")
+    if not match:
+        return None
+    return _clock(match.group(1), match.group(2))
+
+
+def vessel_from_text(text: str) -> str | None:
+    """Kvernes eller Geiranger når Fjord1 seier kva ferje som køyrer."""
+    blob = text or ""
+    performed = VESSEL_UTFORT_RE.search(blob)
+    if performed:
+        return performed.group(1).capitalize()
+    names = {match.group(1).lower() for match in VESSEL_NAME_RE.finditer(blob)}
+    if len(names) == 1:
+        return names.pop().capitalize()
+    return None
+
+
 def is_local(heading: str, text: str, connection_number: int | None) -> bool:
     """Meldingar frå Hjørundfjorden og Festøya-Hundeidvika."""
     if is_route_1136(heading, text, connection_number):
@@ -123,11 +311,14 @@ def normalize_node(node: dict) -> dict:
     connection = node.get("connectionNumber")
     valid_from_ts = (node.get("validFrom") or {}).get("timestamp")
     valid_to_ts = (node.get("validTo") or {}).get("timestamp")
+    published = parse_published(node.get("date") or "", valid_from_ts)
+    blob = f"{heading} {text}"
+    local = is_local(heading, text, connection)
     return {
         "id": node.get("id"),
         "heading": heading,
         "text": text,
-        "publishedAt": parse_published(node.get("date") or "", valid_from_ts),
+        "publishedAt": published,
         "validFrom": iso_from_ts(valid_from_ts),
         "validTo": iso_from_ts(valid_to_ts),
         "countyNumber": node.get("countyNumber"),
@@ -135,7 +326,13 @@ def normalize_node(node: dict) -> dict:
         "important": bool(node.get("importantMessage")),
         "severity": classify(text),
         "isRoute1136": is_route_1136(heading, text, connection),
-        "isLocal": is_local(heading, text, connection),
+        "isLocal": local,
+        "isRouteControl": is_route_control(heading, text, local),
+        "routeMode": route_mode_from_text(blob),
+        "routeWindow": window_from_text(blob, published),
+        "activateAt": activate_at_from_text(blob),
+        "vessel": vessel_from_text(blob),
+        "routeSwitch": switch_from_text(blob),
     }
 
 

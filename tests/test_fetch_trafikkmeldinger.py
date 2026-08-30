@@ -131,6 +131,112 @@ class ParseTests(unittest.TestCase):
         self.assertEqual(msg["severity"], "normal")
         self.assertTrue(msg["isRoute1136"])
         self.assertEqual(msg["heading"], node["heading"])
+        self.assertEqual(msg["routeMode"], "1136")
+
+
+class RouteModeTests(unittest.TestCase):
+    SMS = (
+        "Grunna driftsproblem så er ferjerutene 1135 og 1136 innstilt, det blir "
+        "utført kombinasjonsrute med MF Kvernes. Første avgang frå Sæbø ca. 08:15. "
+        "Sjå rutetabell på frammr.no."
+    )
+
+    def test_sms_example_is_kombi(self):
+        self.assertEqual(mod.route_mode_from_text(self.SMS), "kombi")
+        self.assertIsNone(mod.switch_from_text(self.SMS))
+
+    def test_switch_from_clock_and_quay(self):
+        text = "Kombirute vert utført frå klokka 08:15."
+        self.assertEqual(
+            mod.switch_from_text(text),
+            {"time": "08:15:00", "quay": None, "before": "1136", "after": "kombi"},
+        )
+        node = {
+            "id": "1",
+            "heading": "Standal-Trandal",
+            "content": text,
+            "connectionNumber": 132,
+            "date": "29.08.2026 12:00:00",
+            "validFrom": {"timestamp": 1788000000},
+            "validTo": {"timestamp": 1788086400},
+        }
+        self.assertEqual(mod.normalize_node(node)["routeSwitch"]["time"], "08:15:00")
+
+    def test_normal_drift_overrides_false_innstilt(self):
+        text = (
+            "Rute 1136 Standal-Trandal: Pga ein feil i rutesøket vise at det er "
+            "innstilt, men det er normal drift."
+        )
+        self.assertEqual(mod.classify(text), "normal")
+        self.assertEqual(mod.route_mode_from_text(text), "1136")
+
+    def test_only_1136_cancelled_uses_1135(self):
+        text = "Rute 1136 Standal-Trandal er innstilt inntil vidare."
+        self.assertEqual(mod.route_mode_from_text(text), "1135")
+
+    def test_both_lines_cancelled_without_kombi_word_is_kombi(self):
+        text = "1135 og 1136 innstilt på grunn av driftsproblem."
+        self.assertEqual(mod.route_mode_from_text(text), "kombi")
+
+    def test_vessel_from_utfort_av(self):
+        self.assertEqual(
+            mod.vessel_from_text("kombinasjonsrute. Ruta blir utført av MF Geiranger."),
+            "Geiranger",
+        )
+        self.assertEqual(
+            mod.vessel_from_text("kombinasjonsrute. Ruta blir utført av M/F Kvernes."),
+            "Kvernes",
+        )
+
+    def test_vessel_ignores_both_names_without_utfort(self):
+        self.assertIsNone(
+            mod.vessel_from_text("M/F Geiranger og M/F Kvernes kan brukast.")
+        )
+
+    def test_date_range_is_read(self):
+        text = (
+            "Grunna verkstadopphald vert det køyrt kombinert rute frå 14.06 til 18.06. "
+            "Det blir MF Kvernes i rute."
+        )
+        self.assertEqual(
+            mod.window_from_text(text, "2026-06-12T10:00:00+02:00"),
+            {"from": "2026-06-14", "to": "2026-06-18"},
+        )
+        self.assertEqual(mod.route_mode_from_text(text), "kombi")
+        self.assertIsNone(mod.switch_from_text(text))
+
+    def test_rutestart_date_is_read(self):
+        text = "Det vert normal drift i sambandet frå rutestart fredag 05.06."
+        self.assertEqual(
+            mod.window_from_text(text, "2026-06-04T22:40:00+02:00"),
+            {"from": "2026-06-05", "to": None},
+        )
+
+    def test_1049_is_local_but_not_route_control(self):
+        heading = "Hundeidvika – Festøya"
+        text = (
+            "Rute 1049 Hundeidvika – Festøya: Grunna arbeid på kai vert sambandet "
+            "innstilt frå kl. 10:30 til 13:25."
+        )
+        self.assertTrue(mod.is_local(heading, text, 901))
+        self.assertTrue(mod.is_1049_only(heading, text))
+        self.assertFalse(mod.is_route_control(heading, text, True))
+        self.assertIsNone(mod.switch_from_text(f"{heading} {text}"))
+
+    def test_normal_clock_is_activation_not_switch(self):
+        text = "Det vert normal drift i sambandet frå kl. 21:00."
+        self.assertEqual(mod.activate_at_from_text(text), "21:00:00")
+        self.assertIsNone(mod.switch_from_text(text))
+        self.assertIsNone(mod.window_from_text(text, "2026-04-07T12:00:00+02:00"))
+
+    def test_single_cancelled_sailing_does_not_switch(self):
+        text = (
+            "Rute 1136: Grunna arbeid på Skår blir avgang kl. 14:25 frå Trandal "
+            "kansellert. Normal drift frå kl. 14:50."
+        )
+        self.assertEqual(mod.route_mode_from_text(text), "1136")
+        self.assertIsNone(mod.switch_from_text(text))
+        self.assertEqual(mod.activate_at_from_text(text), "14:50:00")
 
 
 class FetchTests(unittest.TestCase):

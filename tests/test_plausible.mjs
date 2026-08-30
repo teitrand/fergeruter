@@ -20,6 +20,8 @@ test("index.html lastar Plausible utan informasjonskapslar", () => {
   assert.match(html, /src="https:\/\/plausible\.io\/js\/pa-zLwKfsUV57HIZfM4j6wLS\.js"/);
   assert.match(html, /plausible\.init\(/);
   assert.match(html, /customProperties/);
+  assert.match(html, /transformRequest/);
+  assert.match(html, /\/dev\//);
   assert.doesNotMatch(html, /google-analytics|gtag\(|googletagmanager/i);
 });
 
@@ -39,6 +41,22 @@ test("sida har tilbakemeldingsdialog", () => {
   assert.match(html, /teitrand\/fergeruter\/issues\/new/);
 });
 
+test("header har ikkje ferjegrafikk mellom kaiene", () => {
+  assert.doesNotMatch(html, /fjord-track|fjord-ferry|ferje\.png|kai-venstre|kai-hogre/);
+  assert.match(html, /id="lede-status"/);
+});
+
+test("sida har den dekorative stiplede streken øverst", () => {
+  assert.match(html, /class="skyline"/);
+  assert.match(html, /assets\/styles\.css\?v=21/);
+  const css = readFileSync(new URL("../assets/styles.css", import.meta.url), "utf8");
+  assert.match(css, /\.skyline\s*\{[^}]*repeating-linear-gradient/s);
+  assert.match(css, /safe-area-inset-top/);
+  const sw = readFileSync(new URL("../sw.js", import.meta.url), "utf8");
+  assert.match(sw, /fergeruter-dev-v21/);
+  assert.match(sw, /shell \? networkFirst|data \|\| shell \? networkFirst/);
+});
+
 test("appen sender namngjevne brukshendingar til Plausible", () => {
   const events = [
     "Visit ${getLang()}",
@@ -52,6 +70,8 @@ test("appen sender namngjevne brukshendingar til Plausible", () => {
     "Messages ${btn.dataset.filter}",
     "Show past",
     "Hide past",
+    "Show arrivals",
+    "Hide arrivals",
     "Install app",
     "App installed",
     "Feedback yes",
