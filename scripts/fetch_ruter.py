@@ -156,7 +156,9 @@ def pdf_signal_hours(from_quay: str, departure: str, dates: list[str]) -> int | 
 def apply_fram_pdf_signal(public_code: str, legs: list[dict]) -> None:
     """PDF-fotnotane styrer 'På signal', ikkje Entur-meldinga på heile turen."""
     if public_code == "1135":
-        # Sommar- og haust-PDF for 1135 har inga nummerert fotnote.
+        # Sommar 20.06–31.08.26 og haust frå 01.09.26: inga nummerert fotnote.
+        # https://frammr.no/_f/p2/ib15faa12-5ace-4bc5-951e-e3af6a391ba9/1135-sabo-leknes-20260620-20260831-sommerrute.pdf
+        # https://frammr.no/_f/p2/ic2c2521c-6298-4f24-a1e0-cfb3be732337/1135-sabo-leknes-20260901.pdf
         for item in legs:
             item["signal"] = None
         return
