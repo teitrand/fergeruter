@@ -1,5 +1,5 @@
 const IS_DEV = self.location.pathname.includes("/dev/");
-const CACHE = IS_DEV ? "fergeruter-dev-v19" : "fergeruter-v19";
+const CACHE = IS_DEV ? "fergeruter-dev-v20" : "fergeruter-v20";
 const PRECACHE = [
   "./",
   "./index.html",
@@ -7,6 +7,7 @@ const PRECACHE = [
   "./assets/app.js",
   "./assets/i18n.js",
   "./assets/styles.css",
+  "./assets/styles.css?v=20",
   "./assets/favicon.svg",
   "./assets/icons/icon-192.png",
   "./assets/icons/icon-512.png",
@@ -74,5 +75,6 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
   const data = url.pathname.includes("/data/");
-  event.respondWith(data ? networkFirst(request) : staleWhileRevalidate(request));
+  const shell = /(?:\.html|\.css|\.js)$/.test(url.pathname) || url.pathname.endsWith("/");
+  event.respondWith(data || shell ? networkFirst(request) : staleWhileRevalidate(request));
 });
