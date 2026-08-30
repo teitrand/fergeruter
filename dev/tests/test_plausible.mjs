@@ -46,6 +46,12 @@ test("header har ikkje ferjegrafikk mellom kaiene", () => {
   assert.match(html, /id="lede-status"/);
 });
 
+test("sida har den dekorative stiplede streken øverst", () => {
+  assert.match(html, /class="skyline"/);
+  const css = readFileSync(new URL("../assets/styles.css", import.meta.url), "utf8");
+  assert.match(css, /\.skyline\s*\{[^}]*repeating-linear-gradient/s);
+});
+
 test("appen sender namngjevne brukshendingar til Plausible", () => {
   const events = [
     "Visit ${getLang()}",
