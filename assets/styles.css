@@ -42,8 +42,8 @@ body {
 .skip-link:focus { top: 1rem; }
 
 .fjord-track {
-  margin: 0.85rem 0 0;
-  max-width: 36rem;
+  margin: 0.7rem 0 0;
+  max-width: 44rem;
   background: none;
 }
 
@@ -55,41 +55,42 @@ body {
   position: relative;
   display: flex;
   align-items: flex-end;
-  height: 3.4rem;
+  min-height: 5.8rem;
 }
 
 .fjord-kai {
-  width: 3.1rem;
-  height: 2.2rem;
+  width: clamp(5.2rem, 22vw, 8rem);
+  height: auto;
   flex: none;
+  display: block;
   z-index: 2;
+}
+
+.fjord-kai.is-right {
+  transform: scaleX(-1);
 }
 
 .fjord-sea {
   flex: 1;
   height: 0;
-  margin: 0 0 0.42rem;
-  border-bottom: 2px solid rgba(215, 238, 234, 0.7);
+  margin: 0 0 0.62rem;
+  border-bottom: 2px solid rgba(215, 238, 234, 0.55);
 }
 
 .fjord-ferry {
   position: absolute;
   left: calc(var(--at, 0) * 100%);
   bottom: 0.28rem;
-  width: 4.4rem;
+  width: clamp(5.6rem, 28vw, 8.6rem);
+  height: auto;
+  display: block;
   transform: translateX(-50%);
   transition: left 12s linear;
   z-index: 3;
 }
 
-.fjord-ferry.is-back svg {
-  transform: scaleX(-1);
-}
-
-.fjord-ferry svg {
-  display: block;
-  width: 100%;
-  height: auto;
+.fjord-ferry.is-back {
+  transform: translateX(-50%) scaleX(-1);
 }
 
 @media (prefers-reduced-motion: reduce) {
