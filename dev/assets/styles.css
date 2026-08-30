@@ -827,16 +827,17 @@ h2.day-label {
     grid-template-areas:
       "tools tools"
       "mark  eyebrow"
-      "mark  title"
+      "title title"
       "lede  lede";
-    column-gap: 0.75rem;
-    row-gap: 0.28rem;
-    padding: 0.85rem 0 0.95rem;
+    column-gap: 0.7rem;
+    row-gap: 0.4rem;
+    padding: 0.85rem 0 1rem;
   }
 
   .header-tools {
     justify-content: flex-end;
-    padding-bottom: 0.15rem;
+    align-self: start;
+    padding-bottom: 0.1rem;
   }
 
   .brand-mark {
