@@ -193,6 +193,51 @@ class RouteModeTests(unittest.TestCase):
             mod.vessel_from_text("M/F Geiranger og M/F Kvernes kan brukast.")
         )
 
+    def test_date_range_is_read(self):
+        text = (
+            "Grunna verkstadopphald vert det køyrt kombinert rute frå 14.06 til 18.06. "
+            "Det blir MF Kvernes i rute."
+        )
+        self.assertEqual(
+            mod.window_from_text(text, "2026-06-12T10:00:00+02:00"),
+            {"from": "2026-06-14", "to": "2026-06-18"},
+        )
+        self.assertEqual(mod.route_mode_from_text(text), "kombi")
+        self.assertIsNone(mod.switch_from_text(text))
+
+    def test_rutestart_date_is_read(self):
+        text = "Det vert normal drift i sambandet frå rutestart fredag 05.06."
+        self.assertEqual(
+            mod.window_from_text(text, "2026-06-04T22:40:00+02:00"),
+            {"from": "2026-06-05", "to": None},
+        )
+
+    def test_1049_is_local_but_not_route_control(self):
+        heading = "Hundeidvika – Festøya"
+        text = (
+            "Rute 1049 Hundeidvika – Festøya: Grunna arbeid på kai vert sambandet "
+            "innstilt frå kl. 10:30 til 13:25."
+        )
+        self.assertTrue(mod.is_local(heading, text, 901))
+        self.assertTrue(mod.is_1049_only(heading, text))
+        self.assertFalse(mod.is_route_control(heading, text, True))
+        self.assertIsNone(mod.switch_from_text(f"{heading} {text}"))
+
+    def test_normal_clock_is_activation_not_switch(self):
+        text = "Det vert normal drift i sambandet frå kl. 21:00."
+        self.assertEqual(mod.activate_at_from_text(text), "21:00:00")
+        self.assertIsNone(mod.switch_from_text(text))
+        self.assertIsNone(mod.window_from_text(text, "2026-04-07T12:00:00+02:00"))
+
+    def test_single_cancelled_sailing_does_not_switch(self):
+        text = (
+            "Rute 1136: Grunna arbeid på Skår blir avgang kl. 14:25 frå Trandal "
+            "kansellert. Normal drift frå kl. 14:50."
+        )
+        self.assertEqual(mod.route_mode_from_text(text), "1136")
+        self.assertIsNone(mod.switch_from_text(text))
+        self.assertEqual(mod.activate_at_from_text(text), "14:50:00")
+
 
 class FetchTests(unittest.TestCase):
     def test_fetch_writes_json(self):

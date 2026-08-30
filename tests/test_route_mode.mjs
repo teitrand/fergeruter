@@ -15,8 +15,10 @@ import {
   routeModeFromMessages,
   routeOverride,
   quayAtStart,
+  resolveRoutePlan,
   switchFromText,
   switchOverride,
+  windowFromText,
   setTestState,
   vesselFromText,
   visibleConnectionLines,
@@ -52,6 +54,196 @@ test("normal drift med falsk innstilt blir 1136", () => {
 
 test("berre 1136 innstilt blir 1135", () => {
   assert.equal(modeFromText("Rute 1136 Standal-Trandal er innstilt inntil vidare."), "1135");
+});
+
+test("datoar i meldinga styrer når kombiruta gjeld", () => {
+  const kombiMsg = {
+    isLocal: true,
+    isRouteControl: true,
+    heading: "Standal-Trandal",
+    text: "Grunna verkstadopphald vert det køyrt kombinert rute frå 14.06 til 18.06.",
+    routeMode: "kombi",
+    routeWindow: { from: "2026-06-14", to: "2026-06-18" },
+    publishedAt: "2026-06-12T09:00:00+02:00",
+    validTo: "2026-06-30T21:59:00Z",
+  };
+  const normalMsg = {
+    isLocal: true,
+    isRouteControl: true,
+    text: "Det vert normal drift i sambandet frå rutestart fredag 05.06.",
+    routeMode: "1136",
+    routeWindow: { from: "2026-06-05", to: null },
+    publishedAt: "2026-06-04T22:40:00+02:00",
+    validTo: "2026-06-30T21:59:00Z",
+  };
+  const messages = [kombiMsg, normalMsg];
+  assert.deepEqual(windowFromText(kombiMsg.text, kombiMsg.publishedAt), {
+    from: "2026-06-14",
+    to: "2026-06-18",
+  });
+  assert.equal(
+    routeModeFromMessages(messages, Date.parse("2026-06-12T10:00:00+02:00"), "2026-06-12"),
+    "1136"
+  );
+  assert.equal(
+    routeModeFromMessages(messages, Date.parse("2026-06-15T10:00:00+02:00"), "2026-06-15"),
+    "kombi"
+  );
+  assert.equal(
+    routeModeFromMessages(messages, Date.parse("2026-06-19T10:00:00+02:00"), "2026-06-19"),
+    "1136"
+  );
+});
+
+test("normal drift frå rutestart byter ikkje tabell dagen før", () => {
+  const messages = [
+    {
+      isLocal: true,
+      isRouteControl: true,
+      text: "Det vert normal drift i sambandet frå rutestart fredag 05.06.",
+      routeMode: "1136",
+      routeWindow: { from: "2026-06-05", to: null },
+      publishedAt: "2026-06-04T22:40:00+02:00",
+      validTo: "2026-06-20T21:59:00Z",
+    },
+    {
+      isLocal: true,
+      isRouteControl: true,
+      text: "Grunna verkstadopphald vert det køyrt kombinert rute.",
+      routeMode: "kombi",
+      publishedAt: "2026-06-03T12:00:00+02:00",
+      validTo: "2026-06-20T21:59:00Z",
+    },
+  ];
+  assert.equal(
+    routeModeFromMessages(messages, Date.parse("2026-06-04T22:50:00+02:00"), "2026-06-04"),
+    "kombi"
+  );
+  assert.equal(
+    routeModeFromMessages(messages, Date.parse("2026-06-05T08:00:00+02:00"), "2026-06-05"),
+    "1136"
+  );
+});
+
+test("normal drift frå klokka skøyt mot førre modus same dag", () => {
+  const messages = [
+    {
+      isLocal: true,
+      isRouteControl: true,
+      text: "Det vert normal drift i sambandet frå kl. 21:00.",
+      routeMode: "1136",
+      activateAt: "21:00:00",
+      publishedAt: "2026-04-07T16:00:00+02:00",
+      validTo: "2026-04-10T21:59:00Z",
+    },
+    {
+      isLocal: true,
+      isRouteControl: true,
+      text: "Rute 1136 Standal-Trandal er innstilt inntil vidare.",
+      routeMode: "1135",
+      publishedAt: "2026-04-07T08:00:00+02:00",
+      validTo: "2026-04-10T21:59:00Z",
+    },
+  ];
+  const day = resolveRoutePlan(messages, Date.parse("2026-04-07T16:10:00+02:00"), "2026-04-07");
+  assert.equal(day.mode, "1136");
+  assert.deepEqual(day.switch, {
+    time: "21:00:00",
+    quay: null,
+    before: "1135",
+    after: "1136",
+    acute: null,
+  });
+  const next = resolveRoutePlan(messages, Date.parse("2026-04-08T10:00:00+02:00"), "2026-04-08");
+  assert.equal(next.mode, "1136");
+  assert.equal(next.switch, null);
+});
+
+test("1049-melding styrer ikkje 1136-tabellen", () => {
+  const messages = [
+    {
+      isLocal: true,
+      isRouteControl: false,
+      heading: "Hundeidvika – Festøya",
+      text: "Rute 1049: innstilt frå kl. 10:30 til 13:25.",
+      routeMode: "1136",
+      publishedAt: "2026-05-20T08:00:00+02:00",
+      validTo: "2026-05-21T21:59:00Z",
+    },
+    {
+      isLocal: true,
+      isRouteControl: true,
+      text: "Grunna verkstadopphald vert det køyrt kombinert rute.",
+      routeMode: "kombi",
+      publishedAt: "2026-05-19T12:00:00+02:00",
+      validTo: "2026-05-21T21:59:00Z",
+    },
+  ];
+  assert.equal(
+    routeModeFromMessages(messages, Date.parse("2026-05-20T11:00:00+02:00"), "2026-05-20"),
+    "kombi"
+  );
+  assert.equal(switchFromText(messages[0].text), null);
+});
+
+test("normal drift frå klokka skøyt tabellen same dag", () => {
+  setTestState({
+    routes: ruter,
+    kombirute: kombi,
+    date: WEEKDAY,
+    messages: {
+      messages: [
+        {
+          isLocal: true,
+          isRouteControl: true,
+          text: "Det vert normal drift i sambandet frå kl. 14:00.",
+          routeMode: "1136",
+          activateAt: "14:00:00",
+          publishedAt: `${WEEKDAY}T10:00:00+02:00`,
+          validTo: "2099-01-01T00:00:00Z",
+        },
+        {
+          isLocal: true,
+          isRouteControl: true,
+          text: "Rute 1136 Standal-Trandal er innstilt inntil vidare.",
+          routeMode: "1135",
+          publishedAt: `${WEEKDAY}T08:00:00+02:00`,
+          validTo: "2099-01-01T00:00:00Z",
+        },
+      ],
+    },
+  });
+  const legs = legsForDate(WEEKDAY);
+  assert.ok(legs.some((leg) => leg.table === "1135" && leg.departure < "14:00:00"));
+  assert.ok(legs.some((leg) => leg.table === "1136" && leg.departure >= "14:00:00"));
+  assert.ok(legs.every((leg) => !(leg.table === "1136" && leg.departure < "14:00:00")));
+  assert.ok(legs.every((leg) => !(leg.table === "1135" && leg.departure >= "14:00:00")));
+});
+
+test("enskild kansellert avgang skøyt ikkje til 1135", () => {
+  assert.equal(
+    switchFromText(
+      "Rute 1136: Avgang kl. 14:25 frå Trandal blir kansellert. Normal drift frå kl. 14:50."
+    ),
+    null
+  );
+  const plan = resolveRoutePlan(
+    [
+      {
+        isLocal: true,
+        isRouteControl: true,
+        text: "Rute 1136: Avgang kl. 14:25 frå Trandal blir kansellert. Normal drift frå kl. 14:50.",
+        routeMode: "1136",
+        activateAt: "14:50:00",
+        publishedAt: "2026-04-23T09:00:00+02:00",
+        validTo: "2026-04-24T21:59:00Z",
+      },
+    ],
+    Date.parse("2026-04-23T10:00:00+02:00"),
+    "2026-04-23"
+  );
+  assert.equal(plan.mode, "1136");
+  assert.equal(plan.switch, null);
 });
 
 test("nyaste lokale melding styrer modus", () => {
