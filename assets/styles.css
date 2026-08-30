@@ -42,7 +42,7 @@ body {
 .skip-link:focus { top: 1rem; }
 
 .fjord-track {
-  margin: 0.7rem 0 0;
+  margin: 0.55rem 0 0;
   max-width: 44rem;
   background: none;
 }
@@ -55,11 +55,11 @@ body {
   position: relative;
   display: flex;
   align-items: flex-end;
-  min-height: 5.8rem;
+  min-height: 3.2rem;
 }
 
 .fjord-kai {
-  width: clamp(5.2rem, 22vw, 8rem);
+  width: 12vw;
   height: auto;
   flex: none;
   display: block;
@@ -73,15 +73,16 @@ body {
 .fjord-sea {
   flex: 1;
   height: 0;
-  margin: 0 0 0.62rem;
+  margin: 0 0 0.45rem;
   border-bottom: 2px solid rgba(215, 238, 234, 0.55);
 }
 
 .fjord-ferry {
   position: absolute;
   left: calc(var(--at, 0) * 100%);
-  bottom: 0.28rem;
-  width: clamp(5.6rem, 28vw, 8.6rem);
+  bottom: 0.2rem;
+  width: 13vw;
+  max-width: 15vw;
   height: auto;
   display: block;
   transform: translateX(-50%);
