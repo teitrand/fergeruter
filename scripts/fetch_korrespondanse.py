@@ -2,8 +2,7 @@
 """Hent korresponderande ruter frå Entur.
 
 Solavågen (1069) og Hundeidvika (1049) landar på Festøya, med bilveg til
-Standal. Buss 133 Leknes–Øye gjeld når aktiv tabell har Leknes (kombirute
-eller 1135). Køyr berre når rutetabellane er endra; nettlesaren les den
+Standal. Køyr berre når rutetabellane er endra; nettlesaren les den
 lagra fila.
 """
 
@@ -45,15 +44,6 @@ LINES = (
         "roadTo": "Standal",
         "driveMinutes": 14,
         "marginMinutes": 5,
-    },
-    {
-        "id": "oye",
-        "lineId": "MOR:Line:133",
-        "label": "Øye",
-        "hub": "Leknes",
-        "roadTo": "Leknes",
-        "driveMinutes": 0,
-        "marginMinutes": 2,
     },
 )
 QUAY_ALIASES = {"Lekneset": "Leknes"}

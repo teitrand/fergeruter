@@ -928,20 +928,11 @@ function connectionIndex(date) {
 const DEFAULT_CONNECTION_LINES = [
   { id: "solavagen", label: "Solavågen", hub: "Festøya", roadTo: "Standal" },
   { id: "hundeidvika", label: "Hundeidvika", hub: "Festøya", roadTo: "Standal" },
-  { id: "oye", label: "Øye", hub: "Leknes", roadTo: "Leknes" },
 ];
 
-function visibleConnectionLines(legs) {
-  const quays = quaysInDay(legs);
+function visibleConnectionLines() {
   const lines = state.connections?.lines || DEFAULT_CONNECTION_LINES;
-  return lines.filter((line) => {
-    const hub = line.hub || state.connections?.hub;
-    const road = line.roadTo || state.connections?.roadTo;
-    if (line.id === "oye" || hub === "Leknes" || road === "Leknes") {
-      return quays.includes("Leknes");
-    }
-    return true;
-  });
+  return lines.filter((line) => line.id !== "oye");
 }
 
 function inboundConnection(index, departure) {
@@ -1205,7 +1196,7 @@ function renderConnectionFilter() {
   const note = document.getElementById("connection-note");
   if (!root || !note) return;
   root.replaceChildren();
-  const visible = visibleConnectionLines(legsForDate(selectedDate()));
+  const visible = visibleConnectionLines();
   if (state.connection && !visible.some((line) => line.id === state.connection)) {
     state.connection = null;
   }

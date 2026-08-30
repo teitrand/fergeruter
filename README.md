@@ -25,7 +25,7 @@ Rutetabellane for 1136 og 1135 blir lasta ned frå Entur og lagra i `data/ruter.
 
 Nyaste **gyldige lokale** Fjord1-melding styrer valet. Banneret viser framleis Fjord1-teksten, pluss ei merknad og lenke til FRAM-PDF-en når kombiruta er aktiv.
 
-Korrespondansar: Solavågen og Hundeidvika via Festøya→Standal som før. Når aktiv tabell har **Leknes** (kombirute eller 1135), kjem òg buss **133 Leknes–Øye**.
+Korrespondansar: Solavågen og Hundeidvika via Festøya→Standal.
 
 Fjord1 tillèt ikkje CORS frå nettlesaren, så meldingane blir henta av eit skript til `data/trafikkmeldinger.json`.
 
@@ -67,7 +67,7 @@ Pages kjem framleis frå `main` (legacy). Testhosten blir derfor kopiert inn som
 ## Oppdatering
 
 - Trafikkmeldingar: kvart 15. minutt på `main`
-- Rutetabell 1136+1135 og korrespondansar (inkl. 133): last ned att **berre når tabellen er endra**:
+- Rutetabell 1136+1135 og korrespondansar: last ned att **berre når tabellen er endra**:
 
 ```bash
 python3 scripts/fetch_ruter.py

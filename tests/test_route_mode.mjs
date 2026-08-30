@@ -125,12 +125,13 @@ test("1136-modus har ikkje Leknes-bein", () => {
   assert.ok(legs.every((leg) => leg.from !== "Leknes" && leg.to !== "Leknes"));
 });
 
-test("Øye-korrespondanse visest berre når Leknes er i tabellen", () => {
+test("korrespondanse er berre Solavågen og Hundeidvika", () => {
   const connections = {
     hub: "Festøya",
     roadTo: "Standal",
     lines: [
       { id: "solavagen", label: "Solavågen", hub: "Festøya", roadTo: "Standal" },
+      { id: "hundeidvika", label: "Hundeidvika", hub: "Festøya", roadTo: "Standal" },
       { id: "oye", label: "Øye", hub: "Leknes", roadTo: "Leknes" },
     ],
   };
@@ -140,14 +141,16 @@ test("Øye-korrespondanse visest berre når Leknes er i tabellen", () => {
     connections,
     messages: { messages: [] },
   });
-  const ids1136 = visibleConnectionLines(legsForDate(WEEKDAY)).map((line) => line.id);
-  assert.deepEqual(ids1136, ["solavagen"]);
+  assert.deepEqual(
+    visibleConnectionLines().map((line) => line.id),
+    ["solavagen", "hundeidvika"]
+  );
 
   setTestState({ connections: null });
-  const defaultKombi = visibleConnectionLines([
-    { from: "Sæbø", to: "Leknes", departure: "08:15:00", arrival: "08:30:00" },
-  ]).map((line) => line.id);
-  assert.ok(defaultKombi.includes("oye"));
+  assert.deepEqual(
+    visibleConnectionLines().map((line) => line.id),
+    ["solavagen", "hundeidvika"]
+  );
 
   setTestState({
     messages: {
@@ -156,9 +159,9 @@ test("Øye-korrespondanse visest berre når Leknes er i tabellen", () => {
       ],
     },
   });
-  const idsKombi = visibleConnectionLines(legsForDate(WEEKDAY)).map((line) => line.id);
-  assert.ok(idsKombi.includes("oye"));
-  assert.ok(idsKombi.includes("solavagen"));
+  const idsKombi = visibleConnectionLines().map((line) => line.id);
+  assert.deepEqual(idsKombi, ["solavagen", "hundeidvika"]);
+  assert.ok(!idsKombi.includes("oye"));
 });
 
 test("frå klokka og kai skøyt to tabellar same dag", () => {
