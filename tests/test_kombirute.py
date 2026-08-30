@@ -195,6 +195,14 @@ class KombiruteSchemaTests(unittest.TestCase):
         self.assertEqual(stored["crossingMinutes"], built["crossingMinutes"])
         self.assertEqual(stored["legs"], built["legs"])
 
+    def test_from_times_match_fram_kombirute_pdf(self):
+        """Frå-cellene i FRAM kombinasjons-PDF 18.11.25, per daggruppe."""
+        stored = json.loads((ROOT / "data" / "kombirute.json").read_text(encoding="utf-8"))
+        for day, rows in mod.PDF_ROWS.items():
+            expected = set(expected_from_cells(rows))
+            self.assertEqual(from_times(stored["legs"], day), expected, day)
+            self.assertEqual(from_times(mod.build()["legs"], day), expected, day)
+
     def test_signal_is_per_from_cell(self):
         """Fotnote 1) er eit utval av Frå-celler, ikkje heile turen."""
         stored = json.loads((ROOT / "data" / "kombirute.json").read_text(encoding="utf-8"))

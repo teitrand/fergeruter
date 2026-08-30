@@ -6,6 +6,7 @@ import json
 import sys
 import tempfile
 import unittest
+from datetime import date
 from pathlib import Path
 from unittest.mock import patch
 
@@ -331,7 +332,8 @@ class FetchTests(unittest.TestCase):
             self.assertEqual(data["lines"]["1135"]["legs"][0]["departure"], "08:15:00")
 
 
-# FRAM 1136 frå 17.08.26, Frå-kolonnar (bbox 29.08.26). Onsdag har eiga tabell.
+# FRAM 1136 frå 17.08.26, Frå-kolonnar. Onsdag har eiga tabell.
+# https://frammr.no/_f/p2/i3300c33e-2d47-4764-978b-6b2213d03b94/1136-standal-trandal-sabo-skar-valderoya-store-kalvoy-20260817.pdf
 FRAM_PDF_FROM_1136 = {
     "mtthf": {
         "Standal": "0645 0740 1310 1545 1845 2000",
@@ -363,6 +365,8 @@ FRAM_PDF_FROM_1136 = {
 }
 
 # FRAM 1135. Sommar og haust har same kvardag; helg mister 10:00 og 11:15 frå 01.09.
+# Sommar: https://frammr.no/_f/p2/ib15faa12-5ace-4bc5-951e-e3af6a391ba9/1135-sabo-leknes-20260620-20260831-sommerrute.pdf
+# Haust: https://frammr.no/_f/p2/ic2c2521c-6298-4f24-a1e0-cfb3be732337/1135-sabo-leknes-20260901.pdf
 FRAM_PDF_FROM_1135_SUMMER = {
     "weekday": {
         "Sæbø": "0600 0630 0715 0815 0915 1030 1145 1245 1345 1445 1545 1630 1700 1730 1830 2000 2100 2215",
@@ -397,6 +401,43 @@ def _from_times(legs, iso):
             continue
         got.setdefault(leg["from"], set()).add(leg["departure"][:2] + leg["departure"][3:5])
     return got
+
+
+# PDF-ane seier «søndagsruter på andre helge- og høgtidsdagar» og at jul/nyttår
+# skal sjekkast i FRAM-appen. Entur har eigne tider desse dagane.
+FRAM_PDF_HOLIDAY_DATES = frozenset(
+    {
+        "2026-12-24",
+        "2026-12-25",
+        "2026-12-26",
+        "2026-12-31",
+        "2027-01-01",
+    }
+)
+
+
+def _1136_group(iso: str) -> str:
+    weekday = date.fromisoformat(iso).weekday()
+    if weekday == 6:
+        return "sunday"
+    if weekday == 5:
+        return "saturday"
+    if weekday == 2:
+        return "wednesday"
+    return "mtthf"
+
+
+def _1135_group(iso: str) -> str:
+    weekday = date.fromisoformat(iso).weekday()
+    if weekday == 6:
+        return "sunday"
+    if weekday == 5:
+        return "saturday"
+    return "weekday"
+
+
+def _active_dates(legs):
+    return sorted({iso for leg in legs for iso in (leg.get("activeDates") or [])})
 
 
 class StoredTimetableTests(unittest.TestCase):
@@ -479,6 +520,49 @@ class StoredTimetableTests(unittest.TestCase):
             got = _from_times(legs, iso)
             for quay, times in expected.items():
                 self.assertEqual(got.get(quay, set()), set(times.split()), f"{iso} {quay}")
+
+    def test_1136_from_times_match_fram_pdf_all_regular_days(self):
+        """Alle vanlege dagar i den lagra tabellen, ikkje berre stikkprøver."""
+        data = json.loads((ROOT / "data" / "ruter.json").read_text(encoding="utf-8"))
+        legs = data["lines"]["1136"]["legs"]
+        checked = 0
+        for iso in _active_dates(legs):
+            if iso in FRAM_PDF_HOLIDAY_DATES:
+                continue
+            expected = {
+                quay: set(times.split())
+                for quay, times in FRAM_PDF_FROM_1136[_1136_group(iso)].items()
+            }
+            self.assertEqual(_from_times(legs, iso), expected, iso)
+            checked += 1
+        self.assertGreater(checked, 100)
+
+    def test_1135_from_times_match_fram_pdf_all_regular_days(self):
+        data = json.loads((ROOT / "data" / "ruter.json").read_text(encoding="utf-8"))
+        legs = data["lines"]["1135"]["legs"]
+        checked = 0
+        for iso in _active_dates(legs):
+            if iso in FRAM_PDF_HOLIDAY_DATES:
+                continue
+            table = FRAM_PDF_FROM_1135_SUMMER if iso <= "2026-08-31" else FRAM_PDF_FROM_1135_AUTUMN
+            expected = {
+                quay: set(times.split()) for quay, times in table[_1135_group(iso)].items()
+            }
+            self.assertEqual(_from_times(legs, iso), expected, iso)
+            checked += 1
+        self.assertGreater(checked, 100)
+
+    def test_1135_crossing_is_about_13_minutes(self):
+        """FRAM 1135-PDF: «Overfartstid: ca. 13 min.»"""
+        data = json.loads((ROOT / "data" / "ruter.json").read_text(encoding="utf-8"))
+        deltas = set()
+        for leg in data["lines"]["1135"]["legs"]:
+            if {leg["from"], leg["to"]} != {"Sæbø", "Leknes"}:
+                continue
+            dep = int(leg["departure"][:2]) * 60 + int(leg["departure"][3:5])
+            arr = int(leg["arrival"][:2]) * 60 + int(leg["arrival"][3:5])
+            deltas.add((arr - dep) % (24 * 60))
+        self.assertEqual(deltas, {13})
 
 
 if __name__ == "__main__":

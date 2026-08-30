@@ -422,6 +422,88 @@ test("1135 har inga PDF-fotnote og inga signalmerke", () => {
   assert.ok(legs.every((leg) => !leg.signal));
 });
 
+function fromClockMap(legs) {
+  const got = {};
+  for (const leg of legs) {
+    if (leg.hideDeparture) continue;
+    const clock = `${leg.departure.slice(0, 2)}${leg.departure.slice(3, 5)}`;
+    (got[leg.from] ||= []).push(clock);
+  }
+  for (const quay of Object.keys(got)) {
+    got[quay] = [...new Set(got[quay])].sort().join(" ");
+  }
+  return got;
+}
+
+test("appen viser same Frå-tider som FRAM-PDF-ane", () => {
+  const pdf1136 = {
+    "2026-08-28": {
+      Standal: "0645 0740 1310 1545 1845 2000",
+      Trandal: "0705 0800 0945 1425 1515 1625 1810 1940 2020",
+      Sæbø: "0835 0920 1450 1650 1745",
+      Skår: "0855 1710",
+    },
+    "2026-09-02": {
+      Standal: "0740 1440 1610",
+      Trandal: "0800 1500 1550 1630",
+      Sæbø: "0835 1525",
+      Valderøya: "1110 1900",
+      "Store Kalvøy": "1210 1925",
+    },
+    "2026-08-29": {
+      Standal: "0740 1605 1845 2000",
+      Trandal: "0800 0945 1625 1810 1940 2020",
+      Sæbø: "0835 0920 1650 1745",
+      Skår: "0855 1710",
+      Valderøya: "1215",
+      "Store Kalvøy": "1315",
+    },
+    "2026-08-30": {
+      Standal: "0900 1000 1530 1655 2000 2040",
+      Trandal: "0920 1020 1215 1550 1715 1900 2020 2100",
+      Sæbø: "1050 1150 1750 1835",
+      Skår: "1120 1815",
+    },
+  };
+  setTestState({ routes: ruter, kombirute: kombi, messages: { messages: [] } });
+  for (const [iso, expected] of Object.entries(pdf1136)) {
+    assert.deepEqual(fromClockMap(legsForDate(iso)), expected, `1136 ${iso}`);
+  }
+
+  setTestState({
+    messages: {
+      messages: [
+        {
+          isLocal: true,
+          text: "Rute 1136 Standal-Trandal er innstilt inntil vidare.",
+          routeMode: "1135",
+          validTo: "2099-01-01T00:00:00Z",
+        },
+      ],
+    },
+  });
+  assert.deepEqual(fromClockMap(legsForDate("2026-08-28")), {
+    Sæbø: "0600 0630 0715 0815 0915 1030 1145 1245 1345 1445 1545 1630 1700 1730 1830 2000 2100 2215",
+    Leknes: "0615 0645 0730 0830 0930 1045 1200 1300 1400 1500 1600 1645 1715 1745 1845 2015 2115 2230",
+  });
+  assert.deepEqual(fromClockMap(legsForDate("2026-09-05")), {
+    Sæbø: "0630 0830 0900 1030 1145 1245 1345 1445 1545 1630 1730 1830 2030 2115 2215",
+    Leknes: "0645 0845 0915 1045 1200 1300 1400 1500 1600 1645 1745 1845 2045 2130 2230",
+  });
+
+  useKombi();
+  assert.deepEqual(fromClockMap(legsForDate(WEEKDAY)).Sæbø.split(" ").slice(0, 5), [
+    "0600",
+    "0630",
+    "0715",
+    "0815",
+    "0845",
+  ]);
+  assert.ok(fromClockMap(legsForDate("2026-08-29")).Trandal.includes("0725"));
+  assert.ok(fromClockMap(legsForDate("2026-08-30")).Skår.includes("1900"));
+  assert.equal(fromClockMap(legsForDate("2026-08-30")).Leknes.includes("2115"), true);
+});
+
 test("kombirute merkar berre fotnote-celler som signal", () => {
   useKombi();
   for (const iso of Object.values(KOMBI_DATES)) {
