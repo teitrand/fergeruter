@@ -41,6 +41,11 @@ test("sida har tilbakemeldingsdialog", () => {
   assert.match(html, /teitrand\/fergeruter\/issues\/new/);
 });
 
+test("header har ikkje ferjegrafikk mellom kaiene", () => {
+  assert.doesNotMatch(html, /fjord-track|fjord-ferry|ferje\.png|kai-venstre|kai-hogre/);
+  assert.match(html, /id="lede-status"/);
+});
+
 test("appen sender namngjevne brukshendingar til Plausible", () => {
   const events = [
     "Visit ${getLang()}",
