@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="description" content="Trafikkmeldingar frå Fjord1 og seilingsplan for ferjesamband 1136 Standal–Trandal–Sæbø–Skår. Alle anløp i rekkjefølgje, med status for kvar ferja er akkurat no.">
+  <meta name="description" content="Trafikkmeldingar frå Fjord1 og seglingsplan for ferjesamband 1136 Standal–Trandal–Sæbø–Skår. Alle anløp i rekkjefølgje, med status for kvar ferja er akkurat no.">
   <meta name="theme-color" content="#073b4c">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,560;9..144,700&family=Outfit:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/styles.css?v=21">
+  <link rel="stylesheet" href="assets/styles.css?v=22">
   <!-- Privacy-friendly analytics by Plausible -->
   <script async src="https://plausible.io/js/pa-zLwKfsUV57HIZfM4j6wLS.js"></script>
   <script>
@@ -77,52 +77,54 @@
           <path d="M14 38 32 20l10 6h8l-6 12H18z" fill="#f4efe4"/>
           <rect x="28" y="16" width="3" height="10" fill="#e07a3d"/>
         </svg>
-        <div>
-          <p class="eyebrow" data-i18n="eyebrow">Rute 1136 · Fjord1 / FRAM</p>
+        <div class="brand-text">
+          <div class="brand-meta">
+            <p class="eyebrow" data-i18n="eyebrow">Rute 1136 · Fjord1 / FRAM</p>
+            <div class="header-tools">
+              <div class="lang-switch" role="group" data-i18n-aria="lang.label" aria-label="Språk">
+                <button type="button" class="lang-btn" data-lang="nn" lang="nn" aria-label="Nynorsk" title="Nynorsk" aria-pressed="false">
+                  <span class="lang-flag" aria-hidden="true">
+                    <svg viewBox="0 0 22 16" focusable="false">
+                      <rect width="22" height="16" fill="#ba0c2f"/>
+                      <rect x="6" width="4" height="16" fill="#fff"/>
+                      <rect y="6" width="22" height="4" fill="#fff"/>
+                      <rect x="7" width="2" height="16" fill="#00205b"/>
+                      <rect y="7" width="22" height="2" fill="#00205b"/>
+                    </svg>
+                  </span>
+                  <span class="lang-code">NN</span>
+                </button>
+                <button type="button" class="lang-btn" data-lang="en" lang="en" aria-label="English" title="English" aria-pressed="false">
+                  <span class="lang-flag" aria-hidden="true">
+                    <svg viewBox="0 0 60 30" preserveAspectRatio="xMidYMid slice" focusable="false">
+                      <rect width="60" height="30" fill="#012169"/>
+                      <path d="M0 0l60 30M60 0L0 30" stroke="#fff" stroke-width="6"/>
+                      <path d="M0 0l60 30M60 0L0 30" stroke="#c8102e" stroke-width="4"/>
+                      <path d="M30 0v30M0 15h60" stroke="#fff" stroke-width="10"/>
+                      <path d="M30 0v30M0 15h60" stroke="#c8102e" stroke-width="6"/>
+                    </svg>
+                  </span>
+                  <span class="lang-code">EN</span>
+                </button>
+                <button type="button" class="lang-btn" data-lang="de" lang="de" aria-label="Deutsch" title="Deutsch" aria-pressed="false">
+                  <span class="lang-flag" aria-hidden="true">
+                    <svg viewBox="0 0 16 12" focusable="false">
+                      <rect width="16" height="4" fill="#000"/>
+                      <rect y="4" width="16" height="4" fill="#d00"/>
+                      <rect y="8" width="16" height="4" fill="#ffce00"/>
+                    </svg>
+                  </span>
+                  <span class="lang-code">DE</span>
+                </button>
+              </div>
+              <button type="button" id="install-btn" class="install-btn" hidden data-i18n="install.app">Installer app</button>
+            </div>
+          </div>
           <h1 id="route-title">Standal–Trandal–Sæbø–Skår–Valderøya–Store Kalvøy</h1>
+          <p class="lede" id="lede-status" hidden></p>
         </div>
-      </div>
-      <div class="header-tools">
-        <div class="lang-switch" role="group" data-i18n-aria="lang.label" aria-label="Språk">
-          <button type="button" class="lang-btn" data-lang="nn" lang="nn" aria-label="Nynorsk" title="Nynorsk" aria-pressed="false">
-            <span class="lang-flag" aria-hidden="true">
-              <svg viewBox="0 0 22 16" focusable="false">
-                <rect width="22" height="16" fill="#ba0c2f"/>
-                <rect x="6" width="4" height="16" fill="#fff"/>
-                <rect y="6" width="22" height="4" fill="#fff"/>
-                <rect x="7" width="2" height="16" fill="#00205b"/>
-                <rect y="7" width="22" height="2" fill="#00205b"/>
-              </svg>
-            </span>
-            <span class="lang-code">NN</span>
-          </button>
-          <button type="button" class="lang-btn" data-lang="en" lang="en" aria-label="English" title="English" aria-pressed="false">
-            <span class="lang-flag" aria-hidden="true">
-              <svg viewBox="0 0 60 30" preserveAspectRatio="xMidYMid slice" focusable="false">
-                <rect width="60" height="30" fill="#012169"/>
-                <path d="M0 0l60 30M60 0L0 30" stroke="#fff" stroke-width="6"/>
-                <path d="M0 0l60 30M60 0L0 30" stroke="#c8102e" stroke-width="4"/>
-                <path d="M30 0v30M0 15h60" stroke="#fff" stroke-width="10"/>
-                <path d="M30 0v30M0 15h60" stroke="#c8102e" stroke-width="6"/>
-              </svg>
-            </span>
-            <span class="lang-code">EN</span>
-          </button>
-          <button type="button" class="lang-btn" data-lang="de" lang="de" aria-label="Deutsch" title="Deutsch" aria-pressed="false">
-            <span class="lang-flag" aria-hidden="true">
-              <svg viewBox="0 0 16 12" focusable="false">
-                <rect width="16" height="4" fill="#000"/>
-                <rect y="4" width="16" height="4" fill="#d00"/>
-                <rect y="8" width="16" height="4" fill="#ffce00"/>
-              </svg>
-            </span>
-            <span class="lang-code">DE</span>
-          </button>
-        </div>
-        <button type="button" id="install-btn" class="install-btn" hidden data-i18n="install.app">Installer app</button>
       </div>
     </div>
-    <p class="lede" id="lede-status" hidden></p>
   </header>
 
   <main id="innhald">
@@ -171,7 +173,7 @@
           <span id="position-note" data-i18n="position.planned">Posisjonen er rekna ut frå rutetabellen når Entur ikkje sender køyretøyposisjon.</span>
           <span data-i18n="footnote.signal">Signalturar må tingast på telefon innan fristen.</span>
           <span id="connection-note"></span>
-          <span data-i18n="footnote.timetable">Rutetabellen lastast berre ned att når han er endra.</span>
+          <span data-i18n="footnote.timetable">Rutetabellen blir berre lasta ned att når han er endra.</span>
           <span id="timetable-updated"></span>
           <span data-i18n="footnote.pdf">Papir-ruteplan</span>: <a id="timetable-pdf" href="https://www.fjord1.no/ruteoversikt/moere-og-romsdal/standal-trandal-valderoeya-store-kalvoey/(page)/pdf" target="_blank" rel="noreferrer">fjord1.no</a>
           ·
@@ -191,7 +193,7 @@
     </p>
     <p data-i18n="footer.holidays">Nokre turar går berre på signal. Ved jul, nyttår og høgtid: sjå FRAM-appen.</p>
     <p>
-      <button type="button" id="feedback-open" class="feedback-link" data-i18n="feedback.open">Gi tilbakemelding</button>
+      <button type="button" id="feedback-open" class="feedback-link" data-i18n="feedback.open">Gje tilbakemelding</button>
     </p>
   </footer>
 
@@ -207,7 +209,7 @@
       <label for="feedback-comment" data-i18n="feedback.commentLabel">Vil du seie meir? (valfritt)</label>
       <textarea id="feedback-comment" name="feedback" rows="4" maxlength="700" data-i18n-placeholder="feedback.commentPlaceholder" placeholder="Til dømes kva som manglar, eller kva du brukar sida til."></textarea>
     </div>
-    <p class="feedback-privacy" data-i18n="feedback.privacy">Ja/nei blir telt anonymt, utan namn eller e-post. Ei skriftleg melding opnar e-posten din og blir ikkje lagra i statistikken.</p>
+    <p class="feedback-privacy" data-i18n="feedback.privacy">Ja/nei blir talde anonymt, utan namn eller e-post. Ei skriftleg melding opnar e-posten din og blir ikkje lagra i statistikken.</p>
     <p class="feedback-alt">
       <a id="feedback-github" href="https://github.com/teitrand/fergeruter/issues/new" target="_blank" rel="noreferrer" data-i18n="feedback.github">Eller meld ein feil på GitHub</a>
     </p>
