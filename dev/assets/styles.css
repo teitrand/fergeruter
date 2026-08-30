@@ -65,9 +65,6 @@ main,
 
 .header-top {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 1rem;
 }
 
 .header-tools {
@@ -77,6 +74,7 @@ main,
   align-items: center;
   gap: 0.45rem;
   flex: none;
+  margin-inline-start: auto;
 }
 
 .lang-switch {
@@ -152,6 +150,21 @@ html[lang="de"] .lang-btn[data-lang="de"],
   gap: 1rem;
   align-items: flex-start;
   min-width: 0;
+  width: 100%;
+}
+
+.brand-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.brand-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.55rem 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.3rem;
 }
 
 .brand-mark {
@@ -162,7 +175,7 @@ html[lang="de"] .lang-btn[data-lang="de"],
 }
 
 .eyebrow {
-  margin: 0 0 0.25rem;
+  margin: 0;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   font-size: 0.75rem;
@@ -178,11 +191,10 @@ h1, h2, h3 {
 h1 {
   font-size: clamp(1.45rem, 3vw, 2.15rem);
   line-height: 1.2;
-  max-width: 18ch;
 }
 
 .lede {
-  margin: 0.9rem 0 0;
+  margin: 0.5rem 0 0;
   color: #d7eeea;
 }
 
@@ -820,7 +832,6 @@ h2.day-label {
 }
 
 @media (max-width: 640px) {
-  .header-top { flex-wrap: wrap; }
   .panel-head { flex-direction: column; gap: 0.2rem; }
   .stop, .next-row { grid-template-columns: 3.2rem 1fr auto; gap: 0.5rem; }
   .stop-state, .next-state { font-size: 0.78rem; }
