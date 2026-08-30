@@ -265,26 +265,20 @@ function parseClockToken(raw) {
   return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}:00`;
 }
 
-function switchQuayFromToken(raw) {
-  if (!raw) return null;
-  const place = quayPlace(String(raw).replace(/[.,;:]+$/g, "").trim());
-  return place || null;
-}
-
 function beforeModeFor(after, text) {
   if (after === "1136") return KOMBI_RE.test(text || "") ? "kombi" : "1135";
   return "1136";
 }
 
-/** «utført frå klokka 08:15 frå Sæbø» — ikkje «fyrste avgang frå Sæbø ca. 08:15». */
+/** «utført frå klokka 08:15» — ikkje «fyrste avgang frå Sæbø ca. 08:15». Kai kjem frå tabellen. */
 function switchFromText(text, afterMode = null) {
   const blob = text || "";
   const after = afterMode || modeFromText(blob);
   const clockPlace = blob.match(
-    /(?:frå|fra)\s+(?:klokka|kl\.?)\s*(?:ca\.?\s*)?(\d{1,2})[:.](\d{2})(?:\s+(?:frå|fra)\s+([^\s.,;]+(?:\s+[^\s.,;]+)?))?/i
+    /(?:frå|fra)\s+(?:klokka|kl\.?)\s*(?:ca\.?\s*)?(\d{1,2})[:.](\d{2})/i
   );
   const performed = blob.match(
-    /(?:utført|gjeld)\s+frå\s+(?:klokka\s+|kl\.?\s*)?(?:ca\.?\s*)?(\d{1,2})[:.](\d{2})\s+frå\s+([^\s.,;]+)/i
+    /(?:utført|gjeld)\s+frå\s+(?:klokka\s+|kl\.?\s*)?(?:ca\.?\s*)?(\d{1,2})[:.](\d{2})/i
   );
   const match = clockPlace || performed;
   if (!match) return null;
@@ -292,9 +286,10 @@ function switchFromText(text, afterMode = null) {
   if (!time) return null;
   return {
     time,
-    quay: switchQuayFromToken(match[3]),
+    quay: null,
     before: beforeModeFor(after, blob),
     after,
+    acute: null,
   };
 }
 
@@ -306,15 +301,48 @@ function switchOverride(loc) {
     const time = parseClockToken(params.get("frå") || params.get("fra"));
     if (!time) return null;
     const mode = routeOverride(here) || "kombi";
+    const acuteFlag = params.get("akutt");
     return {
       time,
-      quay: switchQuayFromToken(params.get("kai")),
+      quay: null,
       before: ALLOWED_MODES.has(params.get("før")) ? params.get("før") : beforeModeFor(mode, ""),
       after: mode,
+      acute: acuteFlag === "1" || acuteFlag === "true" ? true : acuteFlag === "0" ? false : false,
     };
   } catch {
     return null;
   }
+}
+
+function osloIsoFromInstant(iso) {
+  if (!iso) return null;
+  const when = new Date(iso);
+  if (Number.isNaN(when.getTime())) return null;
+  const parts = osloParts(when);
+  return `${parts.year}-${parts.month}-${parts.day}`;
+}
+
+function quayAtStart(mode, date, time) {
+  const hits = sortDayLegs(legsForMode(mode, date).filter((leg) => leg.departure === time));
+  return hits[0] ? quayPlace(hits[0].from) : null;
+}
+
+function resolveSwitch(raw, date) {
+  if (!raw) return null;
+  const after = raw.after;
+  return {
+    ...raw,
+    after,
+    quay: quayAtStart(after, date, raw.time),
+  };
+}
+
+function planIsAcute(routeSwitch, date) {
+  if (routeSwitch?.acute === true) return true;
+  if (routeSwitch?.acute === false) return false;
+  const latest = latestLocalMessage();
+  const published = osloIsoFromInstant(latest?.publishedAt || latest?.validFrom);
+  return Boolean(published && published === date);
 }
 
 function modeFromText(text) {
@@ -344,13 +372,17 @@ function routeSwitchFromMessages(messages, now = Date.now()) {
   return switchFromText(`${latest.heading || ""} ${latest.text || ""}`, mode);
 }
 
-function activePlan() {
+function activePlan(date = selectedDate()) {
   const mode = activeMode();
   const fromQuery = switchOverride();
-  if (fromQuery) return { mode: fromQuery.after || mode, switch: fromQuery };
-  const parsed = routeSwitchFromMessages(state.messages?.messages);
-  if (parsed && (parsed.after || mode) === mode) return { mode, switch: parsed };
-  return { mode, switch: null };
+  const parsed = fromQuery || routeSwitchFromMessages(state.messages?.messages);
+  if (!parsed || (parsed.after || mode) !== mode) return { mode, switch: null, acute: false };
+  const routeSwitch = resolveSwitch(parsed, date);
+  return {
+    mode: routeSwitch.after || mode,
+    switch: routeSwitch,
+    acute: planIsAcute(routeSwitch, date),
+  };
 }
 
 function titleVessel(name) {
@@ -453,11 +485,13 @@ function sortDayLegs(legs) {
 }
 
 function legsForDate(date) {
-  const plan = activePlan();
+  const plan = activePlan(date);
   const after = legsForMode(plan.mode, date);
   if (!plan.switch) return sortDayLegs(after);
+  const fromAfter = cutFromSwitch(after, plan.switch);
+  if (plan.acute) return sortDayLegs(fromAfter);
   const before = cutBeforeSwitch(legsForMode(plan.switch.before, date), plan.switch);
-  return sortDayLegs([...before, ...cutFromSwitch(after, plan.switch)]);
+  return sortDayLegs([...before, ...fromAfter]);
 }
 
 function hjorundfjordQuays() {
@@ -1040,21 +1074,23 @@ function arrivalRow(leg, past, index) {
 }
 
 function splitRow(routeSwitch, table, past) {
-  const row = el("div", `stop stop-split${past ? " is-past" : ""}`);
-  row.append(el("span", "stop-time", hhmm(routeSwitch.time)));
-  const body = el("span", "stop-body");
-  body.append(
+  const row = el("div", `stop-split${past ? " is-past" : ""}`);
+  row.setAttribute("role", "separator");
+  row.append(el("span", "split-kicker", t("split.kicker")));
+  row.append(
     el(
       "span",
-      "stop-name",
+      "split-title",
       t("split.continues", {
         table: t(`split.table.${table}`),
+        time: hhmm(routeSwitch.time),
         quay: routeSwitch.quay ? t("split.atQuay", { quay: routeSwitch.quay }) : "",
       })
     )
   );
-  row.append(body);
-  row.append(el("span", "stop-state", ""));
+  row.append(
+    el("span", "split-before", t("split.before", { before: t(`split.table.${routeSwitch.before}`) }))
+  );
   return row;
 }
 
@@ -1086,6 +1122,7 @@ function statusRow(status) {
 
 function matchesStop(quays) {
   if (!state.stopFilter) return true;
+  if (!quays || !quays.length) return true;
   return quays.includes(state.stopFilter);
 }
 
@@ -1121,11 +1158,11 @@ function buildEvents(legs, connections) {
     const next = legs[index + 1];
     if (next && leg.table && next.table && leg.table !== next.table) {
       const routeSwitch = activePlan().switch;
-      if (routeSwitch) {
+      if (routeSwitch && !events.some((event) => event.kind === "split")) {
         events.push({
-          at: clockMinutes(next.departure),
+          at: clockMinutes(routeSwitch.time),
           kind: "split",
-          quays: [next.from],
+          quays: [],
           build: (past) => splitRow(routeSwitch, next.table, past),
         });
       }
@@ -1186,9 +1223,9 @@ function renderViewFilter() {
   const root = document.getElementById("view-filter");
   if (!root) return;
   root.replaceChildren();
-  const btn = el("button", "chip chip-small", t("view.arrivals"));
-  btn.type = "button";
   const visible = showArrivals();
+  const btn = el("button", "chip chip-small", visible ? t("view.hideArrivals") : t("view.showArrivals"));
+  btn.type = "button";
   btn.setAttribute("aria-pressed", String(visible));
   if (visible) btn.classList.add("is-active");
   btn.addEventListener("click", () => {
@@ -1304,6 +1341,28 @@ function renderPositionNote() {
   note.textContent = liveStatus(state.live) ? t("position.live") : t("position.planned");
 }
 
+function timelineEventIsPast(event, events, now = nowMinutes()) {
+  if (!isToday() || event.status) return false;
+  if (event.kind === "split") {
+    return !events.some((item) => item.kind !== "split" && item.kind !== "status" && item.at > now);
+  }
+  return event.at <= now;
+}
+
+function keepTimelineEvent(event, events, now = nowMinutes()) {
+  if (event.status) return true;
+  if (!isToday() || state.showPast) return true;
+  if (event.kind === "split") {
+    return events.some((item) => item.kind !== "split" && item.kind !== "status" && item.at > now);
+  }
+  return event.at > now;
+}
+
+function pastDepartureCount(events, now = nowMinutes()) {
+  if (!isToday()) return 0;
+  return events.filter((event) => event.kind === "dep" && event.at <= now).length;
+}
+
 /** Knappen ligg utanfor lista, så minuttoppdateringa ikkje stel fokus. */
 function renderReveal(pastCount) {
   const wrap = document.getElementById("timeline-reveal");
@@ -1360,13 +1419,12 @@ function renderLive() {
   events.sort(compareTimelineEvents);
 
   const now = nowMinutes();
-  const isPast = (event) => isToday() && !event.status && event.at <= now;
-  const pastCount = events.filter(isPast).length;
+  const pastCount = pastDepartureCount(events, now);
   renderReveal(pastCount);
 
   for (const event of events) {
-    const past = isPast(event);
-    if (past && !state.showPast) continue;
+    if (!keepTimelineEvent(event, events, now)) continue;
+    const past = timelineEventIsPast(event, events, now);
     root.append(event.build(past));
   }
 }
@@ -1452,7 +1510,20 @@ function renderMessages() {
 
 function appendModeNote(banner, mode) {
   const plan = activePlan();
-  if (plan.switch) {
+  if (plan.switch && plan.acute) {
+    banner.append(el("p", "banner-mode", t("mode.acuteNote")));
+    banner.append(
+      el(
+        "p",
+        "banner-mode",
+        t("route.titleAcute", {
+          table: t(`split.table.${plan.mode}`),
+          time: hhmm(plan.switch.time),
+          quay: plan.switch.quay ? t("split.atQuay", { quay: plan.switch.quay }) : "",
+        })
+      )
+    );
+  } else if (plan.switch) {
     banner.append(
       el(
         "p",
@@ -1510,7 +1581,13 @@ function renderRouteChrome() {
   const plan = activePlan();
   const title = document.getElementById("route-title");
   if (title) {
-    title.textContent = plan.switch
+    title.textContent = plan.switch && plan.acute
+      ? t("route.titleAcute", {
+          table: t(`split.table.${plan.mode}`),
+          time: hhmm(plan.switch.time),
+          quay: plan.switch.quay ? t("split.atQuay", { quay: plan.switch.quay }) : "",
+        })
+      : plan.switch
       ? t("route.titleSwitch", {
           before: t(`split.table.${plan.switch.before}`),
           after: t(`split.table.${plan.mode}`),
@@ -1891,13 +1968,16 @@ export {
   homeQuay,
   isLiveFresh,
   isPreview,
+  keepTimelineEvent,
   legsForDate,
   liveStatus,
+  pastDepartureCount,
   minDeadheadMinutes,
   modeFromText,
   nextArrivalAt,
   nextDepartureFrom,
   parseVehicleMonitoring,
+  quayAtStart,
   quayPlace,
   quaysInDay,
   readHideArrivals,

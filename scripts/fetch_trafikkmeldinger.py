@@ -33,26 +33,13 @@ HAS_1136_RE = re.compile(r"\b1136\b")
 VESSEL_UTFORT_RE = re.compile(r"utført av\s+(?:m/?f\.?\s*)?(geiranger|kvernes)", re.I)
 VESSEL_NAME_RE = re.compile(r"\b(?:m/?f\.?\s*)?(geiranger|kvernes)\b", re.I)
 SWITCH_CLOCK_RE = re.compile(
-    r"(?:frå|fra)\s+(?:klokka|kl\.?)\s*(?:ca\.?\s*)?(\d{1,2})[:.](\d{2})"
-    r"(?:\s+(?:frå|fra)\s+([^\s.,;]+(?:\s+[^\s.,;]+)?))?",
+    r"(?:frå|fra)\s+(?:klokka|kl\.?)\s*(?:ca\.?\s*)?(\d{1,2})[:.](\d{2})",
     re.I,
 )
 SWITCH_UTFORT_RE = re.compile(
-    r"(?:utført|gjeld)\s+frå\s+(?:klokka\s+|kl\.?\s*)?(?:ca\.?\s*)?(\d{1,2})[:.](\d{2})"
-    r"\s+frå\s+([^\s.,;]+)",
+    r"(?:utført|gjeld)\s+frå\s+(?:klokka\s+|kl\.?\s*)?(?:ca\.?\s*)?(\d{1,2})[:.](\d{2})",
     re.I,
 )
-QUAY_NAMES = {
-    "sæbø": "Sæbø",
-    "leknes": "Leknes",
-    "lekneset": "Leknes",
-    "skår": "Skår",
-    "trandal": "Trandal",
-    "standal": "Standal",
-    "valderøya": "Valderøya",
-    "store kalvøy": "Store Kalvøy",
-}
-
 QUERY = """
 {
   content {
@@ -132,12 +119,6 @@ def _clock(hour: str, minute: str) -> str | None:
     return f"{h:02d}:{m:02d}:00"
 
 
-def _quay(raw: str | None) -> str | None:
-    if not raw:
-        return None
-    return QUAY_NAMES.get(raw.strip().rstrip(".,;:").lower())
-
-
 def _before_mode(after: str, text: str) -> str:
     if after == "1136":
         return "kombi" if KOMBI_RE.search(text or "") else "1135"
@@ -145,7 +126,7 @@ def _before_mode(after: str, text: str) -> str:
 
 
 def switch_from_text(text: str, after: str | None = None) -> dict | None:
-    """Les «frå klokka 08:15 frå Sæbø». Ikkje «fyrste avgang frå Sæbø ca. 08:15»."""
+    """Les «frå klokka 08:15». Kai kjem frå tabellen, ikkje frå teksten."""
     blob = text or ""
     mode = after or route_mode_from_text(blob)
     match = SWITCH_CLOCK_RE.search(blob) or SWITCH_UTFORT_RE.search(blob)
@@ -154,8 +135,7 @@ def switch_from_text(text: str, after: str | None = None) -> dict | None:
     time = _clock(match.group(1), match.group(2))
     if not time:
         return None
-    quay = _quay(match.group(3) if match.lastindex and match.lastindex >= 3 else None)
-    return {"time": time, "quay": quay, "before": _before_mode(mode, blob), "after": mode}
+    return {"time": time, "quay": None, "before": _before_mode(mode, blob), "after": mode}
 
 
 def vessel_from_text(text: str) -> str | None:

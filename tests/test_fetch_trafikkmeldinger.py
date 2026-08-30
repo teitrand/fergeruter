@@ -146,10 +146,10 @@ class RouteModeTests(unittest.TestCase):
         self.assertIsNone(mod.switch_from_text(self.SMS))
 
     def test_switch_from_clock_and_quay(self):
-        text = "Kombirute vert utført frå klokka 08:15 frå Sæbø."
+        text = "Kombirute vert utført frå klokka 08:15."
         self.assertEqual(
             mod.switch_from_text(text),
-            {"time": "08:15:00", "quay": "Sæbø", "before": "1136", "after": "kombi"},
+            {"time": "08:15:00", "quay": None, "before": "1136", "after": "kombi"},
         )
         node = {
             "id": "1",
