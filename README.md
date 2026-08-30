@@ -1,6 +1,6 @@
 # Fergeruter 1136
 
-Statisk oversikt over **trafikkmeldingar frå Fjord1** og **seilingsplanen** for Hjørundfjorden. Til vanleg viser sida rute **1136** Standal–Trandal–Sæbø–Skår–Valderøya–Store Kalvøy. Når Fjord1 innstiller 1136 (eller innfører kombirute), byter sida tabell automatisk.
+Statisk oversikt over **trafikkmeldingar frå Fjord1** og **seglingsplanen** for Hjørundfjorden. Til vanleg viser sida rute **1136** Standal–Trandal–Sæbø–Skår–Valderøya–Store Kalvøy. Når Fjord1 innstiller 1136 (eller innfører kombirute), byter sida tabell automatisk.
 
 Sida viser heile dagen som ei samanhengande tidslinje med alle anløpa i rekkjefølgje, og ei **Nå**-linje som fortel om ferja ligg til kai eller er på veg. Posisjonen er i utgangspunktet rekna ut frå den aktive tabellen. Når Entur sender køyretøyposisjon for 1136 eller 1135, visest den som sanntid. Etter siste passasjertur (t.d. onsdag på Valderøya) reknar sida med at ferja går tilbake til Standal utan passasjerar og ligg der over natta — den turen står ikkje i Entur.
 
@@ -112,7 +112,7 @@ Sjølve meldingsteksten blir **ikkje** send til Plausible.
 
 ## Tilbakemelding
 
-Nedst på sida ligg **Gi tilbakemelding**. Brukarane kan svare ja/nei (anonymt) og eventuelt skrive ei melding som opnar e-post til vedlikehaldaren, eller opne eit GitHub-issue.
+Nedst på sida ligg **Gje tilbakemelding**. Brukarane kan svare ja/nei (anonymt) og eventuelt skrive ei melding som opnar e-post til vedlikehaldaren, eller opne eit GitHub-issue.
 
 ## Testar
 
