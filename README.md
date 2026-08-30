@@ -1,18 +1,31 @@
 # Fergeruter 1136
 
-Statisk oversikt over **trafikkmeldingar frå Fjord1** og **seilingsplanen** for rute 1136 Standal–Trandal–Sæbø–Skår–Valderøya–Store Kalvøy.
+Statisk oversikt over **trafikkmeldingar frå Fjord1** og **seilingsplanen** for Hjørundfjorden. Til vanleg viser sida rute **1136** Standal–Trandal–Sæbø–Skår–Valderøya–Store Kalvøy. Når Fjord1 innstiller 1136 (eller innfører kombirute), byter sida tabell automatisk.
 
-Sida viser heile dagen som ei samanhengande tidslinje med alle anløpa i rekkjefølgje, og ei **Nå**-linje som fortel om ferja ligg til kai eller er på veg. Posisjonen er i utgangspunktet rekna ut frå rutetabellen. Når Entur sender køyretøyposisjon for rute 1136, visest den som sanntid. Etter siste passasjertur (t.d. onsdag på Valderøya) reknar sida med at ferja går tilbake til Standal utan passasjerar og ligg der over natta — den turen står ikkje i Entur.
+Sida viser heile dagen som ei samanhengande tidslinje med alle anløpa i rekkjefølgje, og ei **Nå**-linje som fortel om ferja ligg til kai eller er på veg. Posisjonen er i utgangspunktet rekna ut frå den aktive tabellen. Når Entur sender køyretøyposisjon for 1136 eller 1135, visest den som sanntid. Etter siste passasjertur (t.d. onsdag på Valderøya) reknar sida med at ferja går tilbake til Standal utan passasjerar og ligg der over natta — den turen står ikkje i Entur.
 
-Rutetabellen blir lasta ned frå Entur og lagra i `data/ruter.json`. Han blir berre henta på nytt når innhaldet faktisk er endra. Trafikkmeldingar og rutetabell kjem frå lokale JSON-filer; nettlesaren kallar Entur berre for valfri køyretøyposisjon (CORS er open).
+Rutetabellane for 1136 og 1135 blir lasta ned frå Entur og lagra i `data/ruter.json`. Dei blir berre henta på nytt når innhaldet faktisk er endra. Kombinasjonsruta ligg ikkje i Entur; ho er transkribert frå FRAM-PDF til `data/kombirute.json`. Trafikkmeldingar og rutetabell kjem frå lokale JSON-filer; nettlesaren kallar Entur berre for valfri køyretøyposisjon (CORS er open).
 
 ## Kjelder
 
 - Trafikkmeldingar: [fjord1.no/trafikkmeldingar](https://www.fjord1.no/trafikkmeldingar) via Fjord1 sitt GraphQL-endepunkt
-- Rutetabell: [Entur Journey Planner](https://developer.entur.org/), lagra i `data/ruter.json`
-- Sanntidsposisjon: [Entur SIRI VM](https://developer.entur.no/open-data/realtime) (`datasetId=MOR`, `LineRef=MOR:Line:1136`) når ferja rapporterer. Små ferjer som 1136 kan vere utan køyretøy i straumen, særleg utanom rutetid.
+- Rutetabell 1136 og 1135: [Entur Journey Planner](https://developer.entur.org/), lagra i `data/ruter.json` (`lines.1136` og `lines.1135`). Kai **Lekneset** blir normalisert til **Leknes**.
+- Kombinasjonsrute: [FRAM-PDF frå 18.11.25](https://frammr.no/_f/p2/i2e02cdba-2cdc-4a23-b9bf-f6a6bd437bbe/kombinasjonsrute-sabo-leknes-skar-trandal-standal-20251118.pdf), transkribert til `data/kombirute.json` (ikkje Entur).
+- Sanntidsposisjon: [Entur SIRI VM](https://developer.entur.no/open-data/realtime) (`datasetId=MOR`, `LineRef=MOR:Line:1136` og `1135`) når ferja rapporterer. Små ferjer kan vere utan køyretøy i straumen, særleg utanom rutetid. I kombimodus brukast sanntid berre om Kvernes rapporterer; elles melding + tidslinje.
 - AIS-kart: [NAIS / Kystverket](https://nais.kystverket.no/) for M/F Kvernes (MMSI 257297400). BarentsWatch sitt AIS-API er gratis under NLOD, men krev innlogging med klient-id og hemmelegheit, så det passar ikkje på ei statisk GitHub Pages-side.
-- Papir-ruteplan: [Fjord1 rute 1136 (PDF)](https://www.fjord1.no/ruteoversikt/moere-og-romsdal/standal-trandal-valderoeya-store-kalvoey/(page)/pdf)
+- Papir-ruteplan 1136: [Fjord1 rute 1136 (PDF)](https://www.fjord1.no/ruteoversikt/moere-og-romsdal/standal-trandal-valderoeya-store-kalvoey/(page)/pdf)
+
+## Tre tabellar og ruteval
+
+| Modus | Tabell | Når |
+| --- | --- | --- |
+| `1136` | Entur 1136 | Normal drift, eller «normal drift» sjølv om teksten òg seier innstilt |
+| `1135` | Entur 1135 Sæbø–Leknes | 1136 er innstilt, og det er ikkje kombirute |
+| `kombi` | `data/kombirute.json` | Teksten har `kombinasjon` / `kombirute` / `kombinert rute`, eller både 1135 og 1136 er innstilt |
+
+Nyaste **gyldige lokale** Fjord1-melding styrer valet. Banneret viser framleis Fjord1-teksten, pluss ei merknad og lenke til FRAM-PDF-en når kombiruta er aktiv.
+
+Korrespondansar: Solavågen og Hundeidvika via Festøya→Standal som før. Når aktiv tabell har **Leknes** (kombirute eller 1135), kjem òg buss **133 Leknes–Øye**.
 
 Fjord1 tillèt ikkje CORS frå nettlesaren, så meldingane blir henta av eit skript til `data/trafikkmeldinger.json`.
 
@@ -24,7 +37,7 @@ python3 scripts/fetch_ruter.py
 python3 -m http.server 8080
 ```
 
-Opne [http://localhost:8080](http://localhost:8080).
+Opne [http://localhost:8080](http://localhost:8080). På localhost (og `/dev/`) kan du tvinge tabell med `?rute=kombi`, `?rute=1135` eller `?rute=1136`. På produksjon styrer berre ekte driftsmeldingar.
 
 ## Språk
 
@@ -38,20 +51,42 @@ Sida kan installerast på telefonen frå nettlesaren (Chrome: **Installer app**,
 
 **Google Play:** Ein PWA kan pakkast inn som Trusted Web Activity (t.d. med [PWABuilder](https://www.pwabuilder.com/) / Bubblewrap) og lastast opp til Play. Det er eige utgjevararbeid: Google Play-utviklarkonto, personvernerklæring, skjermbilete, innhaldsvurdering og Digital Asset Links på domenet. Sjølve koden her er klar for det; Play-butikken krev framleis den manuelle publiseringa.
 
+## Produksjon og testhost
+
+Produksjon er [teitrand.github.io/fergeruter](https://teitrand.github.io/fergeruter/) frå **`main`**. Testutgåva ligg på [teitrand.github.io/fergeruter/dev/](https://teitrand.github.io/fergeruter/dev/).
+
+Pages kjem framleis frå `main` (legacy). Testhosten blir derfor kopiert inn som mappa `dev/` på `main` ved kvar push til greina `dev` (arbeidsflyta **Publiser testhost til /dev/**).
+
+`github-pages`-miljøet tillèt berre `main`, så Actions-deploy frå `dev` feilar. Når de byter Pages til **GitHub Actions** (Settings → Pages → Source), kan `.github/workflows/pages.yml` køyrast frå `main` og publisere både rot og `/dev/` i same steg.
+
+- Feature-grein → PR mot `dev` → test på `/dev/` → merge `dev` → `main` når det er greitt
+- Service worker på `/dev/` har eige scope og eige cache-namn, så testinga ikkje stal cache frå prod
+- Plausible tel ikkje på `/dev/` (same som localhost)
+- Trafikkmelding-jobben køyrer framleis berre på `main`
+
 ## Oppdatering
 
 - Trafikkmeldingar: kvart 15. minutt på `main`
-- Rutetabell: last ned att **berre når tabellen er endra**:
+- Rutetabell 1136+1135 og korrespondansar (inkl. 133): last ned att **berre når tabellen er endra**:
 
 ```bash
 python3 scripts/fetch_ruter.py
+python3 scripts/fetch_korrespondanse.py
 ```
 
 eller køyr GitHub Action **Oppdater rutetabell** manuelt. Det er ingen dagleg/automatisk nedlasting mot Entur.
 
+- Kombirute: når FRAM legg ut ny PDF, oppdater URL-en i `scripts/build_kombirute.py` og køyr:
+
+```bash
+python3 scripts/build_kombirute.py
+```
+
+Ikkje parse PDF automatisk i CI.
+
 ## Statistikk
 
-Sida brukar [Plausible](https://plausible.io/) for å telje vitjingar og **kva folk faktisk trykkjer på**. Det er utan informasjonskapslar og utan personopplysningar. Lokal utvikling på `localhost` blir ikkje telt.
+Sida brukar [Plausible](https://plausible.io/) for å telje vitjingar og **kva folk faktisk trykkjer på**. Det er utan informasjonskapslar og utan personopplysningar. Lokal utvikling på `localhost` og testhosten `/dev/` blir ikkje telt.
 
 I Plausible-panelet ser du:
 
@@ -83,5 +118,5 @@ Nedst på sida ligg **Gi tilbakemelding**. Brukarane kan svare ja/nei (anonymt) 
 
 ```bash
 python3 -m unittest discover -s tests -v
-node --test --test-concurrency=1 tests/test_status.mjs tests/test_i18n.mjs tests/test_plausible.mjs
+node --test --test-concurrency=1 tests/test_status.mjs tests/test_i18n.mjs tests/test_plausible.mjs tests/test_route_mode.mjs
 ```

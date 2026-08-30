@@ -1,4 +1,5 @@
-const CACHE = "fergeruter-v5";
+const IS_DEV = self.location.pathname.includes("/dev/");
+const CACHE = IS_DEV ? "fergeruter-dev-v21" : "fergeruter-v21";
 const PRECACHE = [
   "./",
   "./index.html",
@@ -6,14 +7,20 @@ const PRECACHE = [
   "./assets/app.js",
   "./assets/i18n.js",
   "./assets/styles.css",
+  "./assets/styles.css?v=21",
   "./assets/favicon.svg",
   "./assets/icons/icon-192.png",
   "./assets/icons/icon-512.png",
   "./assets/icons/apple-touch-icon.png",
   "./data/ruter.json",
+  "./data/kombirute.json",
   "./data/trafikkmeldinger.json",
   "./data/korrespondanse.json",
 ];
+
+function isOwnCache(key) {
+  return IS_DEV ? key.startsWith("fergeruter-dev-") : /^fergeruter-v\d/.test(key);
+}
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -29,7 +36,9 @@ self.addEventListener("activate", (event) => {
     caches
       .keys()
       .then((keys) =>
-        Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key)))
+        Promise.all(
+          keys.filter((key) => isOwnCache(key) && key !== CACHE).map((key) => caches.delete(key))
+        )
       )
       .then(() => self.clients.claim())
   );
@@ -66,5 +75,6 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
   const data = url.pathname.includes("/data/");
-  event.respondWith(data ? networkFirst(request) : staleWhileRevalidate(request));
+  const shell = /(?:\.html|\.css|\.js)$/.test(url.pathname) || url.pathname.endsWith("/");
+  event.respondWith(data || shell ? networkFirst(request) : staleWhileRevalidate(request));
 });

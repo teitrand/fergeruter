@@ -2,7 +2,7 @@
 <html lang="nn">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="description" content="Trafikkmeldingar frå Fjord1 og seilingsplan for ferjesamband 1136 Standal–Trandal–Sæbø–Skår. Alle anløp i rekkjefølgje, med status for kvar ferja er akkurat no.">
   <meta name="theme-color" content="#073b4c">
   <meta name="mobile-web-app-capable" content="yes">
@@ -15,12 +15,22 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,560;9..144,700&family=Outfit:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/styles.css">
+  <link rel="stylesheet" href="assets/styles.css?v=21">
   <!-- Privacy-friendly analytics by Plausible -->
   <script async src="https://plausible.io/js/pa-zLwKfsUV57HIZfM4j6wLS.js"></script>
   <script>
     window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}};
     plausible.init({
+      transformRequest: function (payload) {
+        try {
+          var host = location.hostname;
+          var path = location.pathname || "";
+          if (host === "localhost" || host === "127.0.0.1" || path.indexOf("/dev/") !== -1) {
+            return null;
+          }
+        } catch (e) {}
+        return payload;
+      },
       customProperties: function () {
         var lang = "nn";
         var app = "web";
@@ -69,7 +79,7 @@
         </svg>
         <div>
           <p class="eyebrow" data-i18n="eyebrow">Rute 1136 · Fjord1 / FRAM</p>
-          <h1>Standal–Trandal–Sæbø–Skår–Valderøya–Store Kalvøy</h1>
+          <h1 id="route-title">Standal–Trandal–Sæbø–Skår–Valderøya–Store Kalvøy</h1>
         </div>
       </div>
       <div class="header-tools">
@@ -147,6 +157,10 @@
         </div>
         <div id="next-summary" class="next-summary"></div>
         <div id="stop-filter" class="filters stops" role="group" data-i18n-aria="stop.filterAria" aria-label="Filtrer på stoppestad"></div>
+        <div class="view-row">
+          <span class="conn-label" id="view-label" data-i18n="view.label">Visning</span>
+          <div id="view-filter" class="filters" role="group" aria-labelledby="view-label"></div>
+        </div>
         <div class="conn-row">
           <span class="conn-label" id="conn-label" data-i18n="conn.label">Korrespondanse</span>
           <div id="conn-filter" class="filters" role="group" aria-labelledby="conn-label"></div>
@@ -159,11 +173,11 @@
           <span id="connection-note"></span>
           <span data-i18n="footnote.timetable">Rutetabellen lastast berre ned att når han er endra.</span>
           <span id="timetable-updated"></span>
-          <span data-i18n="footnote.pdf">Papir-ruteplan</span>: <a href="https://www.fjord1.no/ruteoversikt/moere-og-romsdal/standal-trandal-valderoeya-store-kalvoey/(page)/pdf" target="_blank" rel="noreferrer">fjord1.no</a>
+          <span data-i18n="footnote.pdf">Papir-ruteplan</span>: <a id="timetable-pdf" href="https://www.fjord1.no/ruteoversikt/moere-og-romsdal/standal-trandal-valderoeya-store-kalvoey/(page)/pdf" target="_blank" rel="noreferrer">fjord1.no</a>
           ·
           <a href="https://frammr.no/" target="_blank" rel="noreferrer">frammr.no</a>
           ·
-          <a href="https://nais.kystverket.no/" target="_blank" rel="noreferrer" data-i18n="footnote.nais">M/F Kvernes på NAIS</a>
+          <a id="footnote-nais" href="https://nais.kystverket.no/" target="_blank" rel="noreferrer" data-i18n="footnote.nais">M/F Kvernes på NAIS</a>
           <span data-i18n="footnote.ais">(AIS frå Kystverket)</span>
         </p>
       </section>
@@ -172,7 +186,7 @@
 
   <footer class="site-footer">
     <p>
-      <span data-i18n="footer.operator">Operatør Fjord1. Ruteeigar FRAM. M/F Kvernes, tlf. 916 69 340.</span>
+      <span id="footer-operator" data-i18n="footer.operator">Operatør Fjord1. Ruteeigar FRAM. M/F Kvernes, tlf. 916 69 340.</span>
       AIS: <a href="https://nais.kystverket.no/" target="_blank" rel="noreferrer">NAIS / Kystverket</a>.
     </p>
     <p data-i18n="footer.holidays">Nokre turar går berre på signal. Ved jul, nyttår og høgtid: sjå FRAM-appen.</p>
