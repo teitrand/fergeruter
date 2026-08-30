@@ -59,7 +59,7 @@ Pages kjem framleis frå `main` (legacy). Testhosten blir derfor kopiert inn som
 
 `github-pages`-miljøet tillèt berre `main`, så Actions-deploy frå `dev` feilar. Når de byter Pages til **GitHub Actions** (Settings → Pages → Source), kan `.github/workflows/pages.yml` køyrast frå `main` og publisere både rot og `/dev/` i same steg.
 
-- Feature-grein → PR mot `dev` → test på `/dev/` → merge `dev` → `main` når det er greitt
+- **Alltid via `dev` før prod.** Feature-grein frå `dev` → PR mot `dev` → test på `/dev/` → først då merge `dev` → `main`. Ikkje opne feature-PR mot `main`.
 - Service worker på `/dev/` har eige scope og eige cache-namn, så testinga ikkje stal cache frå prod
 - Plausible tel ikkje på `/dev/` (same som localhost)
 - Trafikkmelding-jobben køyrer framleis berre på `main`
