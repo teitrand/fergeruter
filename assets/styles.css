@@ -41,14 +41,110 @@ body {
 
 .skip-link:focus { top: 1rem; }
 
-.skyline {
-  height: 8px;
+.fjord-track {
+  width: 100%;
+  padding: 0.55rem 0 0.15rem;
+  color: var(--foam);
+}
+
+.fjord-track[hidden] {
+  display: none;
+}
+
+.fjord-track-inner {
+  display: grid;
+  grid-template-columns: minmax(4.6rem, 7.2rem) minmax(0, 1fr) minmax(4.6rem, 7.2rem);
+  align-items: end;
+  min-height: 5.5rem;
+  padding: 0 0.35rem;
+}
+
+.fjord-end {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  z-index: 2;
+}
+
+.fjord-pier svg {
+  display: block;
+  width: 2.7rem;
+  height: 3.15rem;
+  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.28));
+}
+
+.fjord-quay {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-align: center;
+  line-height: 1.2;
+  max-width: 7.4rem;
+}
+
+.fjord-sea {
+  position: relative;
+  height: 4.15rem;
+  margin: 0 -0.35rem 1.4rem;
+}
+
+.fjord-water {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0.5rem;
+  height: 1.2rem;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #24839e 0%, #0d4a5c 100%);
+  box-shadow: inset 0 1px 0 rgba(215, 238, 234, 0.25);
+  overflow: hidden;
+}
+
+.fjord-water::after {
+  content: "";
+  position: absolute;
+  inset: 0;
   background: repeating-linear-gradient(
     90deg,
-    #7ec8c3 0 18px,
-    transparent 18px 36px
+    transparent 0 12px,
+    rgba(215, 238, 234, 0.16) 12px 16px
   );
-  opacity: 0.55;
+  animation: fjord-waves 9s linear infinite;
+}
+
+.fjord-ferry {
+  position: absolute;
+  bottom: 0.82rem;
+  left: calc(var(--progress, 0) * 100%);
+  width: 3.5rem;
+  transform: translateX(-50%);
+  transition: left 12s linear;
+  filter: drop-shadow(0 5px 7px rgba(0, 0, 0, 0.35));
+}
+
+.fjord-ferry svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.fjord-caption {
+  margin: 0.05rem 0.8rem 0;
+  text-align: center;
+  font-size: 0.78rem;
+  font-weight: 500;
+  opacity: 0.86;
+}
+
+@keyframes fjord-waves {
+  from { transform: translateX(0); }
+  to { transform: translateX(-28px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fjord-ferry { transition: none; }
+  .fjord-water::after { animation: none; }
 }
 
 .site-header,
