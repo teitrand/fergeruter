@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { beforeEach, test } from "node:test";
 import {
   buildEvents,
@@ -119,6 +120,17 @@ test("ferja går vekselvis for kvar tur", () => {
   const thirdMid = ferryTrack(legs, 8 * 3600 + 45 * 60);
   assert.equal(thirdMid.outbound, true);
   assert.ok(Math.abs(thirdMid.at - 0.5) < 0.02);
+});
+
+test("ferjebiletet speglast ikkje og vert ikkje animert", () => {
+  const css = readFileSync(new URL("../assets/styles.css", import.meta.url), "utf8");
+  const app = readFileSync(new URL("../assets/app.js", import.meta.url), "utf8");
+  const ferryRule = css.match(/\.fjord-ferry\s*\{[^}]+\}/)?.[0] || "";
+  assert.match(ferryRule, /left:\s*calc\(var\(--at/);
+  assert.doesNotMatch(ferryRule, /transition:/);
+  assert.doesNotMatch(css, /\.fjord-ferry\.is-back/);
+  assert.doesNotMatch(css, /scaleX\(-1\)/);
+  assert.doesNotMatch(app, /is-back/);
 });
 
 test("på veg i ein passasjertur", () => {

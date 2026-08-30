@@ -872,7 +872,6 @@ function ferryTrack(legs, nowSec = osloSecondsOfDay(), allLegs = null) {
 
 function renderFerryTrack() {
   const root = document.getElementById("fjord-track");
-  const boat = document.getElementById("fjord-ferry");
   if (!root) return;
   const legs = hasTimetable() ? legsForDate(todayIso()) : [];
   const track = ferryTrack(legs);
@@ -883,7 +882,6 @@ function renderFerryTrack() {
   root.hidden = false;
   root.classList.toggle("is-underway", track.phase === "sailing" || track.phase === "reposition");
   root.style.setProperty("--at", String(track.at));
-  if (boat) boat.classList.toggle("is-back", !track.outbound);
   root.setAttribute(
     "aria-label",
     t("track.aria", {

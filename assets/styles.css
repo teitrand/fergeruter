@@ -81,16 +81,7 @@ body {
   height: auto;
   display: block;
   transform: translateX(calc(var(--at, 0) * -100%));
-  transition: left 12s linear, transform 12s linear;
   z-index: 3;
-}
-
-.fjord-ferry.is-back {
-  transform: translateX(calc(var(--at, 0) * -100%)) scaleX(-1);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .fjord-ferry { transition: none; }
 }
 
 .site-header,
