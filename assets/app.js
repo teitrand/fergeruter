@@ -867,7 +867,7 @@ function renderFerryTrack() {
   const legs = hasTimetable() ? legsForDate(todayIso()) : [];
   const track = ferryTrack(legs);
   if (!track) {
-    root.hidden = true;
+    if (hasTimetable()) root.hidden = true;
     return;
   }
   root.hidden = false;
