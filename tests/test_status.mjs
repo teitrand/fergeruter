@@ -66,23 +66,32 @@ test("ferjespora fylgjer overfarta frå 0 til 100 prosent", () => {
   ];
   const before = ferryTrack(legs, 7 * 3600 + 10 * 60);
   assert.equal(before.progress, 0);
+  assert.equal(before.at, 0);
   assert.equal(before.phase, "waiting");
   assert.equal(before.from, "Standal");
   const start = ferryTrack(legs, 7 * 3600 + 40 * 60);
   assert.equal(start.progress, 0);
+  assert.equal(start.at, 0);
   assert.equal(start.phase, "sailing");
   const mid = ferryTrack(legs, 7 * 3600 + 47 * 60 + 30);
   assert.equal(mid.phase, "sailing");
   assert.equal(mid.to, "Trandal");
   assert.ok(Math.abs(mid.progress - 0.5) < 0.02);
+  assert.ok(Math.abs(mid.at - 0.5) < 0.02);
   const moored = ferryTrack(legs, 7 * 3600 + 56 * 60);
   assert.equal(moored.phase, "moored");
   assert.equal(moored.progress, 0);
+  assert.equal(moored.at, 1);
   assert.equal(moored.from, "Trandal");
-  const done = ferryTrack(legs, 8 * 3600 + 20 * 60);
-  assert.equal(done.progress, 1);
-  assert.equal(done.phase, "done");
-  assert.equal(done.quay, "Standal");
+  const back = ferryTrack(legs, 8 * 3600 + 7 * 60 + 30);
+  assert.equal(back.phase, "sailing");
+  assert.ok(Math.abs(back.progress - 0.5) < 0.02);
+  assert.ok(Math.abs(back.at - 0.5) < 0.02);
+  const home = ferryTrack(legs, 8 * 3600 + 20 * 60);
+  assert.equal(home.progress, 1);
+  assert.equal(home.at, 0);
+  assert.equal(home.phase, "done");
+  assert.equal(home.quay, "Standal");
 });
 
 test("på veg i ein passasjertur", () => {
