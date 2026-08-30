@@ -14,9 +14,14 @@ import {
   resetTestState,
   routeModeFromMessages,
   routeOverride,
+  switchFromText,
+  switchOverride,
   setTestState,
   vesselFromText,
   visibleConnectionLines,
+  readHideArrivals,
+  showArrivals,
+  writeHideArrivals,
 } from "../assets/app.js";
 
 const ruter = JSON.parse(readFileSync(new URL("../data/ruter.json", import.meta.url), "utf8"));
@@ -156,6 +161,66 @@ test("Øye-korrespondanse visest berre når Leknes er i tabellen", () => {
   assert.ok(idsKombi.includes("solavagen"));
 });
 
+test("frå klokka og kai skøyt to tabellar same dag", () => {
+  const text =
+    "Kombirute vert utført frå klokka 08:15 frå Sæbø. 1135 og 1136 innstilt etter det.";
+  assert.deepEqual(switchFromText(text), {
+    time: "08:15:00",
+    quay: "Sæbø",
+    before: "1136",
+    after: "kombi",
+  });
+  assert.equal(switchFromText(SMS), null);
+  setTestState({
+    routes: ruter,
+    kombirute: kombi,
+    messages: {
+      messages: [
+        {
+          isLocal: true,
+          text,
+          routeMode: "kombi",
+          routeSwitch: switchFromText(text),
+          validTo: "2099-01-01T00:00:00Z",
+        },
+      ],
+    },
+  });
+  const legs = legsForDate(WEEKDAY);
+  assert.ok(legs.some((leg) => leg.table === "1136" && leg.departure === "07:40:00"));
+  assert.ok(legs.every((leg) => !(leg.table === "1136" && leg.departure >= "08:15:00")));
+  assert.ok(legs.every((leg) => !(leg.table === "kombi" && leg.departure < "08:15:00")));
+  const start = legs.find(
+    (leg) => leg.table === "kombi" && leg.from === "Sæbø" && leg.departure === "08:15:00"
+  );
+  assert.ok(start);
+  assert.equal(start.to, "Leknes");
+  const events = buildEvents(legs, null);
+  const split = events.filter((event) => event.kind === "split");
+  assert.equal(split.length, 1);
+  assert.equal(split[0].at, 8 * 60 + 15);
+  assert.ok(events.every((event) => event.kind !== "transfer"));
+});
+
+test("?frå= på /dev/ set skøyt utan melding", () => {
+  assert.deepEqual(
+    switchOverride({
+      hostname: "localhost",
+      pathname: "/",
+      href: "http://localhost:8080/?rute=kombi&frå=14:00&kai=Standal",
+    }),
+    { time: "14:00:00", quay: "Standal", before: "1136", after: "kombi" }
+  );
+  assert.equal(
+    switchOverride({
+      hostname: "teitrand.github.io",
+      pathname: "/fergeruter/",
+      href: "https://teitrand.github.io/fergeruter/?rute=kombi&frå=14:00",
+    }),
+    null
+  );
+});
+
 test("?rute= verkar berre på /dev/ og localhost", () => {
   assert.equal(
     isPreview({ hostname: "localhost", pathname: "/", href: "http://localhost:8080/?rute=kombi" }),
@@ -205,6 +270,31 @@ test("appen viser same Frå-tid som kombirute-tabellen for alle daggrupper", () 
     const got = new Set(legs.map((leg) => `${leg.from}|${clockMin(leg.departure)}`));
     assert.deepEqual([...got].sort(), [...jsonFromKeys(kind)].sort(), kind);
   }
+});
+
+test("val kan skjule ankomsttider", () => {
+  useKombi();
+  const legs = legsForDate(WEEKDAY);
+  assert.equal(showArrivals(), true);
+  assert.ok(buildEvents(legs, null).some((event) => event.kind === "arr"));
+  setTestState({ hideArrivals: true });
+  assert.equal(showArrivals(), false);
+  assert.ok(buildEvents(legs, null).every((event) => event.kind !== "arr"));
+  assert.ok(buildEvents(legs, null).some((event) => event.kind === "dep"));
+});
+
+test("valet om ankomsttider vert hugsa", () => {
+  const store = new Map();
+  const storage = {
+    getItem: (key) => (store.has(key) ? store.get(key) : null),
+    setItem: (key, value) => store.set(key, String(value)),
+    removeItem: (key) => store.delete(key),
+  };
+  assert.equal(readHideArrivals(storage), false);
+  writeHideArrivals(true, storage);
+  assert.equal(readHideArrivals(storage), true);
+  writeHideArrivals(false, storage);
+  assert.equal(readHideArrivals(storage), false);
 });
 
 test("kombirute viser alle ankomstar frå overfartstid", () => {

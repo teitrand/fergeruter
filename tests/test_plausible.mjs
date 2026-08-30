@@ -54,6 +54,8 @@ test("appen sender namngjevne brukshendingar til Plausible", () => {
     "Messages ${btn.dataset.filter}",
     "Show past",
     "Hide past",
+    "Show arrivals",
+    "Hide arrivals",
     "Install app",
     "App installed",
     "Feedback yes",
