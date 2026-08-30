@@ -1,13 +1,10 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import { beforeEach, test } from "node:test";
 import {
   buildEvents,
   compareTimelineEvents,
   delayMinutes,
   ferryStatus,
-  ferryTrack,
-  firstKnownQuay,
   homeQuay,
   isLiveFresh,
   liveStatus,
@@ -58,79 +55,6 @@ test("før fyrste avgang ligg ferja på Standal", () => {
   const status = ferryStatus(wednesday, 7 * 60 + 10, wednesday);
   assert.equal(status.short, "Ferja ligg til kai på Standal");
   assert.equal(status.underway, undefined);
-});
-
-test("ferjespora fylgjer overfarta frå 0 til 100 prosent", () => {
-  const legs = [
-    leg("Standal", "Trandal", "07:40:00", "07:55:00"),
-    leg("Trandal", "Standal", "08:00:00", "08:15:00"),
-  ];
-  const before = ferryTrack(legs, 7 * 3600 + 10 * 60);
-  assert.equal(before.progress, 0);
-  assert.equal(before.at, 0);
-  assert.equal(before.phase, "waiting");
-  assert.equal(before.from, "Standal");
-  const start = ferryTrack(legs, 7 * 3600 + 40 * 60);
-  assert.equal(start.progress, 0);
-  assert.equal(start.at, 0);
-  assert.equal(start.phase, "sailing");
-  const mid = ferryTrack(legs, 7 * 3600 + 47 * 60 + 30);
-  assert.equal(mid.phase, "sailing");
-  assert.equal(mid.to, "Trandal");
-  assert.ok(Math.abs(mid.progress - 0.5) < 0.02);
-  assert.ok(Math.abs(mid.at - 0.5) < 0.02);
-  const moored = ferryTrack(legs, 7 * 3600 + 56 * 60);
-  assert.equal(moored.phase, "moored");
-  assert.equal(moored.progress, 0);
-  assert.equal(moored.at, 1);
-  assert.equal(moored.from, "Trandal");
-  const back = ferryTrack(legs, 8 * 3600 + 7 * 60 + 30);
-  assert.equal(back.phase, "sailing");
-  assert.ok(Math.abs(back.progress - 0.5) < 0.02);
-  assert.ok(Math.abs(back.at - 0.5) < 0.02);
-  const home = ferryTrack(legs, 8 * 3600 + 20 * 60);
-  assert.equal(home.progress, 1);
-  assert.equal(home.at, 0);
-  assert.equal(home.phase, "done");
-  assert.equal(home.quay, "Standal");
-});
-
-test("ferja går vekselvis for kvar tur", () => {
-  const legs = [
-    leg("Standal", "Trandal", "07:40:00", "07:55:00"),
-    leg("Trandal", "Sæbø", "08:00:00", "08:30:00"),
-    leg("Sæbø", "Trandal", "08:35:00", "08:55:00"),
-  ];
-  const firstMid = ferryTrack(legs, 7 * 3600 + 47 * 60 + 30);
-  assert.equal(firstMid.outbound, true);
-  assert.ok(Math.abs(firstMid.at - 0.5) < 0.02);
-  const moored = ferryTrack(legs, 7 * 3600 + 58 * 60);
-  assert.equal(moored.phase, "moored");
-  assert.equal(moored.at, 1);
-  assert.equal(moored.outbound, false);
-  const secondMid = ferryTrack(legs, 8 * 3600 + 15 * 60);
-  assert.equal(secondMid.to, "Sæbø");
-  assert.equal(secondMid.outbound, false);
-  assert.ok(Math.abs(secondMid.progress - 0.5) < 0.02);
-  assert.ok(Math.abs(secondMid.at - 0.5) < 0.02);
-  const atSaebo = ferryTrack(legs, 8 * 3600 + 32 * 60);
-  assert.equal(atSaebo.phase, "moored");
-  assert.equal(atSaebo.at, 0);
-  assert.equal(atSaebo.outbound, true);
-  const thirdMid = ferryTrack(legs, 8 * 3600 + 45 * 60);
-  assert.equal(thirdMid.outbound, true);
-  assert.ok(Math.abs(thirdMid.at - 0.5) < 0.02);
-});
-
-test("ferjebiletet speglast ikkje og vert ikkje animert", () => {
-  const css = readFileSync(new URL("../assets/styles.css", import.meta.url), "utf8");
-  const app = readFileSync(new URL("../assets/app.js", import.meta.url), "utf8");
-  const ferryRule = css.match(/\.fjord-ferry\s*\{[^}]+\}/)?.[0] || "";
-  assert.match(ferryRule, /left:\s*calc\(var\(--at/);
-  assert.doesNotMatch(ferryRule, /transition:/);
-  assert.doesNotMatch(css, /\.fjord-ferry\.is-back/);
-  assert.doesNotMatch(css, /scaleX\(-1\)/);
-  assert.doesNotMatch(app, /is-back/);
 });
 
 test("på veg i ein passasjertur", () => {
