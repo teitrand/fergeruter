@@ -757,35 +757,20 @@ function progressBetween(startSec, endSec, nowSec) {
   return clamp01((nowSec - startSec) / span);
 }
 
-const FJORD_ORDER = [
-  "Store Kalvøy",
-  "Valderøya",
-  "Standal",
-  "Trandal",
-  "Sæbø",
-  "Leknes",
-  "Skår",
-  "Bjørke",
-  "Urke",
-];
-
-function quayRank(name) {
-  const index = FJORD_ORDER.indexOf(name);
-  return index === -1 ? 3 : index;
+/** Partalstur (0, 2, …) går mot høgre, oddetal mot venstre. */
+function tripOutbound(index) {
+  return index % 2 === 0;
 }
 
-function headingOut(from, to) {
-  return quayRank(to) >= quayRank(from);
-}
-
-/** 0 = ytre kai (venstre), 1 = indre kai (høgre). */
-function trackAt(from, to, progress) {
+/** 0 = venstre kai, 1 = høgre kai. */
+function trackAt(progress, outbound) {
   const share = clamp01(progress);
-  return headingOut(from, to) ? share : 1 - share;
+  return outbound ? share : 1 - share;
 }
 
 function placeTrack(track) {
-  return { ...track, at: trackAt(track.from, track.to, track.progress) };
+  const outbound = Boolean(track.outbound);
+  return { ...track, outbound, at: trackAt(track.progress, outbound) };
 }
 
 /** Posisjon på noverande strekning, 0 = frå-kai, 1 = til-kai. */
@@ -797,7 +782,13 @@ function ferryTrack(legs, nowSec = osloSecondsOfDay(), allLegs = null) {
   const catalog = allLegs || legs;
 
   if (nowSec < clockSeconds(first.departure)) {
-    return placeTrack({ from: first.from, to: first.to, progress: 0, phase: "waiting" });
+    return placeTrack({
+      from: first.from,
+      to: first.to,
+      progress: 0,
+      phase: "waiting",
+      outbound: tripOutbound(0),
+    });
   }
 
   for (let i = 0; i < legs.length; i += 1) {
@@ -810,6 +801,7 @@ function ferryTrack(legs, nowSec = osloSecondsOfDay(), allLegs = null) {
         to: leg.to,
         progress: progressBetween(dep, arr, nowSec),
         phase: "sailing",
+        outbound: tripOutbound(i),
       });
     }
     const next = legs[i + 1];
@@ -818,8 +810,9 @@ function ferryTrack(legs, nowSec = osloSecondsOfDay(), allLegs = null) {
         return placeTrack({
           from: leg.to,
           to: next.from,
-          progress: progressBetween(arr, clockSeconds(next.departure), nowSec),
+          progress: 1,
           phase: "reposition",
+          outbound: tripOutbound(i),
         });
       }
       return placeTrack({
@@ -828,11 +821,13 @@ function ferryTrack(legs, nowSec = osloSecondsOfDay(), allLegs = null) {
         progress: 0,
         phase: "moored",
         quay: leg.to,
+        outbound: tripOutbound(i + 1),
       });
     }
   }
 
   if (nowSec >= clockSeconds(last.arrival)) {
+    const lastIndex = legs.length - 1;
     if (isCombinedTimetable() || last.to === home) {
       return placeTrack({
         from: last.from,
@@ -840,6 +835,7 @@ function ferryTrack(legs, nowSec = osloSecondsOfDay(), allLegs = null) {
         progress: 1,
         phase: "done",
         quay: last.to,
+        outbound: tripOutbound(lastIndex),
       });
     }
     const deadhead = minDeadheadMinutes(catalog, last.to, home);
@@ -850,12 +846,26 @@ function ferryTrack(legs, nowSec = osloSecondsOfDay(), allLegs = null) {
         to: home,
         progress: clamp01(sinceMin / deadhead),
         phase: "reposition",
+        outbound: tripOutbound(legs.length),
       });
     }
     if (deadhead == null) {
-      return placeTrack({ from: last.to, to: home, progress: 0.5, phase: "reposition" });
+      return placeTrack({
+        from: last.to,
+        to: home,
+        progress: 0.5,
+        phase: "reposition",
+        outbound: tripOutbound(legs.length),
+      });
     }
-    return placeTrack({ from: last.from, to: home, progress: 1, phase: "done", quay: home });
+    return placeTrack({
+      from: last.from,
+      to: home,
+      progress: 1,
+      phase: "done",
+      quay: home,
+      outbound: tripOutbound(legs.length),
+    });
   }
   return null;
 }
@@ -873,7 +883,7 @@ function renderFerryTrack() {
   root.hidden = false;
   root.classList.toggle("is-underway", track.phase === "sailing" || track.phase === "reposition");
   root.style.setProperty("--at", String(track.at));
-  if (boat) boat.classList.toggle("is-back", !headingOut(track.from, track.to));
+  if (boat) boat.classList.toggle("is-back", !track.outbound);
   root.setAttribute(
     "aria-label",
     t("track.aria", {
