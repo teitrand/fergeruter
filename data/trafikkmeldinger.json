@@ -1,6 +1,6 @@
 {
   "source": "https://www.fjord1.no/trafikkmeldingar",
-  "fetchedAt": "2026-08-31T00:27:34.753890+00:00",
+  "fetchedAt": "2026-08-31T05:51:53.211695+00:00",
   "messages": [
     {
       "id": "RG9tYWluQ29udGVudDoyMTY0OTk0MQ==",
@@ -19,26 +19,6 @@
       "routeMode": "1136",
       "routeWindow": null,
       "activateAt": "09:00:00",
-      "vessel": null,
-      "routeSwitch": null
-    },
-    {
-      "id": "RG9tYWluQ29udGVudDoyMTY0OTk0MA==",
-      "heading": "Drag - Kjøpsvik",
-      "text": "Rute 201108 Drag - Kjøpsvik: Grunna teknisk problem vert sambandet innstilt inntil vidare.",
-      "publishedAt": "2026-08-30T06:55:27+02:00",
-      "validFrom": "2026-08-30T04:55:27+00:00",
-      "validTo": "2026-08-31T04:54:12+00:00",
-      "countyNumber": 18,
-      "connectionNumber": 581,
-      "important": false,
-      "severity": "cancelled",
-      "isRoute1136": false,
-      "isLocal": false,
-      "isRouteControl": false,
-      "routeMode": "1136",
-      "routeWindow": null,
-      "activateAt": null,
       "vessel": null,
       "routeSwitch": null
     },
