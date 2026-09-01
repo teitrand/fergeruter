@@ -1,7 +1,27 @@
 {
   "source": "https://www.fjord1.no/trafikkmeldingar",
-  "fetchedAt": "2026-09-01T11:43:51.367963+00:00",
+  "fetchedAt": "2026-09-01T15:32:44.683492+00:00",
   "messages": [
+    {
+      "id": "RG9tYWluQ29udGVudDoyMTY1MzA0Mw==",
+      "heading": "Drag - Kjøpsvik",
+      "text": "Rute 201108 Drag - Kjøpsvik: Grunnet transport av farlig last blir det redusert kapasitet (maks. 12 passasjerer) på avgangen kl. 11:00 fra Drag Onsdag 02. September 2026.",
+      "publishedAt": "2026-09-01T17:00:19+02:00",
+      "validFrom": "2026-09-01T15:00:19+00:00",
+      "validTo": "2026-09-02T14:59:26+00:00",
+      "countyNumber": 18,
+      "connectionNumber": 581,
+      "important": false,
+      "severity": "capacity",
+      "isRoute1136": false,
+      "isLocal": false,
+      "isRouteControl": false,
+      "routeMode": "1136",
+      "routeWindow": null,
+      "activateAt": null,
+      "vessel": null,
+      "routeSwitch": null
+    },
     {
       "id": "RG9tYWluQ29udGVudDoyMTY1MjgyMg==",
       "heading": "Solholmen-Mordalsvågen",
