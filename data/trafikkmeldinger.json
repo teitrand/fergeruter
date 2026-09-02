@@ -1,7 +1,27 @@
 {
   "source": "https://www.fjord1.no/trafikkmeldingar",
-  "fetchedAt": "2026-09-02T17:26:16.200434+00:00",
+  "fetchedAt": "2026-09-02T19:54:57.159059+00:00",
   "messages": [
+    {
+      "id": "RG9tYWluQ29udGVudDoyMTY1NTkzNA==",
+      "heading": "Festøya-Hundeidvika",
+      "text": "Rute 1049 Hundeidvika - Festøya: Det vert normal drift i sambandet frå oppstart i morgon tidlig, 03.09.",
+      "publishedAt": "2026-09-02T21:38:15+02:00",
+      "validFrom": "2026-09-02T19:38:15+00:00",
+      "validTo": "2026-09-03T19:37:31+00:00",
+      "countyNumber": 15,
+      "connectionNumber": 226,
+      "important": false,
+      "severity": "normal",
+      "isRoute1136": false,
+      "isLocal": true,
+      "isRouteControl": false,
+      "routeMode": "1136",
+      "routeWindow": null,
+      "activateAt": null,
+      "vessel": null,
+      "routeSwitch": null
+    },
     {
       "id": "RG9tYWluQ29udGVudDoyMTY1NTQ1Ng==",
       "heading": "Langevåg - Buavåg",
