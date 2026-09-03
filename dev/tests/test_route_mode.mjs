@@ -20,6 +20,7 @@ import {
   switchOverride,
   windowFromText,
   setTestState,
+  statusBannerKind,
   vesselFromText,
   visibleConnectionLines,
   readHideArrivals,
@@ -505,6 +506,23 @@ test("testhost hentar trafikkmeldingar frå produksjon, localhost og prod les lo
     }),
     "data/trafikkmeldinger.json"
   );
+});
+
+test("statusbanner gøymer Fjord1-tekst når panelet visest", () => {
+  const plan = { switch: null };
+  assert.equal(statusBannerKind(true, plan, "1136"), "hidden");
+  assert.equal(statusBannerKind(false, plan, "1136"), "none");
+  assert.equal(statusBannerKind(true, plan, "kombi"), "mode");
+  assert.equal(statusBannerKind(true, plan, "1135"), "mode");
+  assert.equal(
+    statusBannerKind(
+      true,
+      { switch: { time: "08:15:00", quay: "Sæbø", before: "1136" } },
+      "1136"
+    ),
+    "mode"
+  );
+  assert.equal(statusBannerKind(false, plan, "kombi"), "none");
 });
 
 test("?rute= verkar berre på /dev/ og localhost", () => {

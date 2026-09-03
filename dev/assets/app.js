@@ -1810,6 +1810,7 @@ function renderMessages() {
   if (!state.messages) {
     panel.hidden = true;
     layout.classList.add("is-single");
+    hideStatusBanner();
     return;
   }
   const all = validMessages(state.messages.messages || []);
@@ -1851,6 +1852,24 @@ function renderMessages() {
     root.append(card);
   }
   renderBanner(all);
+}
+
+function timetableModeNotes(plan, mode) {
+  return mode === "kombi" || mode === "1135" || Boolean(plan?.switch);
+}
+
+/** none = tom tilstand, mode = berre tabellforklaring, hidden = Fjord1-teksta ligg i panelet. */
+function statusBannerKind(hasLocal, plan, mode) {
+  if (!hasLocal) return "none";
+  if (timetableModeNotes(plan, mode)) return "mode";
+  return "hidden";
+}
+
+function hideStatusBanner() {
+  const banner = document.getElementById("status-banner");
+  if (!banner) return;
+  banner.hidden = true;
+  banner.replaceChildren();
 }
 
 function appendModeNote(banner, mode) {
@@ -1901,19 +1920,25 @@ function appendModeNote(banner, mode) {
 function renderBanner(messages) {
   const banner = document.getElementById("status-banner");
   if (!banner) return;
-  const local = messages.filter((msg) => msg.isLocal);
+  const list = messages || validMessages(state.messages?.messages || []);
+  const local = list.filter((msg) => msg.isLocal);
   const mode = activeMode();
+  const plan = activePlan();
+  const kind = statusBannerKind(Boolean(local.length), plan, mode);
+  if (kind === "hidden") {
+    hideStatusBanner();
+    return;
+  }
   banner.hidden = false;
   banner.replaceChildren();
-  if (!local.length) {
+  if (kind === "none") {
     banner.className = "status-banner is-normal is-quiet";
     banner.append(el("p", "banner-text", t("banner.none")));
     appendModeNote(banner, mode);
     return;
   }
   const latest = local[0];
-  banner.className = `status-banner is-${latest.severity}`;
-  banner.append(el("p", "banner-text", latest.text));
+  banner.className = `status-banner is-${latest?.severity || "info"}`;
   appendModeNote(banner, mode);
 }
 
@@ -2180,6 +2205,7 @@ function goToDay(days) {
   state.date = days === 0 ? todayIso() : shiftIso(selectedDate(), days);
   state.showPast = false;
   renderTimeline();
+  if (state.messages) renderBanner();
 }
 
 /**
@@ -2483,6 +2509,7 @@ export {
   setTestState,
   shouldFetchLive,
   showArrivals,
+  statusBannerKind,
   serviceWindowMinutes,
   timetableFingerprint,
   track,
