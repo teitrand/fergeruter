@@ -68,7 +68,7 @@ Pages kjem framleis frå `main` (legacy). Testhosten blir derfor kopiert inn som
 
 ## Oppdatering
 
-- Trafikkmeldingar: kvart 15. minutt på `main`. Nettlesaren hentar denne fila **nettverk-fyrst** (med cache-buster), så innstilling og kombirute visest utan å vente på neste sidelasting.
+- Trafikkmeldingar: kvart 5. minutt på `main` (tetteste GitHub Actions tillèt). Nettlesaren sjekkar fila **kvart minutt** mens sida er open, og med ein gong når fana blir synleg att, så innstilling og kombirute visest så snart den nye fila er ute.
 - Rutetabell 1136+1135 og korrespondansar (inkl. 133): last ned att **berre når tabellen er endra**. Nettlesaren viser sist lagra tabell med ein gong og oppdaterer i bakgrunnen:
 
 ```bash

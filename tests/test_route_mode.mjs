@@ -29,6 +29,7 @@ import {
   readCachedTimetable,
   timetableFingerprint,
   writeCachedTimetable,
+  messagesFingerprint,
 } from "../assets/app.js";
 
 const ruter = JSON.parse(readFileSync(new URL("../data/ruter.json", import.meta.url), "utf8"));
@@ -569,6 +570,20 @@ test("rutetabellen kan hentast frå lokal cache utan nett", () => {
       fetchedAt: "2026-08-29",
     })
   );
+});
+
+test("melding-fingeravtrykk ignorerer fetchedAt, men ser innhald", () => {
+  const a = {
+    fetchedAt: "2026-09-03T08:00:00Z",
+    messages: [{ id: "1", text: "innstilt", validTo: "x", severity: "cancelled", routeMode: "1135" }],
+  };
+  const b = { ...a, fetchedAt: "2026-09-03T08:05:00Z" };
+  const c = {
+    fetchedAt: a.fetchedAt,
+    messages: [{ id: "1", text: "normal drift", validTo: "x", severity: "normal", routeMode: "1136" }],
+  };
+  assert.equal(messagesFingerprint(a), messagesFingerprint(b));
+  assert.notEqual(messagesFingerprint(a), messagesFingerprint(c));
 });
 
 test("kombirute viser alle ankomstar frå overfartstid", () => {

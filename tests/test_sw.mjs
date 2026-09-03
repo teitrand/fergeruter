@@ -14,12 +14,11 @@ function isMessagesJson(url) {
 }
 
 test("rutetabell-JSON brukar stale-while-revalidate, meldingar og skall brukar network-first", () => {
-  assert.match(sw, /fergeruter-dev-v24/);
+  assert.match(sw, /fergeruter-dev-v25/);
   assert.match(sw, /function isTimetableJson/);
   assert.match(sw, /function isMessagesJson/);
   assert.match(sw, /staleWhileRevalidate\(request,\s*\{\s*notify: true/);
-  assert.match(sw, /isMessagesJson\(url\) \|\| shell/);
-  assert.match(sw, /event\.respondWith\(networkFirst\(request\)\)/);
+  assert.match(sw, /notifyType: "messages-updated"/);
   assert.match(sw, /url\.search = ""/);
 });
 
@@ -41,6 +40,9 @@ test("trafikkmeldingar blir henta med cache-buster, rutetabellen ikkje", () => {
   assert.match(app, /MESSAGES_URL\}\?t=\$\{Date\.now\(\)\}/);
   assert.match(app, /fetch\(ROUTES_URL\)/);
   assert.match(app, /TIMETABLE_CACHE_KEY/);
+  assert.match(app, /MESSAGES_POLL_MS = 60 \* 1000/);
+  assert.match(app, /messages-updated/);
   assert.doesNotMatch(app, /ROUTES_URL\}\?t=/);
   assert.doesNotMatch(app, /KOMBI_URL\}\?t=/);
+  assert.doesNotMatch(app, /setInterval\(loadMessages/);
 });

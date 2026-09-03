@@ -34,6 +34,7 @@ const HAS_1135_RE = /\b1135\b/;
 const HAS_1136_RE = /\b1136\b/;
 const HIDE_ARRIVALS_KEY = "fergeruter-hide-arrivals";
 const TIMETABLE_CACHE_KEY = "fergeruter-timetable-v1";
+const MESSAGES_POLL_MS = 60 * 1000;
 const VESSEL_UTFORT_RE = /utført av\s+(?:m\/?f\.?\s*)?(geiranger|kvernes)/i;
 const DEFAULT_VESSELS = [
   { name: "M/F Geiranger", phone: "916 69 321" },
@@ -57,6 +58,8 @@ const state = {
 
 let renderedDate = null;
 let tickTimer = null;
+let messagesTimer = null;
+let messagesInflight = null;
 
 function el(tag, className, text) {
   const node = document.createElement(tag);
@@ -991,6 +994,21 @@ function timetableFingerprint(routes, kombirute, connections) {
   });
 }
 
+function messagesFingerprint(payload) {
+  const messages = payload?.messages || [];
+  return JSON.stringify(
+    messages.map((msg) => [
+      msg.id || "",
+      msg.text || "",
+      msg.validTo || "",
+      msg.severity || "",
+      msg.routeMode || "",
+      msg.routeSwitch || null,
+      msg.activateAt || null,
+    ])
+  );
+}
+
 function readCachedTimetable(storage) {
   try {
     const store =
@@ -1851,12 +1869,25 @@ function renderRouteChrome() {
 }
 
 async function loadMessages() {
+  if (messagesInflight) return messagesInflight;
+  messagesInflight = loadMessagesOnce().finally(() => {
+    messagesInflight = null;
+  });
+  return messagesInflight;
+}
+
+async function loadMessagesOnce() {
   const meta = document.getElementById("messages-meta");
   try {
-    // Alltid fersk: meldingane kan skifte kvart 15. minutt og styrer kva tabell som visest.
+    // Fjord1-fila kan skifte kvart 5. minutt. Cache-buster, så vi ikkje sit på gammal CDN-kopi.
     const response = await fetch(`${MESSAGES_URL}?t=${Date.now()}`);
     if (!response.ok) throw new Error(response.statusText);
-    state.messages = await response.json();
+    const payload = await response.json();
+    const same =
+      state.messages &&
+      messagesFingerprint(state.messages) === messagesFingerprint(payload);
+    state.messages = payload;
+    if (same) return;
     renderMessages();
     if (hasTimetable()) {
       renderRouteChrome();
@@ -1864,12 +1895,24 @@ async function loadMessages() {
       renderLedeStatus();
     }
   } catch (error) {
-    meta.textContent = t("messages.fetchError");
-    document.getElementById("messages").replaceChildren(
-      el("p", "empty", t("messages.seeFjord1"))
-    );
+    if (!state.messages) {
+      if (meta) meta.textContent = t("messages.fetchError");
+      document.getElementById("messages")?.replaceChildren(
+        el("p", "empty", t("messages.seeFjord1"))
+      );
+    }
     console.error(error);
   }
+}
+
+function scheduleMessagesPoll() {
+  clearTimeout(messagesTimer);
+  messagesTimer = setTimeout(async () => {
+    if (typeof document === "undefined" || !document.hidden) {
+      await loadMessages();
+    }
+    scheduleMessagesPoll();
+  }, MESSAGES_POLL_MS);
 }
 
 function recordedMs(live) {
@@ -2019,6 +2062,7 @@ function scheduleTick() {
 }
 
 function wake() {
+  loadMessages();
   tick();
   scheduleTick();
 }
@@ -2088,6 +2132,7 @@ function registerServiceWorker() {
   });
   navigator.serviceWorker.addEventListener("message", (event) => {
     if (event.data?.type === "timetable-updated") loadRoutes({ useCache: false });
+    if (event.data?.type === "messages-updated") loadMessages();
   });
 }
 
@@ -2220,6 +2265,7 @@ function resetTestState() {
 
 export {
   FEEDBACK_MAIL,
+  MESSAGES_POLL_MS,
   TIMETABLE_CACHE_KEY,
   activateAtFromText,
   activeMode,
@@ -2242,6 +2288,7 @@ export {
   legsForDate,
   liveStatus,
   pastDepartureCount,
+  messagesFingerprint,
   minDeadheadMinutes,
   modeFromText,
   nextArrivalAt,
@@ -2280,7 +2327,7 @@ if (typeof document !== "undefined") {
   loadMessages();
   loadRoutes();
   scheduleTick();
-  setInterval(loadMessages, 3 * 60 * 1000);
+  scheduleMessagesPoll();
   track(`Visit ${getLang()}`, { app: appMode() }, { interactive: false });
   if (appMode() === "pwa") track("Visit pwa", null, { interactive: false });
 }

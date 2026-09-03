@@ -1,5 +1,5 @@
 const IS_DEV = self.location.pathname.includes("/dev/");
-const CACHE = IS_DEV ? "fergeruter-dev-v24" : "fergeruter-v24";
+const CACHE = IS_DEV ? "fergeruter-dev-v25" : "fergeruter-v25";
 const PRECACHE = [
   "./",
   "./index.html",
@@ -27,7 +27,7 @@ function isTimetableJson(url) {
   return /\/data\/(ruter|kombirute|korrespondanse)\.json$/.test(url.pathname);
 }
 
-/** Trafikkmeldingar styrer 1136/1135/kombi og kan skifte kvart 15. minutt. */
+/** Trafikkmeldingar styrer 1136/1135/kombi og kan skifte kvart 5. minutt. */
 function isMessagesJson(url) {
   return url.pathname.endsWith("/trafikkmeldinger.json");
 }
@@ -62,15 +62,19 @@ self.addEventListener("activate", (event) => {
   );
 });
 
-async function networkFirst(request) {
+async function networkFirst(request, { notifyType } = {}) {
   const cache = await caches.open(CACHE);
   const key = cacheKey(request);
+  const cached = await cache.match(key);
   try {
     const response = await fetch(request);
-    if (response.ok) cache.put(key, response.clone());
+    if (response.ok) {
+      const changed = !cached || (await responsesDiffer(cached, response));
+      await cache.put(key, response.clone());
+      if (notifyType && changed) notifyClients({ type: notifyType });
+    }
     return response;
   } catch {
-    const cached = await cache.match(key);
     if (cached) return cached;
     throw new Error("offline");
   }
@@ -126,7 +130,11 @@ self.addEventListener("fetch", (event) => {
     );
     return;
   }
-  if (isMessagesJson(url) || shell) {
+  if (isMessagesJson(url)) {
+    event.respondWith(networkFirst(request, { notifyType: "messages-updated" }));
+    return;
+  }
+  if (shell) {
     event.respondWith(networkFirst(request));
     return;
   }
