@@ -32,7 +32,7 @@ function isMessagesJson(url) {
   return url.pathname.endsWith("/trafikkmeldinger.json");
 }
 
-/** Same cache-nøkkel for datafiler, òg når meldingar har ?t= cache-buster. */
+/** Same cache-nøkkel for datafiler, òg når meldingar vart henta med ?t= tidlegare. */
 function cacheKey(request) {
   const url = new URL(request.url);
   if (!url.pathname.includes("/data/")) return request;
