@@ -249,6 +249,22 @@ function previewLocation(loc) {
   return null;
 }
 
+/** Testhost /dev/ les produksjonsfila. Action oppdaterer berre main. */
+function messagesUrl(loc) {
+  const here = previewLocation(loc);
+  const path = String(here?.pathname || "");
+  if (!path.includes("/dev/")) return MESSAGES_URL;
+  try {
+    let origin = here.origin;
+    if (!origin && here.href) origin = new URL(here.href).origin;
+    if (!origin) return MESSAGES_URL;
+    const prefix = path.slice(0, path.indexOf("/dev/"));
+    return `${origin}${prefix}/data/trafikkmeldinger.json`;
+  } catch {
+    return MESSAGES_URL;
+  }
+}
+
 /** Lokal utvikling og /dev/ på Pages. Produksjon tek ikkje ?rute=. */
 function isPreview(loc) {
   const here = previewLocation(loc);
@@ -1959,7 +1975,7 @@ async function loadMessagesOnce() {
   const meta = document.getElementById("messages-meta");
   try {
     // Fjord1-fila kan skifte kvart 5. minutt. no-cache revaliderer utan å omgå ETag.
-    const response = await fetch(MESSAGES_URL, { cache: "no-cache" });
+    const response = await fetch(messagesUrl(), { cache: "no-cache" });
     if (!response.ok) throw new Error(response.statusText);
     const payload = await response.json();
     const same =
@@ -2438,6 +2454,7 @@ export {
   isUncertainDeparture,
   isPreview,
   isRouteControl,
+  messagesUrl,
   keepTimelineEvent,
   legsForDate,
   liveBlockedUntil,

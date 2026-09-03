@@ -64,7 +64,7 @@ Pages kjem framleis frå `main` (legacy). Testhosten blir derfor kopiert inn som
 - **Alltid via `dev` før prod.** `dev` skal vere føre `main`. Feature-grein frå `dev` → PR mot `dev` → test på `/dev/` → først då merge `dev` → `main`. Ikkje opne feature-PR mot `main`.
 - Service worker på `/dev/` har eige scope og eige cache-namn, så testinga ikkje stal cache frå prod
 - Plausible tel ikkje på `/dev/` (same som localhost)
-- Trafikkmelding-jobben køyrer framleis berre på `main`
+- Trafikkmelding-jobben køyrer framleis berre på `main`. Testhosten `/dev/` les same `data/trafikkmeldinger.json` som produksjon, så meldingane er like.
 
 ## Oppdatering
 

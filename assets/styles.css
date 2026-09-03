@@ -223,14 +223,10 @@ h1, h2, h3 {
 
 .layout {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 40rem);
+  justify-content: center;
   gap: 1.1rem;
   padding-bottom: 2.5rem;
-}
-
-@media (min-width: 860px) {
-  .layout { grid-template-columns: 1.05fr 0.95fr; }
-  .layout.is-single { grid-template-columns: minmax(0, 34rem); justify-content: center; }
 }
 
 .panel {
@@ -238,6 +234,9 @@ h1, h2, h3 {
   border-radius: 22px;
   padding: 1.15rem 1.15rem 0.9rem;
   box-shadow: var(--shadow);
+}
+
+#timetable-panel {
   min-height: 24rem;
 }
 
