@@ -53,8 +53,12 @@ test("sida har den dekorative stiplede streken øverst", () => {
   assert.match(css, /\.skyline\s*\{[^}]*repeating-linear-gradient/s);
   assert.match(css, /safe-area-inset-top/);
   const sw = readFileSync(new URL("../sw.js", import.meta.url), "utf8");
-  assert.match(sw, /fergeruter-dev-v23/);
-  assert.match(sw, /shell \? networkFirst|data \|\| shell \? networkFirst/);
+  assert.match(sw, /fergeruter-dev-v25/);
+  assert.match(sw, /function isTimetableJson/);
+  assert.match(sw, /function isMessagesJson/);
+  assert.match(sw, /staleWhileRevalidate\(request,\s*\{\s*notify: true/);
+  assert.match(sw, /notifyType: "messages-updated"/);
+  assert.match(sw, /event\.respondWith\(networkFirst\(request\)\)/);
 });
 
 test("appen sender namngjevne brukshendingar til Plausible", () => {
