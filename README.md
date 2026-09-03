@@ -49,6 +49,8 @@ Stadnamn og trafikkmeldingane frå Fjord1 står på originalspråket.
 
 Sida kan installerast på telefonen frå nettlesaren (Chrome: **Installer app**, Safari på iOS: Del → **Legg til på heimeskjerm**). Då opnast ho som ei eiga app utan adressefelt, og rutetabellen verkar òg utan nett.
 
+Rutetabellen (~400 KB) blir lagra i nettlesaren. Ved oppdatering av sida visest den lagra tabellen med ein gong; i bakgrunnen sjekkar sida om FRAM har gjeve ut ny rute. **Trafikkmeldingar** og **sanntidsposisjon** blir henta på nytt kvar gong, fordi dei kan skifte raskt og styrer kva tabell som er i bruk og kor ferja er no.
+
 **Google Play:** Ein PWA kan pakkast inn som Trusted Web Activity (t.d. med [PWABuilder](https://www.pwabuilder.com/) / Bubblewrap) og lastast opp til Play. Det er eige utgjevararbeid: Google Play-utviklarkonto, personvernerklæring, skjermbilete, innhaldsvurdering og Digital Asset Links på domenet. Sjølve koden her er klar for det; Play-butikken krev framleis den manuelle publiseringa.
 
 ## Produksjon og testhost
@@ -66,8 +68,8 @@ Pages kjem framleis frå `main` (legacy). Testhosten blir derfor kopiert inn som
 
 ## Oppdatering
 
-- Trafikkmeldingar: kvart 15. minutt på `main`
-- Rutetabell 1136+1135 og korrespondansar (inkl. 133): last ned att **berre når tabellen er endra**:
+- Trafikkmeldingar: kvart 15. minutt på `main`. Nettlesaren hentar denne fila **nettverk-fyrst** (med cache-buster), så innstilling og kombirute visest utan å vente på neste sidelasting.
+- Rutetabell 1136+1135 og korrespondansar (inkl. 133): last ned att **berre når tabellen er endra**. Nettlesaren viser sist lagra tabell med ein gong og oppdaterer i bakgrunnen:
 
 ```bash
 python3 scripts/fetch_ruter.py
@@ -118,5 +120,5 @@ Nedst på sida ligg **Gje tilbakemelding**. Brukarane kan svare ja/nei (anonymt)
 
 ```bash
 python3 -m unittest discover -s tests -v
-node --test --test-concurrency=1 tests/test_status.mjs tests/test_i18n.mjs tests/test_plausible.mjs tests/test_route_mode.mjs
+node --test --test-concurrency=1 tests/test_status.mjs tests/test_i18n.mjs tests/test_plausible.mjs tests/test_route_mode.mjs tests/test_sw.mjs
 ```

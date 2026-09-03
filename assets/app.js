@@ -33,6 +33,7 @@ const KOMBI_RE = /kombinasjon|kombirute|kombinert rute/i;
 const HAS_1135_RE = /\b1135\b/;
 const HAS_1136_RE = /\b1136\b/;
 const HIDE_ARRIVALS_KEY = "fergeruter-hide-arrivals";
+const TIMETABLE_CACHE_KEY = "fergeruter-timetable-v1";
 const VESSEL_UTFORT_RE = /utført av\s+(?:m\/?f\.?\s*)?(geiranger|kvernes)/i;
 const DEFAULT_VESSELS = [
   { name: "M/F Geiranger", phone: "916 69 321" },
@@ -980,6 +981,49 @@ function writeHideArrivals(hide, storage) {
   }
 }
 
+/** Rutetabellen endrar seg sjeldan; hugsa sist vising så oppdatering av sida ikkje ventar på 400 KB JSON. */
+function timetableFingerprint(routes, kombirute, connections) {
+  return JSON.stringify({
+    routes: routes?.fetchedAt || null,
+    kombi: kombirute?.source || null,
+    kombiFrom: kombirute?.validFrom || null,
+    conn: connections?.fetchedAt || null,
+  });
+}
+
+function readCachedTimetable(storage) {
+  try {
+    const store =
+      storage ?? (typeof localStorage !== "undefined" ? localStorage : null);
+    if (!store) return null;
+    const raw = store.getItem(TIMETABLE_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed?.routes) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writeCachedTimetable({ routes, kombirute, connections }, storage) {
+  try {
+    const store =
+      storage ?? (typeof localStorage !== "undefined" ? localStorage : null);
+    if (!store || !routes) return;
+    store.setItem(
+      TIMETABLE_CACHE_KEY,
+      JSON.stringify({
+        routes,
+        kombirute: kombirute || null,
+        connections: connections || null,
+      })
+    );
+  } catch {
+    // kvote / privat modus
+  }
+}
+
 function showArrivals() {
   return !state.hideArrivals;
 }
@@ -1809,6 +1853,7 @@ function renderRouteChrome() {
 async function loadMessages() {
   const meta = document.getElementById("messages-meta");
   try {
+    // Alltid fersk: meldingane kan skifte kvart 15. minutt og styrer kva tabell som visest.
     const response = await fetch(`${MESSAGES_URL}?t=${Date.now()}`);
     if (!response.ok) throw new Error(response.statusText);
     state.messages = await response.json();
@@ -1870,34 +1915,74 @@ async function loadLivePosition() {
   }
 }
 
-async function loadRoutes() {
+function applyTimetable({ routes, kombirute, connections }, { persist = true } = {}) {
+  state.routes = routes;
+  if (kombirute) state.kombirute = kombirute;
+  if (connections) state.connections = connections;
+  if (persist) {
+    writeCachedTimetable({
+      routes,
+      kombirute: state.kombirute,
+      connections: state.connections,
+    });
+  }
+  renderRouteChrome();
+  renderTimeline();
+  renderLedeStatus();
+  const updated = document.getElementById("timetable-updated");
+  if (updated && state.routes?.fetchedAt) {
+    updated.textContent = t("timetable.updated", {
+      date: formatDateOnly(state.routes.fetchedAt),
+    });
+  }
+}
+
+async function fetchTimetableFiles() {
+  const [routesRes, kombiRes, connRes] = await Promise.all([
+    fetch(ROUTES_URL),
+    fetch(KOMBI_URL).catch(() => null),
+    fetch(CONNECTIONS_URL).catch(() => null),
+  ]);
+  if (!routesRes.ok) throw new Error(routesRes.statusText);
+  const routes = await routesRes.json();
+  const kombirute = kombiRes?.ok ? await kombiRes.json() : null;
+  const connections = connRes?.ok ? await connRes.json() : null;
+  return { routes, kombirute, connections };
+}
+
+async function loadRoutes({ useCache = true } = {}) {
   const label = document.getElementById("day-label");
+  const cached = useCache ? readCachedTimetable() : null;
+  if (cached?.routes && !hasTimetable()) {
+    applyTimetable(cached, { persist: false });
+  }
   try {
-    const [routesRes, kombiRes] = await Promise.all([
-      fetch(ROUTES_URL),
-      fetch(KOMBI_URL).catch(() => null),
-    ]);
-    if (!routesRes.ok) throw new Error(routesRes.statusText);
-    state.routes = await routesRes.json();
-    if (kombiRes?.ok) state.kombirute = await kombiRes.json();
-    await loadConnections();
-    renderRouteChrome();
-    renderTimeline();
-    renderLedeStatus();
-    const updated = document.getElementById("timetable-updated");
-    if (updated && state.routes.fetchedAt) {
-      updated.textContent = t("timetable.updated", {
-        date: formatDateOnly(state.routes.fetchedAt),
-      });
-    }
+    const fresh = await fetchTimetableFiles();
+    const next = {
+      routes: fresh.routes,
+      kombirute: fresh.kombirute ?? state.kombirute,
+      connections: fresh.connections ?? state.connections,
+    };
+    const previous = cached || {
+      routes: state.routes,
+      kombirute: state.kombirute,
+      connections: state.connections,
+    };
+    const same =
+      previous.routes &&
+      timetableFingerprint(previous.routes, previous.kombirute, previous.connections) ===
+        timetableFingerprint(next.routes, next.kombirute, next.connections);
+    if (!same) applyTimetable(next);
     await loadLivePosition();
     renderLive();
     renderLedeStatus();
   } catch (error) {
-    if (label) label.textContent = t("timetable.loadError");
-    document.getElementById("departures").replaceChildren(
-      el("p", "empty", t("timetable.notLoaded"))
-    );
+    if (!state.routes) {
+      if (label) label.textContent = t("timetable.loadError");
+      document.getElementById("departures")?.replaceChildren(
+        el("p", "empty", t("timetable.notLoaded"))
+      );
+    }
     console.error(error);
   }
 }
@@ -2000,6 +2085,9 @@ function registerServiceWorker() {
   const swUrl = new URL("../sw.js", import.meta.url);
   navigator.serviceWorker.register(swUrl, { scope: "./" }).catch((error) => {
     console.error(error);
+  });
+  navigator.serviceWorker.addEventListener("message", (event) => {
+    if (event.data?.type === "timetable-updated") loadRoutes({ useCache: false });
   });
 }
 
@@ -2132,6 +2220,7 @@ function resetTestState() {
 
 export {
   FEEDBACK_MAIL,
+  TIMETABLE_CACHE_KEY,
   activateAtFromText,
   activeMode,
   activePlan,
@@ -2162,6 +2251,7 @@ export {
   quayAtStart,
   quayPlace,
   quaysInDay,
+  readCachedTimetable,
   readHideArrivals,
   resetTestState,
   resolveRoutePlan,
@@ -2171,10 +2261,12 @@ export {
   switchOverride,
   setTestState,
   showArrivals,
+  timetableFingerprint,
   track,
   vesselFromText,
   windowFromText,
   visibleConnectionLines,
+  writeCachedTimetable,
   writeHideArrivals,
 };
 

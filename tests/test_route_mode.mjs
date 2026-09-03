@@ -25,6 +25,10 @@ import {
   readHideArrivals,
   showArrivals,
   writeHideArrivals,
+  TIMETABLE_CACHE_KEY,
+  readCachedTimetable,
+  timetableFingerprint,
+  writeCachedTimetable,
 } from "../assets/app.js";
 
 const ruter = JSON.parse(readFileSync(new URL("../data/ruter.json", import.meta.url), "utf8"));
@@ -540,6 +544,31 @@ test("valet om ankomsttider vert hugsa", () => {
   assert.equal(readHideArrivals(storage), true);
   writeHideArrivals(false, storage);
   assert.equal(readHideArrivals(storage), false);
+});
+
+test("rutetabellen kan hentast frå lokal cache utan nett", () => {
+  const store = new Map();
+  const storage = {
+    getItem: (key) => (store.has(key) ? store.get(key) : null),
+    setItem: (key, value) => store.set(key, String(value)),
+    removeItem: (key) => store.delete(key),
+  };
+  assert.equal(readCachedTimetable(storage), null);
+  writeCachedTimetable({ routes: ruter, kombirute: kombi, connections: { fetchedAt: "2026-08-29" } }, storage);
+  const cached = readCachedTimetable(storage);
+  assert.equal(cached.routes.fetchedAt, ruter.fetchedAt);
+  assert.equal(cached.kombirute.validFrom, kombi.validFrom);
+  assert.equal(store.has(TIMETABLE_CACHE_KEY), true);
+  assert.equal(
+    timetableFingerprint(ruter, kombi, { fetchedAt: "2026-08-29" }),
+    timetableFingerprint(cached.routes, cached.kombirute, cached.connections)
+  );
+  assert.notEqual(
+    timetableFingerprint(ruter, kombi, { fetchedAt: "2026-08-29" }),
+    timetableFingerprint({ ...ruter, fetchedAt: "2026-09-01T00:00:00Z" }, kombi, {
+      fetchedAt: "2026-08-29",
+    })
+  );
 });
 
 test("kombirute viser alle ankomstar frå overfartstid", () => {
