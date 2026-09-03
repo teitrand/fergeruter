@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { ferryStatus } from "../assets/app.js";
+import { ferryStatus, messageTimeLines } from "../assets/app.js";
 import {
   SUPPORTED,
   STORAGE_KEY,
@@ -93,6 +93,59 @@ test("setLang lagrar berre når persist er på", () => {
   setLang("de", { persist: true, storage });
   assert.equal(storage.getItem(STORAGE_KEY), "de");
   setLang("nn");
+});
+
+test("meldingar viser publisert-tid og gyldig til med klokkeslett", () => {
+  setLang("nn");
+  const lines = messageTimeLines({
+    publishedAt: "2026-09-02T21:38:15+02:00",
+    validTo: "2026-09-03T19:37:31+00:00",
+  });
+  assert.equal(lines.length, 2);
+  assert.match(lines[0].text, /^Publisert /);
+  assert.match(lines[0].text, /21:38/);
+  assert.equal(lines[0].iso, "2026-09-02T21:38:15+02:00");
+  assert.match(lines[1].text, /^Gyldig til /);
+  assert.match(lines[1].text, /21:37/);
+  assert.equal(lines[1].iso, "2026-09-03T19:37:31+00:00");
+
+  setLang("en");
+  const en = messageTimeLines({
+    publishedAt: "2026-09-02T21:38:15+02:00",
+    validTo: "2026-09-03T19:37:31+00:00",
+  });
+  assert.match(en[0].text, /^Published /);
+  assert.match(en[1].text, /^Valid until /);
+
+  setLang("de");
+  const de = messageTimeLines({
+    publishedAt: "2026-09-02T21:38:15+02:00",
+    validTo: "2026-09-03T19:37:31+00:00",
+  });
+  assert.match(de[0].text, /^Veröffentlicht /);
+  assert.match(de[1].text, /^Gültig bis /);
+  setLang("nn");
+});
+
+test("melding utan validTo viser berre publisert-tid", () => {
+  setLang("nn");
+  const lines = messageTimeLines({
+    publishedAt: "2026-09-02T21:38:15+02:00",
+  });
+  assert.equal(lines.length, 1);
+  assert.match(lines[0].text, /^Publisert /);
+  assert.match(lines[0].text, /21:38/);
+});
+
+test("melding utan publishedAt brukar validFrom", () => {
+  setLang("nn");
+  const lines = messageTimeLines({
+    validFrom: "2026-09-02T19:38:15+00:00",
+    validTo: "2026-09-03T19:37:31+00:00",
+  });
+  assert.equal(lines.length, 2);
+  assert.match(lines[0].text, /21:38/);
+  assert.match(lines[1].text, /21:37/);
 });
 
 class MapStorage {

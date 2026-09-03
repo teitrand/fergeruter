@@ -227,6 +227,25 @@ function formatDateTime(iso) {
   });
 }
 
+/** Publisert-tid og «gyldig til» frå Fjord1, med klokkeslett. */
+function messageTimeLines(msg) {
+  const lines = [];
+  const published = msg?.publishedAt || msg?.validFrom || null;
+  if (published) {
+    lines.push({
+      iso: published,
+      text: t("messages.published", { when: formatDateTime(published) }),
+    });
+  }
+  if (msg?.validTo) {
+    lines.push({
+      iso: msg.validTo,
+      text: t("messages.validTo", { when: formatDateTime(msg.validTo) }),
+    });
+  }
+  return lines;
+}
+
 function durationText(minutes) {
   if (minutes < 1) return t("duration.now");
   if (minutes < 60) return t("duration.minutes", { n: minutes });
@@ -1841,9 +1860,13 @@ function renderMessages() {
       )
     );
     card.append(title, el("p", null, msg.text));
-    const when = el("time", null, formatDateTime(msg.publishedAt));
-    if (msg.publishedAt) when.dateTime = msg.publishedAt;
-    card.append(when);
+    const times = el("p", "card-times");
+    for (const line of messageTimeLines(msg)) {
+      const when = el("time", null, line.text);
+      when.dateTime = line.iso;
+      times.append(when);
+    }
+    if (times.childNodes.length) card.append(times);
     root.append(card);
   }
 }
@@ -2391,6 +2414,7 @@ export {
   liveBlockedUntil,
   liveFetchUrls,
   liveStatus,
+  messageTimeLines,
   pastDepartureCount,
   messagesFingerprint,
   minDeadheadMinutes,

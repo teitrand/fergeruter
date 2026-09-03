@@ -278,6 +278,16 @@ h2 { font-size: 1.45rem; }
   font-size: 0.85rem;
 }
 
+.card-times {
+  display: grid;
+  gap: 0.15rem;
+  margin: 0.45rem 0 0;
+}
+
+.card-times time {
+  margin-top: 0;
+}
+
 .card.is-normal { border-left-color: var(--ok); }
 .card.is-delay, .card.is-capacity { border-left-color: var(--delay); }
 .card.is-cancelled { border-left-color: var(--stop); background: #fff6f4; }
