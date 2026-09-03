@@ -362,16 +362,32 @@ def fetch_messages(timeout: int = 30) -> list[dict]:
     return [normalize_node(edge["node"]) for edge in edges if edge.get("node")]
 
 
-def build_payload(messages: list[dict]) -> dict:
+def build_payload(messages: list[dict], fetched_at: str | None = None) -> dict:
     return {
         "source": SOURCE_URL,
-        "fetchedAt": datetime.now(timezone.utc).isoformat(),
+        "fetchedAt": fetched_at or datetime.now(timezone.utc).isoformat(),
         "messages": messages,
     }
 
 
+def messages_body(payload: dict) -> dict:
+    return {key: value for key, value in payload.items() if key != "fetchedAt"}
+
+
 def default_output_path() -> Path:
     return Path(__file__).resolve().parents[1] / "data" / "trafikkmeldinger.json"
+
+
+def write_if_changed(payload: dict, output: Path) -> bool:
+    output.parent.mkdir(parents=True, exist_ok=True)
+    if output.exists():
+        existing = json.loads(output.read_text(encoding="utf-8"))
+        if messages_body(existing) == messages_body(payload):
+            return False
+    output.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
+    return True
 
 
 def main() -> int:
@@ -381,12 +397,12 @@ def main() -> int:
     except (urllib.error.URLError, TimeoutError, RuntimeError, json.JSONDecodeError) as exc:
         print(f"Kunne ikkje hente trafikkmeldingar: {exc}", file=sys.stderr)
         return 1
-    output.parent.mkdir(parents=True, exist_ok=True)
     payload = build_payload(messages)
-    output.write_text(
-        json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
-    )
-    print(f"Skreiv {len(messages)} meldingar til {output}")
+    changed = write_if_changed(payload, output)
+    if changed:
+        print(f"Skreiv {len(messages)} meldingar til {output}")
+    else:
+        print(f"Trafikkmeldingane er uendra ({len(messages)} meldingar)")
     return 0
 
 

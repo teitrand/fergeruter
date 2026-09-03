@@ -14,7 +14,7 @@ function isMessagesJson(url) {
 }
 
 test("rutetabell-JSON brukar stale-while-revalidate, meldingar og skall brukar network-first", () => {
-  assert.match(sw, /fergeruter-dev-v25/);
+  assert.match(sw, /fergeruter-dev-v26/);
   assert.match(sw, /function isTimetableJson/);
   assert.match(sw, /function isMessagesJson/);
   assert.match(sw, /staleWhileRevalidate\(request,\s*\{\s*notify: true/);
@@ -36,13 +36,17 @@ test("berre rute, kombi og korrespondanse tel som rutetabell", () => {
   }
 });
 
-test("trafikkmeldingar blir henta med cache-buster, rutetabellen ikkje", () => {
-  assert.match(app, /MESSAGES_URL\}\?t=\$\{Date\.now\(\)\}/);
+test("trafikkmeldingar blir revaliderte utan cache-buster, rutetabellen ikkje", () => {
+  assert.match(app, /fetch\(messagesUrl\(\), \{ cache: "no-cache" \}\)/);
   assert.match(app, /fetch\(ROUTES_URL\)/);
   assert.match(app, /TIMETABLE_CACHE_KEY/);
-  assert.match(app, /MESSAGES_POLL_MS = 60 \* 1000/);
+  assert.match(app, /MESSAGES_POLL_MS = 3 \* 60 \* 1000/);
   assert.match(app, /messages-updated/);
+  assert.match(app, /shouldFetchLive/);
+  assert.match(app, /noteLiveFailure/);
+  assert.match(app, /requestWake/);
   assert.doesNotMatch(app, /ROUTES_URL\}\?t=/);
   assert.doesNotMatch(app, /KOMBI_URL\}\?t=/);
+  assert.doesNotMatch(app, /MESSAGES_URL\}\?t=/);
   assert.doesNotMatch(app, /setInterval\(loadMessages/);
 });

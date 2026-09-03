@@ -30,6 +30,7 @@ import {
   timetableFingerprint,
   writeCachedTimetable,
   messagesFingerprint,
+  messagesUrl,
 } from "../assets/app.js";
 
 const ruter = JSON.parse(readFileSync(new URL("../data/ruter.json", import.meta.url), "utf8"));
@@ -468,6 +469,41 @@ test("?frå= på /dev/ set skøyt utan melding", () => {
       href: "https://teitrand.github.io/fergeruter/?rute=kombi&frå=14:00",
     }),
     null
+  );
+});
+
+test("testhost hentar trafikkmeldingar frå produksjon, localhost og prod les lokalt", () => {
+  assert.equal(
+    messagesUrl({
+      hostname: "teitrand.github.io",
+      pathname: "/fergeruter/dev/",
+      href: "https://teitrand.github.io/fergeruter/dev/",
+    }),
+    "https://teitrand.github.io/fergeruter/data/trafikkmeldinger.json"
+  );
+  assert.equal(
+    messagesUrl({
+      hostname: "teitrand.github.io",
+      pathname: "/fergeruter/dev/index.html",
+      href: "https://teitrand.github.io/fergeruter/dev/index.html",
+    }),
+    "https://teitrand.github.io/fergeruter/data/trafikkmeldinger.json"
+  );
+  assert.equal(
+    messagesUrl({
+      hostname: "localhost",
+      pathname: "/",
+      href: "http://localhost:8080/",
+    }),
+    "data/trafikkmeldinger.json"
+  );
+  assert.equal(
+    messagesUrl({
+      hostname: "teitrand.github.io",
+      pathname: "/fergeruter/",
+      href: "https://teitrand.github.io/fergeruter/",
+    }),
+    "data/trafikkmeldinger.json"
   );
 });
 

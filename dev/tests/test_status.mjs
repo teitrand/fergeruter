@@ -7,16 +7,26 @@ import {
   ferryStatus,
   homeQuay,
   isLiveFresh,
+  liveBlockedUntil,
+  liveFetchUrls,
   liveStatus,
   minDeadheadMinutes,
   nextArrivalAt,
   nextOverview,
+  noteLiveFailure,
   parseVehicleMonitoring,
   quayPlace,
+  resetTestState,
+  setTestState,
+  shouldFetchLive,
+  serviceWindowMinutes,
 } from "../assets/app.js";
 import { setLang } from "../assets/i18n.js";
 
-beforeEach(() => setLang("nn"));
+beforeEach(() => {
+  setLang("nn");
+  resetTestState();
+});
 
 function leg(from, to, departure, arrival, dates = ["2026-08-26"]) {
   return { from, to, departure, arrival, activeDates: dates };
@@ -249,4 +259,45 @@ test("valt kai viser neste tur derifrå, med ankomst på destinasjonen", () => {
   assert.equal(fromTrandal.dep.departure, "07:05:00");
   assert.equal(fromTrandal.arr.to, "Standal");
   assert.equal(fromTrandal.arr.arrival, "07:20:00");
+});
+
+test("sanntidsvindauge er fyrste avgang til siste ankomst", () => {
+  setTestState({
+    routes: { lines: { 1136: { legs: wednesday } } },
+  });
+  const win = serviceWindowMinutes("2026-08-26");
+  assert.equal(win.start, 7 * 60 + 40);
+  assert.equal(win.end, 19 * 60 + 45);
+  const midday = Date.parse("2026-08-26T12:00:00+02:00");
+  const night = Date.parse("2026-08-26T23:40:00+02:00");
+  const early = Date.parse("2026-08-26T05:00:00+02:00");
+  assert.equal(shouldFetchLive(midday), true);
+  assert.equal(shouldFetchLive(night), false);
+  assert.equal(shouldFetchLive(early), false);
+});
+
+test("kombi spør 1136 fyrst, 1135 berre som reserveløype", () => {
+  assert.deepEqual(liveFetchUrls("1136"), [
+    "https://api.entur.io/realtime/v1/rest/vm?datasetId=MOR&LineRef=MOR:Line:1136",
+  ]);
+  assert.deepEqual(liveFetchUrls("1135"), [
+    "https://api.entur.io/realtime/v1/rest/vm?datasetId=MOR&LineRef=MOR:Line:1135",
+  ]);
+  const kombi = liveFetchUrls("kombi");
+  assert.equal(kombi.length, 2);
+  assert.match(kombi[0], /1136/);
+  assert.match(kombi[1], /1135/);
+});
+
+test("Entur-feil aukar backoff", () => {
+  setTestState({
+    routes: { lines: { 1136: { legs: wednesday } } },
+  });
+  const midday = Date.parse("2026-08-26T12:00:00+02:00");
+  assert.equal(shouldFetchLive(midday), true);
+  noteLiveFailure(midday);
+  assert.equal(liveBlockedUntil(), midday + 60_000);
+  assert.equal(shouldFetchLive(midday + 10_000), false);
+  noteLiveFailure(midday);
+  assert.equal(liveBlockedUntil(), midday + 120_000);
 });
