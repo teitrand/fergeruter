@@ -2,7 +2,7 @@
 
 Statisk oversikt over **trafikkmeldingar frå Fjord1** og **seglingsplanen** for Hjørundfjorden. Til vanleg viser sida rute **1136** Standal–Trandal–Sæbø–Skår–Valderøya–Store Kalvøy. Når Fjord1 innstiller 1136 (eller innfører kombirute), byter sida tabell automatisk.
 
-Sida viser heile dagen som ei samanhengande tidslinje med alle anløpa i rekkjefølgje, og ei **Nå**-linje som fortel om ferja ligg til kai eller er på veg. Posisjonen er i utgangspunktet rekna ut frå den aktive tabellen. Når Entur sender køyretøyposisjon for 1136 eller 1135, visest den som sanntid. Etter siste passasjertur (t.d. onsdag på Valderøya) reknar sida med at ferja går tilbake til Standal utan passasjerar og ligg der over natta — den turen står ikkje i Entur.
+Sida viser heile dagen som ei samanhengande tidslinje med alle anløpa i rekkjefølgje, og ei **No**-linje som fortel om ferja ligg til kai eller er på veg. Posisjonen er i utgangspunktet rekna ut frå den aktive tabellen. Når Entur sender køyretøyposisjon for 1136 eller 1135, visest den som sanntid. Etter siste passasjertur (t.d. onsdag på Valderøya) reknar sida med at ferja går tilbake til Standal utan passasjerar og ligg der over natta — den turen står ikkje i Entur.
 
 Rutetabellane for 1136 og 1135 blir lasta ned frå Entur og lagra i `data/ruter.json`. Dei blir berre henta på nytt når innhaldet faktisk er endra. Kombinasjonsruta ligg ikkje i Entur; ho er transkribert frå FRAM-PDF til `data/kombirute.json`. Trafikkmeldingar og rutetabell kjem frå lokale JSON-filer; nettlesaren kallar Entur berre for valfri køyretøyposisjon (CORS er open).
 
@@ -49,6 +49,8 @@ Stadnamn og trafikkmeldingane frå Fjord1 står på originalspråket.
 
 Sida kan installerast på telefonen frå nettlesaren (Chrome: **Installer app**, Safari på iOS: Del → **Legg til på heimeskjerm**). Då opnast ho som ei eiga app utan adressefelt, og rutetabellen verkar òg utan nett.
 
+Rutetabellen (~400 KB) blir lagra i nettlesaren. Ved oppdatering av sida visest den lagra tabellen med ein gong; i bakgrunnen sjekkar sida om FRAM har gjeve ut ny rute. **Trafikkmeldingar** og **sanntidsposisjon** blir henta på nytt kvar gong, fordi dei kan skifte raskt og styrer kva tabell som er i bruk og kor ferja er no.
+
 **Google Play:** Ein PWA kan pakkast inn som Trusted Web Activity (t.d. med [PWABuilder](https://www.pwabuilder.com/) / Bubblewrap) og lastast opp til Play. Det er eige utgjevararbeid: Google Play-utviklarkonto, personvernerklæring, skjermbilete, innhaldsvurdering og Digital Asset Links på domenet. Sjølve koden her er klar for det; Play-butikken krev framleis den manuelle publiseringa.
 
 ## Produksjon og testhost
@@ -59,15 +61,15 @@ Pages kjem framleis frå `main` (legacy). Testhosten blir derfor kopiert inn som
 
 `github-pages`-miljøet tillèt berre `main`, så Actions-deploy frå `dev` feilar. Når de byter Pages til **GitHub Actions** (Settings → Pages → Source), kan `.github/workflows/pages.yml` køyrast frå `main` og publisere både rot og `/dev/` i same steg.
 
-- Feature-grein → PR mot `dev` → test på `/dev/` → merge `dev` → `main` når det er greitt
+- **Alltid via `dev` før prod.** `dev` skal vere føre `main`. Feature-grein frå `dev` → PR mot `dev` → test på `/dev/` → først då merge `dev` → `main`. Ikkje opne feature-PR mot `main`.
 - Service worker på `/dev/` har eige scope og eige cache-namn, så testinga ikkje stal cache frå prod
 - Plausible tel ikkje på `/dev/` (same som localhost)
 - Trafikkmelding-jobben køyrer framleis berre på `main`
 
 ## Oppdatering
 
-- Trafikkmeldingar: kvart 15. minutt på `main`
-- Rutetabell 1136+1135 og korrespondansar (inkl. 133): last ned att **berre når tabellen er endra**:
+- Trafikkmeldingar: kvart 5. minutt på `main` (tetteste GitHub Actions tillèt). Nettlesaren sjekkar fila **kvart minutt** mens sida er open, og med ein gong når fana blir synleg att, så innstilling og kombirute visest så snart den nye fila er ute.
+- Rutetabell 1136+1135 og korrespondansar (inkl. 133): last ned att **berre når tabellen er endra**. Nettlesaren viser sist lagra tabell med ein gong og oppdaterer i bakgrunnen:
 
 ```bash
 python3 scripts/fetch_ruter.py
@@ -118,5 +120,5 @@ Nedst på sida ligg **Gje tilbakemelding**. Brukarane kan svare ja/nei (anonymt)
 
 ```bash
 python3 -m unittest discover -s tests -v
-node --test --test-concurrency=1 tests/test_status.mjs tests/test_i18n.mjs tests/test_plausible.mjs tests/test_route_mode.mjs
+node --test --test-concurrency=1 tests/test_status.mjs tests/test_i18n.mjs tests/test_plausible.mjs tests/test_route_mode.mjs tests/test_sw.mjs
 ```

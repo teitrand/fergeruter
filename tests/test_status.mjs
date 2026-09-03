@@ -10,7 +10,7 @@ import {
   liveStatus,
   minDeadheadMinutes,
   nextArrivalAt,
-  nextDepartureFrom,
+  nextOverview,
   parseVehicleMonitoring,
   quayPlace,
 } from "../assets/app.js";
@@ -204,20 +204,49 @@ test("flytting kjem etter ankomst, før neste avgang", () => {
   );
 });
 
-test("neste avgang har destinasjon, neste anløp er attende på kaia", () => {
-  const dep = nextDepartureFrom(wednesday, "Standal");
-  const arr = nextArrivalAt(wednesday, "Standal");
-  assert.equal(dep.from, "Standal");
-  assert.equal(dep.to, "Trandal");
-  assert.equal(dep.departure, "07:40:00");
-  assert.equal(arr.to, "Standal");
-  assert.equal(arr.arrival, "16:05:00");
+test("neste avgang har destinasjon, ankomst er på destinasjonen", () => {
+  const trip = nextOverview(wednesday, "Standal");
+  assert.equal(trip.dep.from, "Standal");
+  assert.equal(trip.dep.to, "Trandal");
+  assert.equal(trip.dep.departure, "07:40:00");
+  assert.equal(trip.arr.to, "Trandal");
+  assert.equal(trip.arr.arrival, "07:55:00");
 });
 
-test("utan kaival er neste avgang den fyrste, anløp på same kai", () => {
-  const dep = nextDepartureFrom(wednesday, null);
-  const arr = nextArrivalAt(wednesday, dep.from);
-  assert.equal(dep.from, "Standal");
-  assert.equal(dep.to, "Trandal");
-  assert.equal(arr.to, "Standal");
+test("utan kaival er neste tur fyrste avgang og ankomst på destinasjonen", () => {
+  const trip = nextOverview(wednesday, null);
+  assert.equal(trip.dep.from, "Standal");
+  assert.equal(trip.dep.to, "Trandal");
+  assert.equal(trip.arr.to, "Trandal");
+  assert.equal(trip.arr.arrival, "07:55:00");
+});
+
+test("morgonpendelen viser 07:00 Trandal, ikkje 07:20 attende til Standal", () => {
+  const morning = [
+    leg("Standal", "Trandal", "06:45:00", "07:00:00"),
+    leg("Trandal", "Standal", "07:05:00", "07:20:00"),
+  ];
+  const trip = nextOverview(morning, null);
+  assert.equal(trip.dep.departure, "06:45:00");
+  assert.equal(trip.dep.from, "Standal");
+  assert.equal(trip.arr.to, "Trandal");
+  assert.equal(trip.arr.arrival, "07:00:00");
+  const inbound = nextArrivalAt(morning, "Standal");
+  assert.equal(inbound.arrival, "07:20:00");
+  assert.notEqual(trip.arr.arrival, inbound.arrival);
+});
+
+test("valt kai viser neste tur derifrå, med ankomst på destinasjonen", () => {
+  const morning = [
+    leg("Standal", "Trandal", "06:45:00", "07:00:00"),
+    leg("Trandal", "Standal", "07:05:00", "07:20:00"),
+  ];
+  const fromStandal = nextOverview(morning, "Standal");
+  assert.equal(fromStandal.dep.departure, "06:45:00");
+  assert.equal(fromStandal.arr.to, "Trandal");
+  assert.equal(fromStandal.arr.arrival, "07:00:00");
+  const fromTrandal = nextOverview(morning, "Trandal");
+  assert.equal(fromTrandal.dep.departure, "07:05:00");
+  assert.equal(fromTrandal.arr.to, "Standal");
+  assert.equal(fromTrandal.arr.arrival, "07:20:00");
 });
