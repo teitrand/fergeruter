@@ -1,5 +1,5 @@
 const IS_DEV = self.location.pathname.includes("/dev/");
-const CACHE = IS_DEV ? "fergeruter-dev-v25" : "fergeruter-v25";
+const CACHE = IS_DEV ? "fergeruter-dev-v26" : "fergeruter-v26";
 const PRECACHE = [
   "./",
   "./index.html",
@@ -7,7 +7,7 @@ const PRECACHE = [
   "./assets/app.js",
   "./assets/i18n.js",
   "./assets/styles.css",
-  "./assets/styles.css?v=23",
+  "./assets/styles.css?v=26",
   "./assets/favicon.svg",
   "./assets/icons/icon-192.png",
   "./assets/icons/icon-512.png",
@@ -32,7 +32,7 @@ function isMessagesJson(url) {
   return url.pathname.endsWith("/trafikkmeldinger.json");
 }
 
-/** Same cache-nøkkel for datafiler, òg når meldingar har ?t= cache-buster. */
+/** Same cache-nøkkel for datafiler, òg når meldingar vart henta med ?t= tidlegare. */
 function cacheKey(request) {
   const url = new URL(request.url);
   if (!url.pathname.includes("/data/")) return request;
