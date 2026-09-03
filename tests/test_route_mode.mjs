@@ -507,6 +507,12 @@ test("testhost hentar trafikkmeldingar frå produksjon, localhost og prod les lo
   );
 });
 
+test("sida har ikkje statusbanner over innhaldet", () => {
+  const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  assert.doesNotMatch(html, /id="status-banner"/);
+  assert.doesNotMatch(html, /class="status-banner"/);
+});
+
 test("?rute= verkar berre på /dev/ og localhost", () => {
   assert.equal(
     isPreview({ hostname: "localhost", pathname: "/", href: "http://localhost:8080/?rute=kombi" }),

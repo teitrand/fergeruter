@@ -1813,14 +1813,11 @@ function renderMessages() {
     return;
   }
   const all = validMessages(state.messages.messages || []);
-  // Utan noko i området er banneret øvst nok. Panelet ville berre teke plass.
+  // Utan noko i området tek panelet berre plass.
   const hasLocal = all.some((msg) => msg.isLocal);
   panel.hidden = !hasLocal;
   layout.classList.toggle("is-single", !hasLocal);
-  if (!hasLocal) {
-    renderBanner(all);
-    return;
-  }
+  if (!hasLocal) return;
   const filtered = applyMessageFilter(all);
   meta.textContent = t("messages.fetched", { when: formatDateTime(state.messages.fetchedAt) });
   if (!filtered.length) {
@@ -1831,7 +1828,6 @@ function renderMessages() {
         state.messageFilter === "issues" ? t("empty.noIssues") : t("empty.noMessages")
       )
     );
-    renderBanner(all);
     return;
   }
   for (const msg of filtered) {
@@ -1850,71 +1846,6 @@ function renderMessages() {
     card.append(when);
     root.append(card);
   }
-  renderBanner(all);
-}
-
-function appendModeNote(banner, mode) {
-  const plan = activePlan();
-  if (plan.switch && plan.uncertain && plan.notice) {
-    banner.append(
-      el(
-        "p",
-        "banner-mode",
-        t("mode.acuteNote", { from: hhmm(plan.notice), to: hhmm(plan.switch.time) })
-      )
-    );
-  }
-  if (plan.switch) {
-    banner.append(
-      el(
-        "p",
-        "banner-mode",
-        t("mode.switchNote", {
-          time: hhmm(plan.switch.time),
-          quay: plan.switch.quay ? t("split.atQuay", { quay: plan.switch.quay }) : "",
-          table: t(`split.table.${plan.mode}`),
-          before: t(`split.table.${plan.switch.before}`),
-        })
-      )
-    );
-  }
-  if (mode === "kombi") {
-    const note = el("p", "banner-mode");
-    note.append(document.createTextNode(`${t("mode.kombiNote")} `));
-    const link = el("a", null, t("mode.kombiPdf"));
-    link.href = state.kombirute?.source || KOMBI_PDF;
-    link.target = "_blank";
-    link.rel = "noreferrer";
-    note.append(link);
-    const vessel = vesselInfo(activeVessel());
-    if (vessel) {
-      note.append(document.createTextNode(` ${t("mode.vessel", { name: vessel.name.replace(/^M\/F\s+/i, "") })}`));
-    }
-    banner.append(note);
-    return;
-  }
-  if (mode === "1135") {
-    banner.append(el("p", "banner-mode", t("mode.only1135")));
-  }
-}
-
-function renderBanner(messages) {
-  const banner = document.getElementById("status-banner");
-  if (!banner) return;
-  const local = messages.filter((msg) => msg.isLocal);
-  const mode = activeMode();
-  banner.hidden = false;
-  banner.replaceChildren();
-  if (!local.length) {
-    banner.className = "status-banner is-normal is-quiet";
-    banner.append(el("p", "banner-text", t("banner.none")));
-    appendModeNote(banner, mode);
-    return;
-  }
-  const latest = local[0];
-  banner.className = `status-banner is-${latest.severity}`;
-  banner.append(el("p", "banner-text", latest.text));
-  appendModeNote(banner, mode);
 }
 
 function renderRouteChrome() {

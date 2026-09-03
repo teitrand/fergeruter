@@ -48,7 +48,7 @@ test("header har ikkje ferjegrafikk mellom kaiene", () => {
 
 test("sida har den dekorative stiplede streken øverst", () => {
   assert.match(html, /class="skyline"/);
-  assert.match(html, /assets\/styles\.css\?v=26/);
+  assert.match(html, /assets\/styles\.css\?v=28/);
   const css = readFileSync(new URL("../assets/styles.css", import.meta.url), "utf8");
   assert.match(css, /\.skyline\s*\{[^}]*repeating-linear-gradient/s);
   assert.match(css, /safe-area-inset-top/);
@@ -56,7 +56,7 @@ test("sida har den dekorative stiplede streken øverst", () => {
   assert.doesNotMatch(css, /1\.05fr 0\.95fr/);
   assert.doesNotMatch(css, /@media \(min-width: 860px\)/);
   const sw = readFileSync(new URL("../sw.js", import.meta.url), "utf8");
-  assert.match(sw, /fergeruter-dev-v26/);
+  assert.match(sw, /fergeruter-dev-v28/);
   assert.match(sw, /function isTimetableJson/);
   assert.match(sw, /function isMessagesJson/);
   assert.match(sw, /staleWhileRevalidate\(request,\s*\{\s*notify: true/);
