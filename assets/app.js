@@ -34,7 +34,12 @@ const HAS_1135_RE = /\b1135\b/;
 const HAS_1136_RE = /\b1136\b/;
 const HIDE_ARRIVALS_KEY = "fergeruter-hide-arrivals";
 const TIMETABLE_CACHE_KEY = "fergeruter-timetable-v1";
-const MESSAGES_POLL_MS = 60 * 1000;
+const MESSAGES_POLL_MS = 3 * 60 * 1000;
+const LIVE_MIN_INTERVAL_MS = 55 * 1000;
+const LIVE_BACKOFF_START_MS = 60 * 1000;
+const LIVE_MAX_BACKOFF_MS = 15 * 60 * 1000;
+const LIVE_SERVICE_MARGIN_MIN = 30;
+const WAKE_DEBOUNCE_MS = 400;
 const VESSEL_UTFORT_RE = /utført av\s+(?:m\/?f\.?\s*)?(geiranger|kvernes)/i;
 const DEFAULT_VESSELS = [
   { name: "M/F Geiranger", phone: "916 69 321" },
@@ -54,12 +59,17 @@ const state = {
   connections: null,
   live: null,
   liveFetchedAt: 0,
+  liveBackoffMs: 0,
+  liveBlockedUntil: 0,
 };
 
 let renderedDate = null;
+let lastLiveStructureKey = null;
 let tickTimer = null;
 let messagesTimer = null;
 let messagesInflight = null;
+let wakeTimer = null;
+let bootedAt = 0;
 
 function el(tag, className, text) {
   const node = document.createElement(tag);
@@ -155,8 +165,8 @@ function isToday() {
   return selectedDate() === todayIso();
 }
 
-function nowMinutes() {
-  const parts = osloParts();
+function nowMinutes(ms = Date.now()) {
+  const parts = osloParts(new Date(ms));
   return Number(parts.hour) * 60 + Number(parts.minute);
 }
 
@@ -237,6 +247,22 @@ function previewLocation(loc) {
   if (loc) return loc;
   if (typeof location !== "undefined") return location;
   return null;
+}
+
+/** Testhost /dev/ les produksjonsfila. Action oppdaterer berre main. */
+function messagesUrl(loc) {
+  const here = previewLocation(loc);
+  const path = String(here?.pathname || "");
+  if (!path.includes("/dev/")) return MESSAGES_URL;
+  try {
+    let origin = here.origin;
+    if (!origin && here.href) origin = new URL(here.href).origin;
+    if (!origin) return MESSAGES_URL;
+    const prefix = path.slice(0, path.indexOf("/dev/"));
+    return `${origin}${prefix}/data/trafikkmeldinger.json`;
+  } catch {
+    return MESSAGES_URL;
+  }
 }
 
 /** Lokal utvikling og /dev/ på Pages. Produksjon tek ikkje ?rute=. */
@@ -1102,13 +1128,6 @@ function resolveAhead(selected, current, matches) {
   return { leg: ahead.leg, date: ahead.date, prefix: dayPrefix(ahead.date) };
 }
 
-function overviewState(prefix, time, live) {
-  const bits = [];
-  if (prefix) bits.push(prefix);
-  if (live) bits.push(countdown(time));
-  return bits.join(" · ");
-}
-
 function buildNextRow(row) {
   const node = el("div", "next-row");
   node.append(el("span", "next-time", hhmm(row.time)));
@@ -1121,7 +1140,18 @@ function buildNextRow(row) {
   const connection = connectionNote(connectionIndex(row.date), row.kind, row.leg);
   if (connection) body.append(el("span", "stop-note stop-conn", connection));
   node.append(body);
-  node.append(el("span", "next-state", row.state || ""));
+  const stateNode = el("span", "next-state");
+  if (row.prefix) {
+    stateNode.append(document.createTextNode(`${row.prefix} · `));
+  }
+  if (row.live && row.time) {
+    const cd = el("span", "next-countdown", countdown(row.time));
+    cd.dataset.countdown = row.time;
+    stateNode.append(cd);
+  } else if (row.state) {
+    stateNode.textContent = row.state;
+  }
+  node.append(stateNode);
   return node;
 }
 
@@ -1146,7 +1176,7 @@ function renderNextSummary(legs) {
     {
       time: depHit.leg.departure,
       name: t("next.fromTo", { from: depHit.leg.from, to: depHit.leg.to }),
-      state: overviewState(depHit.prefix, depHit.leg.departure, live),
+      prefix: depHit.prefix,
       live,
       leg: depHit.leg,
       kind: "dep",
@@ -1157,7 +1187,7 @@ function renderNextSummary(legs) {
     rows.push({
       time: depHit.leg.arrival,
       name: t("next.arrival", { to: depHit.leg.to }),
-      state: overviewState(depHit.prefix, depHit.leg.arrival, live),
+      prefix: depHit.prefix,
       live,
       leg: depHit.leg,
       kind: "arr",
@@ -1270,13 +1300,13 @@ function signalNote(leg, live) {
   if (live) {
     const deadlineClock = `${minutesToClock(deadline)}:00`;
     if (!hasPassed(deadlineClock)) {
-      note.append(
-        el(
-          "span",
-          "stop-left",
-          t("signal.leftToBook", { duration: durationText(minutesLeft(deadlineClock)) })
-        )
+      const left = el(
+        "span",
+        "stop-left",
+        t("signal.leftToBook", { duration: durationText(minutesLeft(deadlineClock)) })
       );
+      left.dataset.deadline = deadlineClock;
+      note.append(left);
     } else if (!hasPassed(leg.departure)) {
       note.append(el("span", "stop-expired", t("signal.expired")));
     }
@@ -1298,7 +1328,9 @@ function departureRow(leg, past, index) {
   if (connection) body.append(el("span", "stop-note stop-conn", connection));
   row.append(body);
   const remaining = past ? t("gone") : isToday() ? countdown(leg.departure) : "";
-  row.append(el("span", "stop-state", remaining));
+  const remainingNode = el("span", "stop-state", remaining);
+  if (isToday()) remainingNode.dataset.countdown = leg.departure;
+  row.append(remainingNode);
   return row;
 }
 
@@ -1394,6 +1426,7 @@ function buildEvents(legs, connections) {
         at: clockMinutes(leg.departure),
         kind: "dep",
         quays: [leg.from],
+        leg,
         build: (past) => departureRow(leg, past, connections),
       });
     }
@@ -1637,19 +1670,71 @@ function renderReveal(pastCount) {
 }
 
 /** Alt som endrar seg med klokka. Køyrer kvart minutt utan å byggje om resten. */
+function bookingState(event) {
+  const leg = event.leg;
+  if (!leg?.signal) return "";
+  const deadline = bookingDeadline(leg);
+  if (deadline == null) return "";
+  const deadlineClock = `${minutesToClock(deadline)}:00`;
+  if (!hasPassed(deadlineClock)) return "open";
+  if (!hasPassed(leg.departure)) return "expired";
+  return "gone";
+}
+
+function liveStructureKey(events, now, status) {
+  const rows = events
+    .filter((event) => keepTimelineEvent(event, events, now))
+    .map((event) => [
+      event.kind,
+      event.at,
+      (event.quays || []).join(","),
+      timelineEventIsPast(event, events, now) ? 1 : 0,
+      bookingState(event),
+    ]);
+  return JSON.stringify({
+    date: selectedDate(),
+    stop: state.stopFilter,
+    conn: state.connection,
+    showPast: state.showPast,
+    hideArr: state.hideArrivals,
+    statusAt: status?.at ?? null,
+    statusText: status?.text ?? "",
+    liveRec: state.live?.recordedAt || "",
+    rows,
+  });
+}
+
+function patchLiveClock() {
+  document.querySelectorAll("[data-countdown]").forEach((node) => {
+    const time = node.dataset.countdown;
+    const past = node.closest(".is-past");
+    node.textContent = past ? t("gone") : time && isToday() ? countdown(time) : "";
+  });
+  document.querySelectorAll("[data-deadline]").forEach((node) => {
+    const deadlineClock = node.dataset.deadline;
+    if (!deadlineClock || hasPassed(deadlineClock)) return;
+    node.textContent = t("signal.leftToBook", {
+      duration: durationText(minutesLeft(deadlineClock)),
+    });
+  });
+}
+
 function renderLive() {
   const root = document.getElementById("departures");
-  root.replaceChildren();
   if (!hasTimetable()) {
+    lastLiveStructureKey = null;
+    root.replaceChildren();
     root.append(el("p", "empty", t("empty.noTimetable")));
     return;
   }
   const legs = legsForDate(selectedDate());
   renderDayNav();
-  renderNextSummary(legs);
 
   if (!legs.length) {
+    lastLiveStructureKey = null;
     renderReveal(0);
+    renderNextSummary(legs);
+    root.replaceChildren();
     root.append(el("p", "empty", t("empty.noTripsDay")));
     return;
   }
@@ -1669,6 +1754,15 @@ function renderLive() {
   events.sort(compareTimelineEvents);
 
   const now = nowMinutes();
+  const key = liveStructureKey(events, now, status);
+  if (key === lastLiveStructureKey && root.children.length) {
+    patchLiveClock();
+    return;
+  }
+
+  lastLiveStructureKey = key;
+  renderNextSummary(legs);
+  root.replaceChildren();
   const pastCount = pastDepartureCount(events, now);
   renderReveal(pastCount);
 
@@ -1681,6 +1775,7 @@ function renderLive() {
 
 /** Full oppbygging: brukast når data, dag eller filter endrar seg. */
 function renderTimeline() {
+  lastLiveStructureKey = null;
   renderedDate = selectedDate();
   renderStopFilter(legsForDate(renderedDate));
   renderViewFilter();
@@ -1879,8 +1974,8 @@ async function loadMessages() {
 async function loadMessagesOnce() {
   const meta = document.getElementById("messages-meta");
   try {
-    // Fjord1-fila kan skifte kvart 5. minutt. Cache-buster, så vi ikkje sit på gammal CDN-kopi.
-    const response = await fetch(`${MESSAGES_URL}?t=${Date.now()}`);
+    // Fjord1-fila kan skifte kvart 5. minutt. no-cache revaliderer utan å omgå ETag.
+    const response = await fetch(messagesUrl(), { cache: "no-cache" });
     if (!response.ok) throw new Error(response.statusText);
     const payload = await response.json();
     const same =
@@ -1935,25 +2030,76 @@ async function fetchLive(url) {
       Accept: "application/json",
     },
   });
+  if (response.status === 429 || response.status >= 500) {
+    const error = new Error(response.statusText);
+    error.retryable = true;
+    throw error;
+  }
   if (!response.ok) throw new Error(response.statusText);
   return parseVehicleMonitoring(await response.json());
 }
 
+function liveFetchUrls(mode = activeMode()) {
+  if (mode === "1135") return [LIVE_VM_URLS["1135"]];
+  if (mode === "1136") return [LIVE_VM_URLS["1136"]];
+  return [LIVE_VM_URLS["1136"], LIVE_VM_URLS["1135"]];
+}
+
+function serviceWindowMinutes(date) {
+  const legs = legsForDate(date);
+  if (!legs.length) return null;
+  let start = Infinity;
+  let end = 0;
+  for (const leg of legs) {
+    start = Math.min(start, clockMinutes(leg.departure));
+    if (leg.arrival) end = Math.max(end, clockMinutes(leg.arrival));
+    else end = Math.max(end, clockMinutes(leg.departure));
+  }
+  return { start, end };
+}
+
+function shouldFetchLive(nowMs = Date.now()) {
+  if (typeof document !== "undefined" && document.hidden) return false;
+  if (!hasTimetable()) return false;
+  if (nowMs < (state.liveBlockedUntil || 0)) return false;
+  const date = osloIsoFromMs(nowMs);
+  const win = serviceWindowMinutes(date);
+  if (!win) return false;
+  const minutes = nowMinutes(nowMs);
+  return (
+    minutes >= win.start - LIVE_SERVICE_MARGIN_MIN &&
+    minutes <= win.end + LIVE_SERVICE_MARGIN_MIN
+  );
+}
+
+function noteLiveFailure(nowMs = Date.now()) {
+  const prev = state.liveBackoffMs || LIVE_BACKOFF_START_MS / 2;
+  state.liveBackoffMs = Math.min(LIVE_MAX_BACKOFF_MS, prev * 2);
+  state.liveBlockedUntil = nowMs + state.liveBackoffMs;
+}
+
+function liveBlockedUntil() {
+  return state.liveBlockedUntil || 0;
+}
+
 async function loadLivePosition() {
-  if (Date.now() - (state.liveFetchedAt || 0) < 55 * 1000) return;
+  if (!shouldFetchLive()) return;
+  if (Date.now() - (state.liveFetchedAt || 0) < LIVE_MIN_INTERVAL_MS) return;
   state.liveFetchedAt = Date.now();
-  const mode = activeMode();
-  const urls =
-    mode === "1135"
-      ? [LIVE_VM_URLS["1135"]]
-      : mode === "1136"
-        ? [LIVE_VM_URLS["1136"]]
-        : [LIVE_VM_URLS["1136"], LIVE_VM_URLS["1135"]];
+  const urls = liveFetchUrls();
+  const found = [];
   try {
-    const results = await Promise.all(urls.map((url) => fetchLive(url).catch(() => null)));
-    state.live = pickFreshest(results.filter(Boolean));
+    for (const url of urls) {
+      const live = await fetchLive(url);
+      if (live) found.push(live);
+      if (found.some((item) => isLiveFresh(item))) break;
+    }
+    state.live = pickFreshest(found);
+    state.liveBackoffMs = 0;
+    state.liveBlockedUntil = 0;
   } catch (error) {
-    state.live = null;
+    if (found.length) state.live = pickFreshest(found);
+    noteLiveFailure();
     console.error(error);
   }
 }
@@ -2054,6 +2200,7 @@ async function tick() {
 
 function scheduleTick() {
   clearTimeout(tickTimer);
+  if (typeof document !== "undefined" && document.hidden) return;
   const untilNextMinute = 60000 - (Date.now() % 60000) + 200;
   tickTimer = setTimeout(() => {
     tick();
@@ -2061,7 +2208,17 @@ function scheduleTick() {
   }, untilNextMinute);
 }
 
+function requestWake() {
+  if (bootedAt && Date.now() - bootedAt < 2500) return;
+  if (wakeTimer) return;
+  wakeTimer = setTimeout(() => {
+    wakeTimer = null;
+    wake();
+  }, WAKE_DEBOUNCE_MS);
+}
+
 function wake() {
+  if (typeof document !== "undefined" && document.hidden) return;
   loadMessages();
   tick();
   scheduleTick();
@@ -2238,10 +2395,17 @@ function bindControls() {
   bindFeedback();
 
   document.addEventListener("visibilitychange", () => {
-    if (!document.hidden) wake();
+    if (document.hidden) {
+      clearTimeout(tickTimer);
+      tickTimer = null;
+      return;
+    }
+    requestWake();
   });
-  window.addEventListener("pageshow", wake);
-  window.addEventListener("focus", wake);
+  window.addEventListener("pageshow", (event) => {
+    if (event.persisted) requestWake();
+  });
+  window.addEventListener("focus", requestWake);
 }
 
 function setTestState(partial) {
@@ -2261,12 +2425,18 @@ function resetTestState() {
   state.connections = null;
   state.live = null;
   state.liveFetchedAt = 0;
+  state.liveBackoffMs = 0;
+  state.liveBlockedUntil = 0;
+  lastLiveStructureKey = null;
 }
 
 export {
   FEEDBACK_MAIL,
+  LIVE_MAX_BACKOFF_MS,
+  LIVE_SERVICE_MARGIN_MIN,
   MESSAGES_POLL_MS,
   TIMETABLE_CACHE_KEY,
+  WAKE_DEBOUNCE_MS,
   activateAtFromText,
   activeMode,
   activePlan,
@@ -2284,8 +2454,11 @@ export {
   isUncertainDeparture,
   isPreview,
   isRouteControl,
+  messagesUrl,
   keepTimelineEvent,
   legsForDate,
+  liveBlockedUntil,
+  liveFetchUrls,
   liveStatus,
   pastDepartureCount,
   messagesFingerprint,
@@ -2294,6 +2467,7 @@ export {
   nextArrivalAt,
   nextDepartureFrom,
   nextOverview,
+  noteLiveFailure,
   parseVehicleMonitoring,
   quayAtStart,
   quayPlace,
@@ -2307,7 +2481,9 @@ export {
   switchFromText,
   switchOverride,
   setTestState,
+  shouldFetchLive,
   showArrivals,
+  serviceWindowMinutes,
   timetableFingerprint,
   track,
   vesselFromText,
@@ -2318,6 +2494,7 @@ export {
 };
 
 if (typeof document !== "undefined") {
+  bootedAt = Date.now();
   setLang(detectLang(), { persist: false });
   applyStaticTranslations();
   syncLangButtons();

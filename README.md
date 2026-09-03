@@ -49,7 +49,7 @@ Stadnamn og trafikkmeldingane frå Fjord1 står på originalspråket.
 
 Sida kan installerast på telefonen frå nettlesaren (Chrome: **Installer app**, Safari på iOS: Del → **Legg til på heimeskjerm**). Då opnast ho som ei eiga app utan adressefelt, og rutetabellen verkar òg utan nett.
 
-Rutetabellen (~400 KB) blir lagra i nettlesaren. Ved oppdatering av sida visest den lagra tabellen med ein gong; i bakgrunnen sjekkar sida om FRAM har gjeve ut ny rute. **Trafikkmeldingar** og **sanntidsposisjon** blir henta på nytt kvar gong, fordi dei kan skifte raskt og styrer kva tabell som er i bruk og kor ferja er no.
+Rutetabellen (~400 KB) blir lagra i nettlesaren. Ved oppdatering av sida visest den lagra tabellen med ein gong; i bakgrunnen sjekkar sida om FRAM har gjeve ut ny rute. **Trafikkmeldingar** blir sjekka kvart 3. minutt (og når fana blir synleg). **Sanntidsposisjon** frå Entur blir henta om lag kvart minutt berre medan sida er synleg og det er rutetid.
 
 **Google Play:** Ein PWA kan pakkast inn som Trusted Web Activity (t.d. med [PWABuilder](https://www.pwabuilder.com/) / Bubblewrap) og lastast opp til Play. Det er eige utgjevararbeid: Google Play-utviklarkonto, personvernerklæring, skjermbilete, innhaldsvurdering og Digital Asset Links på domenet. Sjølve koden her er klar for det; Play-butikken krev framleis den manuelle publiseringa.
 
@@ -64,11 +64,11 @@ Pages kjem framleis frå `main` (legacy). Testhosten blir derfor kopiert inn som
 - **Alltid via `dev` før prod.** `dev` skal vere føre `main`. Feature-grein frå `dev` → PR mot `dev` → test på `/dev/` → først då merge `dev` → `main`. Ikkje opne feature-PR mot `main`.
 - Service worker på `/dev/` har eige scope og eige cache-namn, så testinga ikkje stal cache frå prod
 - Plausible tel ikkje på `/dev/` (same som localhost)
-- Trafikkmelding-jobben køyrer framleis berre på `main`
+- Trafikkmelding-jobben køyrer framleis berre på `main`. Testhosten `/dev/` les same `data/trafikkmeldinger.json` som produksjon, så meldingane er like.
 
 ## Oppdatering
 
-- Trafikkmeldingar: kvart 5. minutt på `main` (tetteste GitHub Actions tillèt). Nettlesaren sjekkar fila **kvart minutt** mens sida er open, og med ein gong når fana blir synleg att, så innstilling og kombirute visest så snart den nye fila er ute.
+- Trafikkmeldingar: kvart 5. minutt på `main` (tetteste GitHub Actions tillèt). Fila blir **ikkje** skriven om meldingane er dei same. Nettlesaren sjekkar fila kvart 3. minutt medan sida er open (ETag/revalidering), og med ein gong når fana blir synleg att.
 - Rutetabell 1136+1135 og korrespondansar (inkl. 133): last ned att **berre når tabellen er endra**. Nettlesaren viser sist lagra tabell med ein gong og oppdaterer i bakgrunnen:
 
 ```bash

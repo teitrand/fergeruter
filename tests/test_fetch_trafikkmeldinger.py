@@ -285,6 +285,24 @@ class FetchTests(unittest.TestCase):
             self.assertTrue(data["messages"][0]["isRoute1136"])
             self.assertIn("fjord1.no", data["source"])
 
+    def test_write_skipped_when_messages_unchanged(self):
+        messages = [
+            {
+                "id": "1",
+                "heading": "Standal-Trandal",
+                "text": "normal drift",
+                "isLocal": True,
+            }
+        ]
+        first = mod.build_payload(messages, fetched_at="2026-09-03T00:00:00+00:00")
+        second = mod.build_payload(messages, fetched_at="2026-09-03T00:05:00+00:00")
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "trafikkmeldinger.json"
+            self.assertTrue(mod.write_if_changed(first, path))
+            self.assertFalse(mod.write_if_changed(second, path))
+            stored = json.loads(path.read_text(encoding="utf-8"))
+            self.assertEqual(stored["fetchedAt"], "2026-09-03T00:00:00+00:00")
+
 
 if __name__ == "__main__":
     unittest.main()
