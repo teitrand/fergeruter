@@ -21,6 +21,17 @@ const wednesday = [
   leg("Trandal", "Sæbø", "08:00:00", "08:30:00"),
 ];
 
+test("seglingstekst har destinasjon i alle språk", () => {
+  setLang("nn");
+  assert.equal(t("sailing.route", { from: "Standal", to: "Trandal" }), "Standal → Trandal");
+  assert.equal(t("sailing.arrival", { time: "07:00" }), "Ankomst 07:00");
+  setLang("en");
+  assert.equal(t("sailing.departure", { time: "06:45" }), "Departure 06:45");
+  setLang("de");
+  assert.equal(t("sailing.arrival", { time: "07:00" }), "Ankunft 07:00");
+  setLang("nn");
+});
+
 test("same i18n keys in nn, en and de", () => {
   const nn = stringKeys();
   assert.ok(nn.length > 50);
