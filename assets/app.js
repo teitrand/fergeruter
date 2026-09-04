@@ -1194,7 +1194,7 @@ function renderNextSummary(legs) {
   const rows = [
     {
       time: depHit.leg.departure,
-      name: t("next.fromTo", { from: depHit.leg.from, to: depHit.leg.to }),
+      name: t("sailing.route", { from: depHit.leg.from, to: depHit.leg.to }),
       prefix: depHit.prefix,
       live,
       leg: depHit.leg,
