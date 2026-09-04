@@ -1333,35 +1333,58 @@ function signalNote(leg, live) {
   return note;
 }
 
-function departureRow(leg, past, index) {
-  const row = el("div", `stop stop-dep${past ? " is-past" : ""}`);
-  row.append(el("span", "stop-time", hhmm(leg.departure)));
-  const body = el("span", "stop-body");
-  const head = el("span", "stop-head");
-  head.append(el("span", "stop-name", t("next.from", { from: leg.from })));
-  if (leg.signal) head.append(el("span", "stop-tag", t("signal.onRequest")));
-  body.append(head);
-  const note = signalNote(leg, isToday());
-  if (note) body.append(note);
-  const connection = connectionNote(index, "dep", leg);
-  if (connection) body.append(el("span", "stop-note stop-conn", connection));
-  row.append(body);
-  const remaining = past ? t("gone") : isToday() ? countdown(leg.departure) : "";
-  const remainingNode = el("span", "stop-state", remaining);
-  if (isToday()) remainingNode.dataset.countdown = leg.departure;
-  row.append(remainingNode);
-  return row;
+function arrivingAtFilter(leg) {
+  const quay = state.stopFilter;
+  return Boolean(quay && leg.to === quay && leg.from !== quay);
 }
 
-function arrivalRow(leg, past, index) {
-  const row = el("div", `stop stop-arr${past ? " is-past" : ""}`);
-  row.append(el("span", "stop-time", hhmm(leg.arrival)));
+function sailingAt(leg) {
+  const time = arrivingAtFilter(leg) && leg.arrival ? leg.arrival : leg.departure;
+  return clockMinutes(time);
+}
+
+function sailingDoneAt(event) {
+  if (event.kind !== "dep" || !event.leg) return event.at;
+  const leg = event.leg;
+  if (arrivingAtFilter(leg) && leg.arrival) return clockMinutes(leg.arrival);
+  if (state.stopFilter && state.stopFilter === leg.from && leg.from !== leg.to) {
+    return clockMinutes(leg.departure);
+  }
+  if (leg.arrival) return clockMinutes(leg.arrival);
+  return event.at;
+}
+
+function sailingPrimaryTime(leg) {
+  return arrivingAtFilter(leg) && leg.arrival ? leg.arrival : leg.departure;
+}
+
+function departureRow(leg, past, connections) {
+  const primary = sailingPrimaryTime(leg);
+  const row = el("div", `stop stop-dep${past ? " is-past" : ""}`);
+  row.append(el("span", "stop-time", hhmm(primary)));
   const body = el("span", "stop-body");
-  body.append(el("span", "stop-name", t("next.arrival", { to: leg.to })));
-  const connection = connectionNote(index, "arr", leg);
-  if (connection) body.append(el("span", "stop-note stop-conn", connection));
+  const head = el("span", "stop-head");
+  head.append(el("span", "stop-name", t("sailing.route", { from: leg.from, to: leg.to })));
+  if (leg.signal) head.append(el("span", "stop-tag", t("signal.onRequest")));
+  body.append(head);
+  if (showArrivals()) {
+    const extra = arrivingAtFilter(leg)
+      ? t("sailing.departure", { time: hhmm(leg.departure) })
+      : t("sailing.arrival", { time: hhmm(leg.arrival) });
+    body.append(el("span", "stop-note stop-eta", extra));
+  }
+  const note = signalNote(leg, isToday());
+  if (note) body.append(note);
+  const depConn = connectionNote(connections, "dep", leg);
+  if (depConn) body.append(el("span", "stop-note stop-conn", depConn));
+  const arrConn = connectionNote(connections, "arr", leg);
+  if (arrConn) body.append(el("span", "stop-note stop-conn", arrConn));
   row.append(body);
-  row.append(el("span", "stop-state", ""));
+  const departed = isToday() && hasPassed(primary);
+  const remaining = past || departed ? t("gone") : isToday() ? countdown(primary) : "";
+  const remainingNode = el("span", "stop-state", remaining);
+  if (isToday()) remainingNode.dataset.countdown = primary;
+  row.append(remainingNode);
   return row;
 }
 
@@ -1442,19 +1465,11 @@ function buildEvents(legs, connections) {
     if (isVisibleDeparture(leg) && !seenDep.has(depKey)) {
       seenDep.add(depKey);
       events.push({
-        at: clockMinutes(leg.departure),
+        at: sailingAt(leg),
         kind: "dep",
-        quays: [leg.from],
+        quays: [leg.from, leg.to],
         leg,
         build: (past) => departureRow(leg, past, connections),
-      });
-    }
-    if (showArrivals()) {
-      events.push({
-        at: clockMinutes(leg.arrival),
-        kind: "arr",
-        quays: [leg.to],
-        build: (past) => arrivalRow(leg, past, connections),
       });
     }
     const next = legs[index + 1];
@@ -1648,7 +1663,7 @@ function timelineEventIsPast(event, events, now = nowMinutes()) {
   if (event.kind === "split") {
     return !events.some((item) => item.kind !== "split" && item.kind !== "status" && item.at > now);
   }
-  return event.at <= now;
+  return sailingDoneAt(event) <= now;
 }
 
 function keepTimelineEvent(event, events, now = nowMinutes()) {
@@ -1657,12 +1672,12 @@ function keepTimelineEvent(event, events, now = nowMinutes()) {
   if (event.kind === "split") {
     return events.some((item) => item.kind !== "split" && item.kind !== "status" && item.at > now);
   }
-  return event.at > now;
+  return sailingDoneAt(event) > now;
 }
 
 function pastDepartureCount(events, now = nowMinutes()) {
   if (!isToday()) return 0;
-  return events.filter((event) => event.kind === "dep" && event.at <= now).length;
+  return events.filter((event) => event.kind === "dep" && sailingDoneAt(event) <= now).length;
 }
 
 /** Knappen ligg utanfor lista, så minuttoppdateringa ikkje stel fokus. */
@@ -1727,7 +1742,8 @@ function patchLiveClock() {
   document.querySelectorAll("[data-countdown]").forEach((node) => {
     const time = node.dataset.countdown;
     const past = node.closest(".is-past");
-    node.textContent = past ? t("gone") : time && isToday() ? countdown(time) : "";
+    node.textContent =
+      past || (time && hasPassed(time)) ? t("gone") : time && isToday() ? countdown(time) : "";
   });
   document.querySelectorAll("[data-deadline]").forEach((node) => {
     const deadlineClock = node.dataset.deadline;
