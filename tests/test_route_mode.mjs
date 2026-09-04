@@ -564,15 +564,18 @@ test("appen viser same Frå-tid som kombirute-tabellen for alle daggrupper", () 
   }
 });
 
-test("val kan skjule ankomsttider", () => {
+test("val kan skjule ankomsttider utan å miste destinasjon", () => {
   useKombi();
   const legs = legsForDate(WEEKDAY);
   assert.equal(showArrivals(), true);
-  assert.ok(buildEvents(legs, null).some((event) => event.kind === "arr"));
+  const shown = buildEvents(legs, null);
+  assert.ok(shown.every((event) => event.kind !== "arr"));
+  assert.ok(shown.filter((event) => event.kind === "dep").every((event) => event.quays.length === 2));
   setTestState({ hideArrivals: true });
   assert.equal(showArrivals(), false);
-  assert.ok(buildEvents(legs, null).every((event) => event.kind !== "arr"));
-  assert.ok(buildEvents(legs, null).some((event) => event.kind === "dep"));
+  const hidden = buildEvents(legs, null);
+  assert.ok(hidden.every((event) => event.kind !== "arr"));
+  assert.ok(hidden.filter((event) => event.kind === "dep").every((event) => event.quays.length === 2));
 });
 
 test("valet om ankomsttider vert hugsa", () => {
@@ -641,10 +644,10 @@ test("kombirute viser alle ankomstar frå overfartstid", () => {
       .map((event) => `${event.quays[0]}|${event.at}`);
     assert.deepEqual([...new Set(deps)].sort(), [...fromKeys].sort(), kind);
     const expectedArr = new Set(legs.map((leg) => `${leg.to}|${clockMin(leg.arrival)}`));
-    const arrs = events
-      .filter((event) => event.kind === "arr")
-      .map((event) => `${event.quays[0]}|${event.at}`);
-    assert.deepEqual([...new Set(arrs)].sort(), [...expectedArr].sort(), kind);
+    const dests = events
+      .filter((event) => event.kind === "dep")
+      .map((event) => `${event.leg.to}|${clockMin(event.leg.arrival)}`);
+    assert.deepEqual([...new Set(dests)].sort(), [...expectedArr].sort(), kind);
     for (const leg of legs) {
       const key = `${leg.from}–${leg.to}`;
       const sailing = kombi.crossingMinutes[key];

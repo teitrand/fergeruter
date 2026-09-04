@@ -557,6 +557,10 @@ h2.day-label {
 
 .stop-dep .stop-name { font-weight: 600; }
 
+.stop-eta {
+  font-variant-numeric: tabular-nums;
+}
+
 .stop-arr {
   color: var(--muted);
   font-size: 0.92rem;
