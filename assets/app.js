@@ -1216,7 +1216,12 @@ function renderNextSummary(legs) {
 
   const item = el("div", "next-item");
   for (const row of rows) item.append(buildNextRow(row));
-  root.append(item);
+  const heading = el(
+    "p",
+    "next-kicker",
+    quay ? t("next.headingFrom", { quay }) : t("next.heading")
+  );
+  root.append(heading, item);
 }
 
 /**
@@ -1633,7 +1638,7 @@ function renderLedeStatus() {
     );
   }
   lede.hidden = false;
-  lede.textContent = `${parts.join(". ")}.`;
+  lede.textContent = parts.length ? `${parts.join(". ")}.` : t("lede.intro");
   renderPositionNote();
 }
 
@@ -1820,6 +1825,29 @@ function applyMessageFilter(messages) {
   return local;
 }
 
+function localIssueCount(messages = validMessages(state.messages?.messages || [])) {
+  return messages.filter((msg) => msg.isLocal && msg.severity !== "normal").length;
+}
+
+function renderIssueJump() {
+  const node = document.getElementById("issue-jump");
+  if (!node) return;
+  const count = localIssueCount();
+  if (!count) {
+    node.hidden = true;
+    node.replaceChildren();
+    return;
+  }
+  node.hidden = false;
+  const link = el(
+    "a",
+    "issue-jump-link",
+    count === 1 ? t("issues.jumpOne") : t("issues.jumpMany", { n: count })
+  );
+  link.href = "#messages-panel";
+  node.replaceChildren(link);
+}
+
 function renderMessages() {
   const root = document.getElementById("messages");
   const meta = document.getElementById("messages-meta");
@@ -1829,6 +1857,7 @@ function renderMessages() {
   if (!state.messages) {
     panel.hidden = true;
     layout.classList.add("is-single");
+    renderIssueJump();
     return;
   }
   const all = validMessages(state.messages.messages || []);
@@ -1836,6 +1865,7 @@ function renderMessages() {
   const hasLocal = all.some((msg) => msg.isLocal);
   panel.hidden = !hasLocal;
   layout.classList.toggle("is-single", !hasLocal);
+  renderIssueJump();
   if (!hasLocal) return;
   const filtered = applyMessageFilter(all);
   meta.textContent = t("messages.fetched", { when: formatDateTime(state.messages.fetchedAt) });
@@ -2414,6 +2444,7 @@ export {
   liveBlockedUntil,
   liveFetchUrls,
   liveStatus,
+  localIssueCount,
   messageTimeLines,
   pastDepartureCount,
   messagesFingerprint,

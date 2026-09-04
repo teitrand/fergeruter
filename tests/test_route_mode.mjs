@@ -31,6 +31,7 @@ import {
   writeCachedTimetable,
   messagesFingerprint,
   messagesUrl,
+  localIssueCount,
 } from "../assets/app.js";
 
 const ruter = JSON.parse(readFileSync(new URL("../data/ruter.json", import.meta.url), "utf8"));
@@ -511,6 +512,19 @@ test("sida har ikkje statusbanner over innhaldet", () => {
   const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
   assert.doesNotMatch(html, /id="status-banner"/);
   assert.doesNotMatch(html, /class="status-banner"/);
+});
+
+test("avvikslenke tel berre lokale avvik, ikkje normal drift", () => {
+  setTestState({
+    messages: {
+      messages: [
+        { isLocal: true, severity: "cancelled" },
+        { isLocal: true, severity: "normal" },
+        { isLocal: false, severity: "delay" },
+      ],
+    },
+  });
+  assert.equal(localIssueCount(), 1);
 });
 
 test("?rute= verkar berre på /dev/ og localhost", () => {

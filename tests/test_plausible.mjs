@@ -44,11 +44,21 @@ test("sida har tilbakemeldingsdialog", () => {
 test("header har ikkje ferjegrafikk mellom kaiene", () => {
   assert.doesNotMatch(html, /fjord-track|fjord-ferry|ferje\.png|kai-venstre|kai-hogre/);
   assert.match(html, /id="lede-status"/);
+  assert.match(html, /data-i18n="lede.intro"/);
+  assert.doesNotMatch(html, /id="lede-status"[^>]*\bhidden\b/);
+});
+
+test("seglingsplan kjem føre meldingar, med kai-label og avvikslenke", () => {
+  assert.match(html, /href="#timetable-panel"/);
+  assert.ok(html.indexOf('id="timetable-panel"') < html.indexOf('id="messages-panel"'));
+  assert.match(html, /id="stop-label"/);
+  assert.match(html, /id="issue-jump"/);
+  assert.doesNotMatch(html, /id="status-banner"/);
 });
 
 test("sida har den dekorative stiplede streken øverst", () => {
   assert.match(html, /class="skyline"/);
-  assert.match(html, /assets\/styles\.css\?v=28/);
+  assert.match(html, /assets\/styles\.css\?v=29/);
   const css = readFileSync(new URL("../assets/styles.css", import.meta.url), "utf8");
   assert.match(css, /\.skyline\s*\{[^}]*repeating-linear-gradient/s);
   assert.match(css, /safe-area-inset-top/);
@@ -56,7 +66,7 @@ test("sida har den dekorative stiplede streken øverst", () => {
   assert.doesNotMatch(css, /1\.05fr 0\.95fr/);
   assert.doesNotMatch(css, /@media \(min-width: 860px\)/);
   const sw = readFileSync(new URL("../sw.js", import.meta.url), "utf8");
-  assert.match(sw, /fergeruter-dev-v28/);
+  assert.match(sw, /fergeruter-dev-v29/);
   assert.match(sw, /function isTimetableJson/);
   assert.match(sw, /function isMessagesJson/);
   assert.match(sw, /staleWhileRevalidate\(request,\s*\{\s*notify: true/);

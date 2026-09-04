@@ -186,6 +186,9 @@ h1, h2, h3 {
   margin: 0.2rem 0 0;
   color: #d7eeea;
   line-height: 1.45;
+  font-size: 1.02rem;
+  font-weight: 500;
+  max-width: 42rem;
 }
 
 .layout {
@@ -347,14 +350,28 @@ h2.day-label {
 }
 
 .next-summary {
-  margin-bottom: 1rem;
+  position: sticky;
+  top: env(safe-area-inset-top, 0px);
+  z-index: 4;
+  margin: 0 0 0.85rem;
+  padding: 0.1rem 0 0.7rem;
+  background: var(--paper);
+}
+
+.next-kicker {
+  margin: 0 0 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ok);
 }
 
 .next-item {
-  border: 1px solid var(--line);
+  border: 1px solid #bcdcd2;
   border-radius: 14px;
-  padding: 0.55rem 0.75rem;
-  background: #fff;
+  padding: 0.65rem 0.8rem;
+  background: #e7f3ef;
   display: flex;
   flex-direction: column;
   gap: 0.45rem;
@@ -385,7 +402,7 @@ h2.day-label {
 
 .next-time {
   font-family: Fraunces, Georgia, serif;
-  font-size: 1.25rem;
+  font-size: 1.4rem;
   line-height: 1.15;
   font-variant-numeric: tabular-nums;
 }
@@ -491,13 +508,14 @@ h2.day-label {
   opacity: 0.78;
 }
 
+.stop-row,
 .view-row,
 .conn-row {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 0.5rem;
-  margin: -0.4rem 0 0.9rem;
+  margin: -0.25rem 0 0.75rem;
 }
 
 .conn-label {
@@ -507,6 +525,7 @@ h2.day-label {
   color: var(--muted);
 }
 
+.stop-row .filters,
 .view-row .filters,
 .conn-row .filters { margin-bottom: 0; }
 
@@ -516,6 +535,35 @@ h2.day-label {
 }
 
 .stop-conn { color: var(--info); }
+
+.issue-jump {
+  margin: 0 0 0.75rem;
+}
+
+.issue-jump-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.32rem 0.75rem;
+  border-radius: 999px;
+  background: #fff6f4;
+  border: 1px solid #f8d4d0;
+  color: var(--stop);
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.issue-jump-link:hover,
+.issue-jump-link:focus-visible {
+  background: #f8d4d0;
+  outline: none;
+}
+
+#messages-panel {
+  scroll-margin-top: 1rem;
+}
 
 .reveal {
   align-self: flex-start;
