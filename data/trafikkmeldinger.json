@@ -1,6 +1,6 @@
 {
   "source": "https://www.fjord1.no/trafikkmeldingar",
-  "fetchedAt": "2026-09-05T12:45:19.988979+00:00",
+  "fetchedAt": "2026-09-05T17:31:46.017303+00:00",
   "messages": [
     {
       "id": "RG9tYWluQ29udGVudDoyMTY5MTQ3OQ==",
@@ -113,26 +113,6 @@
       "connectionNumber": 1045,
       "important": false,
       "severity": "normal",
-      "isRoute1136": false,
-      "isLocal": false,
-      "isRouteControl": false,
-      "routeMode": "1136",
-      "routeWindow": null,
-      "activateAt": null,
-      "vessel": null,
-      "routeSwitch": null
-    },
-    {
-      "id": "RG9tYWluQ29udGVudDoyMTY3NzU3MQ==",
-      "heading": "Jondal - Tørvikbygd",
-      "text": "Rute 1026 Jondal - Tørvikbygd: B-ruta er fortsatt innstilt. Vi jobber med å finne en løsning. Mvh Fjord1 på vegner av Skyss.",
-      "publishedAt": "2026-09-04T19:00:44+02:00",
-      "validFrom": "2026-09-04T17:00:44+00:00",
-      "validTo": "2026-09-05T16:59:53+00:00",
-      "countyNumber": 12,
-      "connectionNumber": 1143,
-      "important": false,
-      "severity": "cancelled",
       "isRoute1136": false,
       "isLocal": false,
       "isRouteControl": false,
