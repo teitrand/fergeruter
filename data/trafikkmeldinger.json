@@ -1,6 +1,6 @@
 {
   "source": "https://www.fjord1.no/trafikkmeldingar",
-  "fetchedAt": "2026-09-07T15:55:18.045118+00:00",
+  "fetchedAt": "2026-09-07T19:26:47.486354+00:00",
   "messages": [
     {
       "id": "RG9tYWluQ29udGVudDoyMTcwOTc1MA==",
@@ -113,26 +113,6 @@
       "connectionNumber": 1143,
       "important": false,
       "severity": "capacity",
-      "isRoute1136": false,
-      "isLocal": false,
-      "isRouteControl": false,
-      "routeMode": "1136",
-      "routeWindow": null,
-      "activateAt": null,
-      "vessel": null,
-      "routeSwitch": null
-    },
-    {
-      "id": "RG9tYWluQ29udGVudDoyMTcwNTMyOA==",
-      "heading": "Jondal - Tørvikbygd",
-      "text": "Rute 1026 Jondal - Tørvikbygd: Det blir normal drift i b-ruta med MF Gulen i morgen (7 september). Mvh Fjord1 på vegner av Skyss.",
-      "publishedAt": "2026-09-06T19:56:15+02:00",
-      "validFrom": "2026-09-06T17:56:15+00:00",
-      "validTo": "2026-09-07T17:55:35+00:00",
-      "countyNumber": 12,
-      "connectionNumber": 1143,
-      "important": false,
-      "severity": "normal",
       "isRoute1136": false,
       "isLocal": false,
       "isRouteControl": false,
