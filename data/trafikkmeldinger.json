@@ -1,6 +1,6 @@
 {
   "source": "https://www.fjord1.no/trafikkmeldingar",
-  "fetchedAt": "2026-09-07T19:26:47.486354+00:00",
+  "fetchedAt": "2026-09-08T09:05:56.513017+00:00",
   "messages": [
     {
       "id": "RG9tYWluQ29udGVudDoyMTcwOTc1MA==",
@@ -93,26 +93,6 @@
       "connectionNumber": 1141,
       "important": false,
       "severity": "info",
-      "isRoute1136": false,
-      "isLocal": false,
-      "isRouteControl": false,
-      "routeMode": "1136",
-      "routeWindow": null,
-      "activateAt": null,
-      "vessel": null,
-      "routeSwitch": null
-    },
-    {
-      "id": "RG9tYWluQ29udGVudDoyMTcwODY0Mg==",
-      "heading": "Jondal - Tørvikbygd",
-      "text": "Rute 1026 Jondal - Tørvikbygd: Grunna transport av farleg last vert det redusert kapasitet (maks. 12 passasjerar) på avgang frå Tørvikbygd kl. 10:20. Mvh Fjord1 på vegner av Skyss.",
-      "publishedAt": "2026-09-07T09:52:59+02:00",
-      "validFrom": "2026-09-07T07:52:59+00:00",
-      "validTo": "2026-09-08T07:52:46+00:00",
-      "countyNumber": 12,
-      "connectionNumber": 1143,
-      "important": false,
-      "severity": "capacity",
       "isRoute1136": false,
       "isLocal": false,
       "isRouteControl": false,
