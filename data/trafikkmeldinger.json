@@ -1,6 +1,6 @@
 {
   "source": "https://www.fjord1.no/trafikkmeldingar",
-  "fetchedAt": "2026-09-09T17:15:38.228837+00:00",
+  "fetchedAt": "2026-09-10T06:17:16.293609+00:00",
   "messages": [
     {
       "id": "RG9tYWluQ29udGVudDoyMTcyMjIyOA==",
@@ -131,26 +131,6 @@
       "validTo": "2026-09-10T06:41:33+00:00",
       "countyNumber": 15,
       "connectionNumber": 251,
-      "important": false,
-      "severity": "cancelled",
-      "isRoute1136": false,
-      "isLocal": false,
-      "isRouteControl": false,
-      "routeMode": "1136",
-      "routeWindow": null,
-      "activateAt": null,
-      "vessel": null,
-      "routeSwitch": null
-    },
-    {
-      "id": "RG9tYWluQ29udGVudDoyMTcyMDA5Mg==",
-      "heading": "Stranda-Liabygda",
-      "text": "Rute 1053 Stranda - Liabygda: Grunna driftsproblem vert sambandet innstilt inntil vidare.",
-      "publishedAt": "2026-09-09T07:23:45+02:00",
-      "validFrom": "2026-09-09T05:23:45+00:00",
-      "validTo": "2026-09-10T05:22:18+00:00",
-      "countyNumber": 15,
-      "connectionNumber": 242,
       "important": false,
       "severity": "cancelled",
       "isRoute1136": false,
