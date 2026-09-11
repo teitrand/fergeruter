@@ -193,6 +193,17 @@ class RouteModeTests(unittest.TestCase):
             mod.vessel_from_text("M/F Geiranger og M/F Kvernes kan brukast.")
         )
 
+    def test_nynorsk_weekday_range_is_read(self):
+        text = (
+            "På grunn av planlagt verkstedopphald blir det utført kombinert rute "
+            "i sambandet frå måndag 14.09 til og med fredag 18.09."
+        )
+        self.assertEqual(
+            mod.window_from_text(text, "2026-09-11T10:45:00+02:00"),
+            {"from": "2026-09-14", "to": "2026-09-18"},
+        )
+        self.assertEqual(mod.route_mode_from_text(text), "kombi")
+
     def test_date_range_is_read(self):
         text = (
             "Grunna verkstadopphald vert det køyrt kombinert rute frå 14.06 til 18.06. "
