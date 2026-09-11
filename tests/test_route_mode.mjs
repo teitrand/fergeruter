@@ -87,6 +87,13 @@ test("datoar i meldinga styrer når kombiruta gjeld", () => {
     from: "2026-06-14",
     to: "2026-06-18",
   });
+  assert.deepEqual(
+    windowFromText(
+      "utført kombinert rute i sambandet frå måndag 14.09 til og med fredag 18.09.",
+      "2026-09-11T10:45:00+02:00"
+    ),
+    { from: "2026-09-14", to: "2026-09-18" }
+  );
   assert.equal(
     routeModeFromMessages(messages, Date.parse("2026-06-12T10:00:00+02:00"), "2026-06-12"),
     "1136"
