@@ -7,6 +7,7 @@ import {
   ferryStatus,
   homeQuay,
   isLiveFresh,
+  keepTimelineEvent,
   liveBlockedUntil,
   liveFetchUrls,
   liveStatus,
@@ -15,6 +16,7 @@ import {
   nextOverview,
   noteLiveFailure,
   parseVehicleMonitoring,
+  pastDepartureCount,
   quayPlace,
   resetTestState,
   setTestState,
@@ -195,23 +197,46 @@ test("liveStatus krev fersk data", () => {
   assert.doesNotMatch(status.text, /Sæbø Trandal Standal/);
 });
 
-test("ankomst kjem før avgang når klokka er den same", () => {
-  const events = buildEvents(wednesday, null).sort(compareTimelineEvents);
-  const sameTime = events.filter((event) => event.at === 15 * 60 + 25);
-  assert.deepEqual(
-    sameTime.map((event) => event.kind),
-    ["arr", "dep"]
-  );
-  assert.deepEqual(sameTime.map((event) => event.quays[0]), ["Sæbø", "Sæbø"]);
+test("segling viser destinasjon og båe kaier, utan eiga ankomst-rad", () => {
+  const events = buildEvents(wednesday, null);
+  assert.ok(events.every((event) => event.kind !== "arr"));
+  const first = events.find((event) => event.kind === "dep");
+  assert.deepEqual(first.quays, ["Standal", "Trandal"]);
+  assert.equal(first.leg.to, "Trandal");
+  assert.equal(first.at, 7 * 60 + 40);
 });
 
-test("flytting kjem etter ankomst, før neste avgang", () => {
-  const events = buildEvents(wednesday, null).sort(compareTimelineEvents);
-  const afterLast = events.filter((event) => event.at === 19 * 60 + 45);
-  assert.deepEqual(
-    afterLast.map((event) => event.kind),
-    ["arr", "transfer"]
+test("ved valt kai står innkomst på ankomsttid", () => {
+  setTestState({ stopFilter: "Sæbø" });
+  const events = buildEvents(wednesday, null);
+  const inbound = events.find(
+    (event) => event.kind === "dep" && event.leg.from === "Trandal" && event.leg.to === "Sæbø"
   );
+  const outbound = events.find(
+    (event) => event.kind === "dep" && event.leg.from === "Sæbø" && event.leg.to === "Trandal"
+  );
+  assert.equal(inbound.at, 8 * 60 + 30);
+  assert.equal(outbound.at, 8 * 60 + 35);
+});
+
+test("flytting kjem etter siste segling", () => {
+  const events = buildEvents(wednesday, null).sort(compareTimelineEvents);
+  const lastDep = events.filter((event) => event.kind === "dep").at(-1);
+  const lastTransfer = events.filter((event) => event.kind === "transfer").at(-1);
+  assert.ok(lastDep);
+  assert.ok(lastTransfer);
+  assert.equal(lastTransfer.at, 19 * 60 + 45);
+  assert.ok(lastTransfer.at >= lastDep.at);
+});
+
+test("segling er synleg til ankomst når alle stopp er valt", () => {
+  const trip = [leg("Standal", "Trandal", "07:40:00", "07:55:00")];
+  const events = buildEvents(trip, null);
+  const dep = events.find((event) => event.kind === "dep");
+  assert.equal(keepTimelineEvent(dep, events, 7 * 60 + 50), true);
+  assert.equal(keepTimelineEvent(dep, events, 7 * 60 + 55), false);
+  assert.equal(pastDepartureCount(events, 7 * 60 + 50), 0);
+  assert.equal(pastDepartureCount(events, 7 * 60 + 55), 1);
 });
 
 test("neste avgang har destinasjon, ankomst er på destinasjonen", () => {

@@ -1,13 +1,14 @@
 const IS_DEV = self.location.pathname.includes("/dev/");
-const CACHE = IS_DEV ? "fergeruter-dev-v29" : "fergeruter-v29";
+const CACHE = IS_DEV ? "fergeruter-dev-v30" : "fergeruter-v30";
 const PRECACHE = [
   "./",
   "./index.html",
   "./manifest.webmanifest",
   "./assets/app.js",
+  "./assets/app.js?v=30",
   "./assets/i18n.js",
   "./assets/styles.css",
-  "./assets/styles.css?v=29",
+  "./assets/styles.css?v=30",
   "./assets/favicon.svg",
   "./assets/icons/icon-192.png",
   "./assets/icons/icon-512.png",
