@@ -1,6 +1,6 @@
 {
   "source": "https://www.fjord1.no/trafikkmeldingar",
-  "fetchedAt": "2026-09-11T17:15:55.345871+00:00",
+  "fetchedAt": "2026-09-11T21:55:46.430720+00:00",
   "messages": [
     {
       "id": "RG9tYWluQ29udGVudDoyMTczNDc0MA==",
@@ -159,26 +159,6 @@
       "connectionNumber": 1141,
       "important": false,
       "severity": "info",
-      "isRoute1136": false,
-      "isLocal": false,
-      "isRouteControl": false,
-      "routeMode": "1136",
-      "routeWindow": null,
-      "activateAt": null,
-      "vessel": null,
-      "routeSwitch": null
-    },
-    {
-      "id": "RG9tYWluQ29udGVudDoyMTcyODQwMQ==",
-      "heading": "Hareid-Sulesund",
-      "text": "Rute 1068 Hareid - Sulesund: Grunna transport av farleg last vert det redusert kapasitet (maks. 12 passasjerar) på avgang frå Sulesund kl. 10:50. 11.09.26",
-      "publishedAt": "2026-09-10T22:43:24+02:00",
-      "validFrom": "2026-09-10T20:43:24+00:00",
-      "validTo": "2026-09-11T20:42:42+00:00",
-      "countyNumber": 15,
-      "connectionNumber": 6,
-      "important": false,
-      "severity": "capacity",
       "isRoute1136": false,
       "isLocal": false,
       "isRouteControl": false,
