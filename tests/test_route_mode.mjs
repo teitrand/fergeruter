@@ -87,6 +87,13 @@ test("datoar i meldinga styrer når kombiruta gjeld", () => {
     from: "2026-06-14",
     to: "2026-06-18",
   });
+  assert.deepEqual(
+    windowFromText(
+      "På grunn av planlagt verkstedopphald blir det utført kombinert rute i sambandet frå måndag 14.09 til og med fredag 18.09.",
+      "2026-09-11T10:45:00+02:00"
+    ),
+    { from: "2026-09-14", to: "2026-09-18" }
+  );
   assert.equal(
     routeModeFromMessages(messages, Date.parse("2026-06-12T10:00:00+02:00"), "2026-06-12"),
     "1136"
@@ -97,6 +104,34 @@ test("datoar i meldinga styrer når kombiruta gjeld", () => {
   );
   assert.equal(
     routeModeFromMessages(messages, Date.parse("2026-06-19T10:00:00+02:00"), "2026-06-19"),
+    "1136"
+  );
+});
+
+test("nynorsk måndag i datovindauge startar ikkje kombi før 14.09", () => {
+  const messages = [
+    {
+      isLocal: true,
+      isRouteControl: true,
+      heading: "Leknes-Sæbø",
+      text:
+        "Rute 1135 Lekneset - Sæbø: På grunn av planlagt verkstedopphald blir det utført kombinert rute i sambandet frå måndag 14.09 til og med fredag 18.09. Det blir MF Geiranger i rute.",
+      routeMode: "kombi",
+      publishedAt: "2026-09-11T10:45:19+02:00",
+      validFrom: "2026-09-11T08:45:00+00:00",
+      validTo: "2026-09-18T21:55:00+00:00",
+    },
+  ];
+  assert.equal(
+    routeModeFromMessages(messages, Date.parse("2026-09-11T12:00:00+02:00"), "2026-09-11"),
+    "1136"
+  );
+  assert.equal(
+    routeModeFromMessages(messages, Date.parse("2026-09-14T12:00:00+02:00"), "2026-09-14"),
+    "kombi"
+  );
+  assert.equal(
+    routeModeFromMessages(messages, Date.parse("2026-09-19T12:00:00+02:00"), "2026-09-19"),
     "1136"
   );
 });
