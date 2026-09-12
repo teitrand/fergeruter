@@ -7,7 +7,7 @@ import {
   feedbackMailto,
   track,
 } from "../assets/app.js";
-import { setLang } from "../assets/i18n.js";
+import { setLang } from "../assets/i18n.js?v=31";
 
 const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
 const app = readFileSync(new URL("../assets/app.js", import.meta.url), "utf8");
