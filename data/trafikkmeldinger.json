@@ -1,7 +1,27 @@
 {
   "source": "https://www.fjord1.no/trafikkmeldingar",
-  "fetchedAt": "2026-09-12T13:44:31.985075+00:00",
+  "fetchedAt": "2026-09-12T18:35:18.445237+00:00",
   "messages": [
+    {
+      "id": "RG9tYWluQ29udGVudDoyMTc0NjcwOA==",
+      "heading": "Oldeide-Måløy",
+      "text": "Rute 1039 Måløy - Oldeide: Det vert normal drift i sambandet kl. 20:35 frå Måløy. Mvh Fjord1 på vegner av Skyss.",
+      "publishedAt": "2026-09-12T19:32:08+02:00",
+      "validFrom": "2026-09-12T17:32:08+00:00",
+      "validTo": "2026-09-13T17:30:40+00:00",
+      "countyNumber": 14,
+      "connectionNumber": 669,
+      "important": false,
+      "severity": "normal",
+      "isRoute1136": false,
+      "isLocal": false,
+      "isRouteControl": false,
+      "routeMode": "1136",
+      "routeWindow": null,
+      "activateAt": null,
+      "vessel": null,
+      "routeSwitch": null
+    },
     {
       "id": "RG9tYWluQ29udGVudDoyMTc0NDE0Nw==",
       "heading": "Oldeide-Måløy",
