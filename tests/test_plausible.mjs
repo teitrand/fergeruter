@@ -7,7 +7,7 @@ import {
   feedbackMailto,
   track,
 } from "../assets/app.js";
-import { setLang } from "../assets/i18n.js";
+import { setLang } from "../assets/i18n.js?v=31";
 
 const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
 const app = readFileSync(new URL("../assets/app.js", import.meta.url), "utf8");
@@ -48,8 +48,9 @@ test("header har ikkje ferjegrafikk mellom kaiene", () => {
 
 test("sida har den dekorative stiplede streken øverst", () => {
   assert.match(html, /class="skyline"/);
-  assert.match(html, /assets\/styles\.css\?v=30/);
-  assert.match(html, /assets\/app\.js\?v=30/);
+  assert.match(html, /assets\/styles\.css\?v=31/);
+  assert.match(html, /assets\/app\.js\?v=31/);
+  assert.match(app, /from "\.\/i18n\.js\?v=31"/);
   const css = readFileSync(new URL("../assets/styles.css", import.meta.url), "utf8");
   assert.match(css, /\.skyline\s*\{[^}]*repeating-linear-gradient/s);
   assert.match(css, /safe-area-inset-top/);
@@ -57,7 +58,7 @@ test("sida har den dekorative stiplede streken øverst", () => {
   assert.doesNotMatch(css, /1\.05fr 0\.95fr/);
   assert.doesNotMatch(css, /@media \(min-width: 860px\)/);
   const sw = readFileSync(new URL("../sw.js", import.meta.url), "utf8");
-  assert.match(sw, /fergeruter-dev-v30/);
+  assert.match(sw, /fergeruter-dev-v31/);
   assert.match(sw, /function isTimetableJson/);
   assert.match(sw, /function isMessagesJson/);
   assert.match(sw, /staleWhileRevalidate\(request,\s*\{\s*notify: true/);
