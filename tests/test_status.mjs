@@ -5,6 +5,7 @@ import {
   compareTimelineEvents,
   delayMinutes,
   ferryStatus,
+  statusProgress,
   homeQuay,
   isLiveFresh,
   keepTimelineEvent,
@@ -76,6 +77,26 @@ test("på veg i ein passasjertur", () => {
   const status = ferryStatus(wednesday, 7 * 60 + 45, wednesday);
   assert.equal(status.text, "Ferja er på veg mot Trandal");
   assert.equal(status.underway, true);
+  assert.equal(status.from, 7 * 60 + 40);
+  assert.equal(status.until, 7 * 60 + 55);
+  assert.equal(status.progress, 5 / 15);
+});
+
+test("NO-status fyller tida mellom stopp, òg i liggetid og kort kai-opphald", () => {
+  assert.equal(statusProgress(10, 20, 15), 0.5);
+  assert.equal(statusProgress(10, 20, 8), 0);
+  assert.equal(statusProgress(10, 20, 30), 1);
+  assert.equal(statusProgress(10, 10, 10), null);
+  const wait = ferryStatus(wednesday, 7 * 60 + 57, wednesday);
+  assert.equal(wait.underway, undefined);
+  assert.equal(wait.progress, 2 / 5);
+  const stay = ferryStatus(wednesday, 11 * 60 + 50, wednesday);
+  assert.equal(stay.layover, true);
+  assert.equal(stay.progress, 0.5);
+  const before = ferryStatus(wednesday, 7 * 60 + 10, wednesday);
+  assert.equal(before.progress, undefined);
+  const done = ferryStatus(weekdayHome, 21 * 60, weekdayHome);
+  assert.equal(done.progress, undefined);
 });
 
 test("etter siste passasjertur til Valderøya går ho heim utan folk", () => {

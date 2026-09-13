@@ -950,6 +950,19 @@ function delayBit(minutes) {
   return "";
 }
 
+function statusProgress(from, until, now) {
+  if (!Number.isFinite(from) || !Number.isFinite(until) || !Number.isFinite(now)) return null;
+  const span = until - from;
+  if (span <= 0) return null;
+  return Math.min(1, Math.max(0, (now - from) / span));
+}
+
+function withSpan(status, from, until, now) {
+  const progress = statusProgress(from, until, now);
+  if (progress == null) return status;
+  return { ...status, from, until, progress };
+}
+
 function withSanntid(base, live) {
   const delay = delayBit(live.delayMinutes);
   const short = delay ? `${base}, ${delay}` : base;
@@ -971,12 +984,18 @@ function overnightStatus(last, home, now, allLegs) {
   const deadhead = minDeadheadMinutes(allLegs, last.to, home);
   const since = now - clockMinutes(last.arrival);
   if (deadhead != null && since < deadhead) {
-    return {
-      at: clockMinutes(last.arrival) + 0.5,
-      underway: true,
-      short: t("status.backEmpty", { home }),
-      text: t("status.backEmptyText", { to: last.to, home }),
-    };
+    const start = clockMinutes(last.arrival);
+    return withSpan(
+      {
+        at: start + 0.5,
+        underway: true,
+        short: t("status.backEmpty", { home }),
+        text: t("status.backEmptyText", { to: last.to, home }),
+      },
+      start,
+      start + deadhead,
+      now
+    );
   }
   if (deadhead == null) {
     return {
@@ -1022,39 +1041,63 @@ function ferryStatus(legs, now = nowMinutes(), allLegs = null) {
   for (let i = 0; i < legs.length; i += 1) {
     const leg = legs[i];
     if (now >= clockMinutes(leg.departure) && now < clockMinutes(leg.arrival)) {
-      return {
-        at: clockMinutes(leg.departure) + 0.5,
-        underway: true,
-        text: t("status.underwayTo", { dest: leg.to }),
-      };
+      const start = clockMinutes(leg.departure);
+      const end = clockMinutes(leg.arrival);
+      return withSpan(
+        {
+          at: start + 0.5,
+          underway: true,
+          text: t("status.underwayTo", { dest: leg.to }),
+        },
+        start,
+        end,
+        now
+      );
     }
     const next = legs[i + 1];
     if (next && now >= clockMinutes(leg.arrival) && now < clockMinutes(next.departure)) {
+      const start = clockMinutes(leg.arrival);
+      const end = clockMinutes(next.departure);
       const moving = !isCombinedTimetable() && leg.to !== next.from;
       if (moving) {
-        return {
-          at: clockMinutes(leg.arrival) + 0.5,
-          underway: true,
-          text: t("status.repositionTo", { quay: next.from }),
-        };
+        return withSpan(
+          {
+            at: start + 0.5,
+            underway: true,
+            text: t("status.repositionTo", { quay: next.from }),
+          },
+          start,
+          end,
+          now
+        );
       }
       const stay = layoverAfter(leg, next);
       if (stay) {
-        return {
-          at: clockMinutes(leg.arrival) + 0.5,
-          layover: true,
-          short: t("status.mooredAt", { quay: stay.quay }),
-          text: t("status.layoverAt", {
-            quay: stay.quay,
-            duration: durationText(stay.minutes),
-            time: hhmm(stay.until),
-          }),
-        };
+        return withSpan(
+          {
+            at: start + 0.5,
+            layover: true,
+            short: t("status.mooredAt", { quay: stay.quay }),
+            text: t("status.layoverAt", {
+              quay: stay.quay,
+              duration: durationText(stay.minutes),
+              time: hhmm(stay.until),
+            }),
+          },
+          start,
+          end,
+          now
+        );
       }
-      return {
-        at: clockMinutes(leg.arrival) + 0.5,
-        text: t("status.mooredAt", { quay: leg.to }),
-      };
+      return withSpan(
+        {
+          at: start + 0.5,
+          text: t("status.mooredAt", { quay: leg.to }),
+        },
+        start,
+        end,
+        now
+      );
     }
   }
   return null;
@@ -1442,6 +1485,17 @@ function transferRow(from, to, past) {
 function statusRow(status) {
   const kind = status.layover ? " is-layover" : status.underway ? " is-underway" : " is-moored";
   const row = el("div", `now${kind}`);
+  const progress = statusProgress(status.from, status.until, nowMinutes());
+  if (progress != null) {
+    row.classList.add("has-progress");
+    row.dataset.from = String(status.from);
+    row.dataset.until = String(status.until);
+    row.style.setProperty("--now-progress", `${Math.round(progress * 100)}%`);
+    const track = el("span", "now-track");
+    track.setAttribute("aria-hidden", "true");
+    track.append(el("span", "now-fill"));
+    row.append(track);
+  }
   row.append(el("span", "now-label", t("now")));
   row.append(el("span", "now-text", status.text));
   return row;
@@ -1800,7 +1854,17 @@ function liveStructureKey(events, now, status) {
   });
 }
 
+function patchNowProgress() {
+  const now = nowMinutes();
+  document.querySelectorAll(".now.has-progress").forEach((node) => {
+    const progress = statusProgress(Number(node.dataset.from), Number(node.dataset.until), now);
+    if (progress == null) return;
+    node.style.setProperty("--now-progress", `${Math.round(progress * 100)}%`);
+  });
+}
+
 function patchLiveClock() {
+  patchNowProgress();
   document.querySelectorAll("[data-countdown]").forEach((node) => {
     const time = node.dataset.countdown;
     const past = node.closest(".is-past");
@@ -2547,6 +2611,7 @@ export {
   feedbackMailto,
   ferryStatus,
   headingDay,
+  statusProgress,
   firstKnownQuay,
   homeQuay,
   isLiveFresh,
