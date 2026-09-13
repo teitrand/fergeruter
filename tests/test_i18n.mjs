@@ -10,7 +10,7 @@ import {
   stringKeys,
   stringsFor,
   t,
-} from "../assets/i18n.js?v=36";
+} from "../assets/i18n.js?v=37";
 
 function leg(from, to, departure, arrival, dates = ["2026-08-26"]) {
   return { from, to, departure, arrival, activeDates: dates };
@@ -24,7 +24,7 @@ const wednesday = [
 test("seglingstekst har destinasjon i alle språk", () => {
   setLang("nn");
   assert.equal(t("sailing.route", { from: "Standal", to: "Trandal" }), "Standal → Trandal");
-  assert.equal(t("sailing.arrival", { time: "07:00" }), "Ankomst 07:00");
+  assert.equal(t("sailing.cancelled"), "Innstilt");
   setLang("en");
   assert.equal(t("sailing.departure", { time: "06:45" }), "Departure 06:45");
   setLang("de");

@@ -238,6 +238,23 @@ class RouteModeTests(unittest.TestCase):
         self.assertIsNone(mod.switch_from_text(text))
         self.assertEqual(mod.activate_at_from_text(text), "14:50:00")
 
+    def test_listed_cancelled_sailings_do_not_switch_to_1135(self):
+        text = (
+            "FJORD1 Rute 1136 Standal-Trandal-Valderøya-Store Kalvøy (www.Fjord1.no):  "
+            "Grunna kviletidsbestemmelser og pålagt kvile til mannskapet vert "
+            "følgjande avgangar innstilt: 20:00 og 20:40 frå Standal, 20:20 og 21:00 frå Trandal"
+        )
+        self.assertTrue(mod.is_partial_cancel(text))
+        self.assertEqual(mod.classify(text), "cancelled")
+        self.assertEqual(mod.route_mode_from_text(text), "1136")
+        self.assertFalse(
+            mod.is_route_control("Standal-Trandal-Valderøya-Store Kalvøy", text, True)
+        )
+        self.assertEqual(
+            mod.route_mode_from_text("Rute 1136 Standal-Trandal er innstilt inntil vidare."),
+            "1135",
+        )
+
 
 class FetchTests(unittest.TestCase):
     def test_fetch_writes_json(self):

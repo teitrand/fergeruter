@@ -7,7 +7,7 @@ import {
   setLang,
   t,
   weekdays,
-} from "./i18n.js?v=36";
+} from "./i18n.js?v=37";
 
 const MESSAGES_URL = "data/trafikkmeldinger.json";
 const ROUTES_URL = "data/ruter.json";
@@ -32,6 +32,8 @@ const ALLOWED_MODES = new Set(["1136", "1135", "kombi"]);
 const CHOOSABLE_ROUTES = new Set(["1136", "1135"]);
 const NORMAL_RE = /normal drift/i;
 const CANCEL_RE = /innstilt|innstilling/i;
+const PARTIAL_CANCEL_RE =
+  /følgjande avgangar|avgangar innstilt|avgang(?:en|ar)?\s+(?:kl\.?|klokka)/i;
 const KOMBI_RE = /kombinasjon|kombirute|kombinert rute/i;
 const HAS_1135_RE = /\b1135\b/;
 const HAS_1136_RE = /\b1136\b/;
@@ -352,8 +354,54 @@ function is1049Only(heading, text) {
   return ONLY_1049_RE.test(blob) && !HJORUNDFJORD_RE.test(blob);
 }
 
+function isPartialCancel(text) {
+  const blob = text || "";
+  if (!CANCEL_RE.test(blob) && !/kanseller/i.test(blob)) return false;
+  return PARTIAL_CANCEL_RE.test(blob);
+}
+
+function cancelledSailingsFromText(text) {
+  const blob = String(text || "");
+  const found = [];
+  const groupRe =
+    /((?:\d{1,2}[:.]?\d{2})(?:\s+og\s+(?:\d{1,2}[:.]?\d{2}))*)\s+(?:frå|fra)\s+([^\s,.;:]+)/gi;
+  for (const group of blob.matchAll(groupRe)) {
+    const quay = quayPlace(group[2]);
+    if (!quay) continue;
+    for (const clock of group[1].matchAll(/\b(\d{1,2})[:.](\d{2})\b|\b(\d{4})\b/g)) {
+      const raw = clock[3] || `${clock[1]}:${clock[2]}`;
+      const time = parseClockToken(raw);
+      if (time) found.push({ time, from: quay });
+    }
+  }
+  return found;
+}
+
+function cancelledDepartureSet(messages = state.messages?.messages) {
+  const set = new Set();
+  for (const msg of validMessages(messages || [])) {
+    if (msg.isLocal === false) continue;
+    for (const item of cancelledSailingsFromText(messageBlob(msg))) {
+      set.add(`${item.from}|${item.time}`);
+    }
+  }
+  return set;
+}
+
+function isCancelledDeparture(leg, cancelled = cancelledDepartureSet()) {
+  if (!leg) return false;
+  return cancelled.has(`${quayPlace(leg.from)}|${leg.departure}`);
+}
+
+function runningLegs(legs) {
+  const cancelled = cancelledDepartureSet();
+  if (!cancelled.size) return legs;
+  return legs.filter((leg) => !isCancelledDeparture(leg, cancelled));
+}
+
 function isRouteControl(msg) {
   if (!msg) return false;
+  if (isPartialCancel(messageBlob(msg))) return false;
   if (msg.isRouteControl === true) return true;
   if (msg.isRouteControl === false) return false;
   const heading = msg.heading || "";
@@ -531,12 +579,15 @@ function modeFromText(text) {
   const has1136 = HAS_1136_RE.test(blob);
   if (hasNormal && hasCancel && !hasKombi) return "1136";
   if (hasKombi || (hasCancel && has1135 && has1136)) return "kombi";
-  if (hasCancel && has1136 && !has1135) return "1135";
+  if (hasCancel && has1136 && !has1135) {
+    return isPartialCancel(blob) ? "1136" : "1135";
+  }
   return "1136";
 }
 
 function messageMode(msg) {
   if (!msg) return "1136";
+  if (isPartialCancel(messageBlob(msg))) return "1136";
   return msg.routeMode || modeFromText(messageBlob(msg));
 }
 
@@ -1102,7 +1153,7 @@ function ferryStatus(legs, now = nowMinutes(), allLegs = null) {
 }
 
 function currentStatus(legs) {
-  const planned = ferryStatus(legs);
+  const planned = ferryStatus(runningLegs(legs));
   if (!isLiveFresh(state.live)) return planned;
   if (planned) {
     const base = (planned.short || planned.text || "").replace(/\.$/, "");
@@ -1223,10 +1274,12 @@ function showArrivals() {
 }
 
 function nextDepartureFrom(legs, quay, skipPassed = false) {
+  const cancelled = cancelledDepartureSet();
   return (
     legs.find(
       (leg) =>
         isVisibleDeparture(leg) &&
+        !isCancelledDeparture(leg, cancelled) &&
         (!quay || leg.from === quay) &&
         (!skipPassed || !hasPassed(leg.departure))
     ) || null
@@ -1417,11 +1470,16 @@ function sailingDoneAt(event) {
 }
 
 function departureRow(leg, past, connections) {
-  const row = el("div", `stop stop-dep${past ? " is-past" : ""}`);
+  const cancelled = isCancelledDeparture(leg);
+  const row = el(
+    "div",
+    `stop stop-dep${past ? " is-past" : ""}${cancelled ? " is-cancelled" : ""}`
+  );
   row.append(el("span", "stop-time", hhmm(leg.departure)));
   const body = el("span", "stop-body");
   const head = el("span", "stop-head");
   head.append(el("span", "stop-name", t("sailing.route", { from: leg.from, to: leg.to })));
+  if (cancelled) head.append(el("span", "stop-tag stop-tag-stop", t("sailing.cancelled")));
   if (leg.signal) head.append(el("span", "stop-tag", t("signal.onRequest")));
   body.append(head);
   if (showArrivals()) {
@@ -1429,17 +1487,25 @@ function departureRow(leg, past, connections) {
       el("span", "stop-note stop-eta", t("sailing.arrival", { time: hhmm(leg.arrival) }))
     );
   }
-  const note = signalNote(leg, isToday());
-  if (note) body.append(note);
-  const depConn = connectionNote(connections, "dep", leg);
-  if (depConn) body.append(el("span", "stop-note stop-conn", depConn));
-  const arrConn = connectionNote(connections, "arr", leg);
-  if (arrConn) body.append(el("span", "stop-note stop-conn", arrConn));
+  if (!cancelled) {
+    const note = signalNote(leg, isToday());
+    if (note) body.append(note);
+    const depConn = connectionNote(connections, "dep", leg);
+    if (depConn) body.append(el("span", "stop-note stop-conn", depConn));
+    const arrConn = connectionNote(connections, "arr", leg);
+    if (arrConn) body.append(el("span", "stop-note stop-conn", arrConn));
+  }
   row.append(body);
   const departed = isToday() && hasPassed(leg.departure);
-  const remaining = past || departed ? t("gone") : isToday() ? countdown(leg.departure) : "";
+  const remaining = cancelled
+    ? t("sailing.cancelled")
+    : past || departed
+      ? t("gone")
+      : isToday()
+        ? countdown(leg.departure)
+        : "";
   const remainingNode = el("span", "stop-state", remaining);
-  if (isToday()) remainingNode.dataset.countdown = leg.departure;
+  if (isToday() && !cancelled) remainingNode.dataset.countdown = leg.departure;
   row.append(remainingNode);
   return row;
 }
@@ -1828,7 +1894,9 @@ function renderLedeStatus() {
     return;
   }
   const status = currentStatus(legs);
-  const next = legs.find((leg) => isVisibleDeparture(leg) && !hasPassed(leg.departure));
+  const next = runningLegs(legs).find(
+    (leg) => isVisibleDeparture(leg) && !hasPassed(leg.departure)
+  );
   const parts = [];
   if (status) parts.push(status.short || status.text.replace(/\.$/, ""));
   if (next) {
@@ -2734,6 +2802,9 @@ export {
   statusProgress,
   firstKnownQuay,
   homeQuay,
+  isCancelledDeparture,
+  cancelledSailingsFromText,
+  isPartialCancel,
   isLiveFresh,
   isUncertainDeparture,
   isPreview,

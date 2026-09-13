@@ -29,7 +29,7 @@ import {
   shouldFetchLive,
   serviceWindowMinutes,
 } from "../assets/app.js";
-import { setLang } from "../assets/i18n.js?v=36";
+import { setLang } from "../assets/i18n.js?v=37";
 
 beforeEach(() => {
   setLang("nn");
