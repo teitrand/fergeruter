@@ -24,7 +24,7 @@ Rutetabellane for 1136 og 1135 blir lasta ned frå Entur og lagra i `data/ruter.
 | `1135` | Entur 1135 Sæbø–Leknes | 1136 er innstilt, og det er ikkje kombirute |
 | `kombi` | `data/kombirute.json` | Teksten har `kombinasjon` / `kombirute` / `kombinert rute`, eller både 1135 og 1136 er innstilt |
 
-Nyaste **gyldige lokale** Fjord1-melding styrer valet når **Etter drift** er vald. Du kan overstyre og sjå 1136 eller 1135 uavhengig av drifta; då viser sida ei merknad om kva som faktisk gjeld. Banneret viser framleis Fjord1-teksten, pluss ei merknad og lenke til FRAM-PDF-en når kombiruta er aktiv.
+Nyaste **gyldige lokale** Fjord1-melding styrer tabellen når 1136 er innstilt eller det er kombirute; då visest det same i **begge** sambanda. Ved normal drift vel du 1136 eller 1135 i sambandsvalet. Banneret viser framleis Fjord1-teksten, pluss ei merknad og lenke til FRAM-PDF-en når kombiruta er aktiv.
 
 Korrespondansar: Solavågen og Hundeidvika via Festøya→Standal som før. Når aktiv tabell har **Leknes** (kombirute eller 1135), kjem òg buss **133 Leknes–Øye**.
 
@@ -38,7 +38,7 @@ python3 scripts/fetch_ruter.py
 python3 -m http.server 8080
 ```
 
-Opne [http://localhost:8080](http://localhost:8080). Øvst i rutetabellen kan du byte **samband**: *Etter drift* (Fjord1-meldingane), *Standal–Trandal* (1136) eller *Sæbø–Leknes* (1135). Valet blir hugsa i nettlesaren. På localhost (og `/dev/`) kan du òg tvinge tabell med `?rute=kombi`, `?rute=1135` eller `?rute=1136`.
+Opne [http://localhost:8080](http://localhost:8080). Øvst i rutetabellen kan du byte **samband**: *Standal–Trandal* (1136) eller *Sæbø–Leknes* (1135). Valet blir hugsa i nettlesaren. Når Fjord1 køyrer kombirute (eller innstiller 1136), visest den tabellen i begge sambanda. På localhost (og `/dev/`) kan du òg tvinge tabell med `?rute=kombi`, `?rute=1135` eller `?rute=1136`.
 
 ## Språk
 
@@ -105,7 +105,7 @@ I Plausible-panelet ser du:
 | `Day prev` / `Day next` / `Day today` | Blad i rutetabellen |
 | `Stop all` / `Stop Standal` / … | Filter på stoppestad |
 | `Connection none` / `solavagen` / `hundeidvika` | Korrespondanse |
-| `Route auto` / `Route 1136` / `Route 1135` | Byte fergestrekning |
+| `Route 1136` / `Route 1135` | Byte fergestrekning |
 | `Messages local` / `route` / `issues` | Filter på trafikkmeldingar |
 | `Show past` / `Hide past` | Vis eller skjul tidlegare anløp |
 | `Install app` / `App installed` | Installer-knappen, og når appen faktisk er lagt til |

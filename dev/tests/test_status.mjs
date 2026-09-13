@@ -23,7 +23,7 @@ import {
   shouldFetchLive,
   serviceWindowMinutes,
 } from "../assets/app.js";
-import { setLang } from "../assets/i18n.js?v=32";
+import { setLang } from "../assets/i18n.js?v=33";
 
 beforeEach(() => {
   setLang("nn");
@@ -206,17 +206,22 @@ test("segling viser destinasjon og båe kaier, utan eiga ankomst-rad", () => {
   assert.equal(first.at, 7 * 60 + 40);
 });
 
-test("ved valt kai står innkomst på ankomsttid", () => {
+test("ved valt kai står avgangar derifrå, og innkomst som dempa linje", () => {
   setTestState({ stopFilter: "Sæbø" });
   const events = buildEvents(wednesday, null);
   const inbound = events.find(
-    (event) => event.kind === "dep" && event.leg.from === "Trandal" && event.leg.to === "Sæbø"
+    (event) => event.kind === "arr" && event.leg.from === "Trandal" && event.leg.to === "Sæbø"
   );
   const outbound = events.find(
     (event) => event.kind === "dep" && event.leg.from === "Sæbø" && event.leg.to === "Trandal"
   );
+  const inboundAsDep = events.find(
+    (event) => event.kind === "dep" && event.leg.from === "Trandal" && event.leg.to === "Sæbø"
+  );
   assert.equal(inbound.at, 8 * 60 + 30);
   assert.equal(outbound.at, 8 * 60 + 35);
+  assert.equal(inboundAsDep, undefined);
+  assert.ok(events.filter((event) => event.kind === "dep").every((event) => event.leg.from === "Sæbø"));
 });
 
 test("flytting kjem etter siste segling", () => {

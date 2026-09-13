@@ -505,17 +505,6 @@ h2.day-label {
   margin: 0.15rem 0 0.7rem;
 }
 
-.route-note {
-  margin: -0.25rem 0 0.85rem;
-  color: var(--muted);
-  font-size: 0.86rem;
-  line-height: 1.4;
-}
-
-.route-note[hidden] {
-  display: none;
-}
-
 .conn-label {
   font-size: 0.78rem;
   letter-spacing: 0.04em;
@@ -576,6 +565,7 @@ h2.day-label {
 
 .stop-eta {
   font-variant-numeric: tabular-nums;
+  font-weight: 400;
 }
 
 .stop-arr {
