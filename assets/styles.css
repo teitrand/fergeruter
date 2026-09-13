@@ -473,7 +473,7 @@ h2.day-label {
   font-size: 1.05rem;
   font-weight: 600;
   line-height: 1.2;
-  flex: 1;
+  flex: 0 1 auto;
 }
 
 .timeline {
