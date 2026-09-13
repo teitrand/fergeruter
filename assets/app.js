@@ -7,7 +7,7 @@ import {
   setLang,
   t,
   weekdays,
-} from "./i18n.js?v=33";
+} from "./i18n.js?v=34";
 
 const MESSAGES_URL = "data/trafikkmeldinger.json";
 const ROUTES_URL = "data/ruter.json";
@@ -36,6 +36,8 @@ const KOMBI_RE = /kombinasjon|kombirute|kombinert rute/i;
 const HAS_1135_RE = /\b1135\b/;
 const HAS_1136_RE = /\b1136\b/;
 const HIDE_ARRIVALS_KEY = "fergeruter-hide-arrivals";
+/** Opphald på kai som er langt nok til å visast som liggetid, t.d. matpause. */
+const LAYOVER_MIN_MINUTES = 20;
 const ROUTE_CHOICE_KEY = "fergeruter-route-choice";
 const TIMETABLE_CACHE_KEY = "fergeruter-timetable-v1";
 const MESSAGES_POLL_MS = 3 * 60 * 1000;
@@ -1394,6 +1396,7 @@ function signalNote(leg, live) {
 }
 
 function sailingDoneAt(event) {
+  if (event.kind === "layover" && event.until != null) return event.until;
   if (event.kind === "arr") return event.at;
   if (event.kind !== "dep" || !event.leg) return event.at;
   const leg = event.leg;
@@ -1432,13 +1435,34 @@ function departureRow(leg, past, connections) {
   return row;
 }
 
-function arrivalRow(leg, past, connections) {
-  const row = el("div", `stop stop-arr${past ? " is-past" : ""}`);
-  row.append(el("span", "stop-time", hhmm(leg.arrival)));
+function layoverAfter(leg, next) {
+  if (!next || !leg?.arrival || !next.departure) return null;
+  if (leg.to !== next.from) return null;
+  const minutes = clockMinutes(next.departure) - clockMinutes(leg.arrival);
+  if (minutes < LAYOVER_MIN_MINUTES) return null;
+  return {
+    quay: leg.to,
+    minutes,
+    from: leg.arrival,
+    until: next.departure,
+  };
+}
+
+function layoverRow(stay, past) {
+  const row = el("div", `stop stop-layover${past ? " is-past" : ""}`);
+  row.append(el("span", "stop-time", hhmm(stay.from)));
   const body = el("span", "stop-body");
-  body.append(el("span", "stop-name", t("next.arrival", { to: leg.to })));
-  const connection = connectionNote(connections, "arr", leg);
-  if (connection) body.append(el("span", "stop-note stop-conn", connection));
+  const title = state.stopFilter
+    ? t("layover.title")
+    : t("layover.atQuay", { quay: stay.quay });
+  body.append(el("span", "stop-name", title));
+  body.append(
+    el(
+      "span",
+      "stop-note",
+      t("layover.until", { duration: durationText(stay.minutes), time: hhmm(stay.until) })
+    )
+  );
   row.append(body);
   row.append(el("span", "stop-state", ""));
   return row;
@@ -1507,7 +1531,7 @@ function matchesStop(event) {
   return event.quays.includes(state.stopFilter);
 }
 
-const EVENT_SEQ = { arr: 0, split: 1, transfer: 2, dep: 3, status: 4 };
+const EVENT_SEQ = { arr: 0, split: 1, transfer: 2, layover: 3, dep: 4, status: 5 };
 
 function compareTimelineEvents(a, b) {
   const seq = (event) => EVENT_SEQ[event.kind] ?? 0;
@@ -1531,22 +1555,18 @@ function buildEvents(legs, connections) {
         });
       }
     }
-    if (
-      showArrivals() &&
-      state.stopFilter &&
-      leg.to === state.stopFilter &&
-      leg.from !== state.stopFilter &&
-      leg.arrival
-    ) {
+    const next = legs[index + 1];
+    const stay = layoverAfter(leg, next);
+    if (stay && (!state.stopFilter || stay.quay === state.stopFilter)) {
       events.push({
-        at: clockMinutes(leg.arrival),
-        kind: "arr",
-        quays: [leg.to],
-        leg,
-        build: (past) => arrivalRow(leg, past, connections),
+        at: clockMinutes(stay.from),
+        until: clockMinutes(stay.until),
+        kind: "layover",
+        quays: [stay.quay],
+        stay,
+        build: (past) => layoverRow(stay, past),
       });
     }
-    const next = legs[index + 1];
     if (next && leg.table && next.table && leg.table !== next.table) {
       const routeSwitch = activePlan().switch;
       if (routeSwitch && !events.some((event) => event.kind === "split")) {
@@ -2523,6 +2543,7 @@ function resetTestState() {
 
 export {
   FEEDBACK_MAIL,
+  LAYOVER_MIN_MINUTES,
   LIVE_MAX_BACKOFF_MS,
   LIVE_SERVICE_MARGIN_MIN,
   MESSAGES_POLL_MS,
@@ -2549,6 +2570,7 @@ export {
   isRouteControl,
   messagesUrl,
   keepTimelineEvent,
+  layoverAfter,
   legsForDate,
   liveBlockedUntil,
   liveFetchUrls,
