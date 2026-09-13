@@ -17,6 +17,8 @@ import {
   nextArrivalAt,
   excerptText,
   headingDay,
+  messageRouteScore,
+  sortMessagesForRoute,
   todayIso,
   noteLiveFailure,
   parseVehicleMonitoring,
@@ -27,7 +29,7 @@ import {
   shouldFetchLive,
   serviceWindowMinutes,
 } from "../assets/app.js";
-import { setLang } from "../assets/i18n.js?v=35";
+import { setLang } from "../assets/i18n.js?v=36";
 
 beforeEach(() => {
   setLang("nn");
@@ -379,15 +381,44 @@ test("morgonpendelen har ankomst attende til Standal kl 07:20", () => {
   assert.equal(inbound.from, "Trandal");
 });
 
-test("utdrag bryt ved ord og I dag-overskrift høyrer til datoen", () => {
+test("utdrag bryt ved ord og I dag står i knappen, ikkje i overskrifta", () => {
   const long = "Ferja er innstilt i dag på grunn av tekniske problem ved kaiene i Hjørundfjorden.";
   const excerpt = excerptText(long, 40);
   assert.ok(excerpt.endsWith("…"));
   assert.ok(excerpt.length <= 41);
   assert.doesNotMatch(excerpt, / {2}/);
   assert.equal(excerptText("Kort melding"), "Kort melding");
-  assert.match(headingDay(todayIso()), /^I dag · /);
+  assert.doesNotMatch(headingDay(todayIso()), /^I dag/);
   assert.doesNotMatch(headingDay("2020-01-15"), /^I dag/);
+});
+
+test("meldingar for valt samband kjem øvst", () => {
+  const standal = {
+    heading: "Standal-Trandal-Valderøya-Store Kalvøy",
+    text: "Verkstad i veka",
+    connectionNumber: 132,
+    severity: "info",
+  };
+  const leknes = {
+    heading: "Leknes-Sæbø",
+    text: "Normal drift",
+    connectionNumber: 134,
+    severity: "cancelled",
+  };
+  const other = {
+    heading: "Festøy-Hundeidvik",
+    text: "innstilt",
+    connectionNumber: 1049,
+    severity: "cancelled",
+  };
+  assert.equal(messageRouteScore(standal, "1136"), 0);
+  assert.equal(messageRouteScore(leknes, "1136"), 3);
+  assert.equal(messageRouteScore(leknes, "1135"), 0);
+  assert.equal(messageRouteScore(standal, "1135"), 3);
+  const sorted1136 = sortMessagesForRoute([leknes, other, standal], "1136");
+  assert.equal(sorted1136[0].heading, standal.heading);
+  const sorted1135 = sortMessagesForRoute([standal, other, leknes], "1135");
+  assert.equal(sorted1135[0].heading, leknes.heading);
 });
 
 test("sanntidsvindauge er fyrste avgang til siste ankomst", () => {

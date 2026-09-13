@@ -7,7 +7,7 @@ import {
   setLang,
   t,
   weekdays,
-} from "./i18n.js?v=35";
+} from "./i18n.js?v=36";
 
 const MESSAGES_URL = "data/trafikkmeldinger.json";
 const ROUTES_URL = "data/ruter.json";
@@ -209,9 +209,7 @@ function formatDay(isoDate) {
 
 function headingDay(isoDate) {
   const text = formatDay(isoDate);
-  const titled = text.charAt(0).toUpperCase() + text.slice(1);
-  if (isoDate === todayIso()) return t("day.todayFull", { date: titled });
-  return titled;
+  return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
 function excerptText(text, max = 140) {
@@ -1701,6 +1699,7 @@ function selectRoute(choice) {
   state.live = null;
   state.liveFetchedAt = 0;
   renderRouteChrome();
+  renderMessages();
   renderTimeline();
   renderLedeStatus();
 }
@@ -1813,7 +1812,7 @@ function renderDayNav() {
   if (label) label.textContent = headingDay(selectedDate());
   const todayBtn = document.getElementById("day-today");
   if (todayBtn) {
-    todayBtn.hidden = isToday();
+    todayBtn.hidden = false;
     todayBtn.disabled = isToday();
   }
 }
@@ -2035,12 +2034,46 @@ function validMessages(messages, now = Date.now()) {
 function applyMessageFilter(messages) {
   const local = messages.filter((msg) => msg.isLocal);
   if (state.messageFilter === "route") {
-    return messages.filter((msg) => msg.isRoute1136);
+    return sortMessagesForRoute(messages.filter((msg) => msg.isRoute1136));
   }
   if (state.messageFilter === "issues") {
-    return local.filter((msg) => msg.severity !== "normal");
+    return sortMessagesForRoute(local.filter((msg) => msg.severity !== "normal"));
   }
-  return local;
+  return sortMessagesForRoute(local);
+}
+
+const CONN_1136 = 132;
+const CONN_1135 = 134;
+
+function messageRouteScore(msg, route = chosenRoute()) {
+  const blob = messageBlob(msg);
+  const heading = String(msg?.heading || "");
+  const conn = Number(msg?.connectionNumber);
+  const named1136 =
+    conn === CONN_1136 || /\b1136\b/.test(blob) || /standal|trandal|valderøy|store kalvøy/i.test(heading);
+  const named1135 = conn === CONN_1135 || /\b1135\b/.test(blob) || /lekne/i.test(heading);
+  const kombi = msg?.routeMode === "kombi" || /kombinasjon|kombirute|kombinert rute/i.test(blob);
+  if (route === "1136") {
+    if (named1136 && !named1135) return 0;
+    if (named1136) return 1;
+    if (kombi) return 2;
+    return 3;
+  }
+  if (route === "1135") {
+    if (named1135 && !named1136) return 0;
+    if (named1135) return 1;
+    if (kombi) return 2;
+    return 3;
+  }
+  return 3;
+}
+
+function sortMessagesForRoute(messages, route = chosenRoute()) {
+  return [...messages].sort((a, b) => {
+    const byRoute = messageRouteScore(a, route) - messageRouteScore(b, route);
+    if (byRoute) return byRoute;
+    return (SEVERITY_RANK[a.severity] ?? 9) - (SEVERITY_RANK[b.severity] ?? 9);
+  });
 }
 
 function renderMessages() {
@@ -2117,12 +2150,15 @@ function renderMessageSummary(filtered) {
       )
     );
   } else {
-    const ranked = [...filtered].sort(
-      (a, b) => (SEVERITY_RANK[a.severity] ?? 9) - (SEVERITY_RANK[b.severity] ?? 9)
-    );
-    const top = ranked[0];
+    const top = filtered[0];
     bar.classList.add(`is-${top.severity}`);
-    body.append(el("span", "messages-bar-title", top.heading || t("messages.title")));
+    const head = el("span", "messages-bar-head");
+    head.append(el("span", "messages-bar-title", top.heading || t("messages.title")));
+    const count = el("span", "messages-count");
+    count.textContent = String(filtered.length);
+    count.setAttribute("aria-label", t("messages.countAria", { n: filtered.length }));
+    head.append(count);
+    body.append(head);
     if (!state.messagesExpanded) {
       body.append(el("span", "messages-bar-excerpt", excerptText(top.text)));
       if (filtered.length > 1) {
@@ -2710,8 +2746,10 @@ export {
   liveBlockedUntil,
   liveFetchUrls,
   liveStatus,
+  messageRouteScore,
   messageTimeLines,
   pastDepartureCount,
+  sortMessagesForRoute,
   messagesFingerprint,
   minDeadheadMinutes,
   modeFromText,

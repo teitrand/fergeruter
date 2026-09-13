@@ -709,6 +709,11 @@ test("sida har val for å byte fergestrekning", () => {
   assert.match(html, /class="extras-row"/);
   assert.match(html, /id="messages-summary"/);
   assert.match(html, /id="messages-details"/);
+  assert.match(html, /id="day-today"[\s\S]*?id="day-prev"[\s\S]*?id="day-label"[\s\S]*?id="day-next"/);
+  assert.doesNotMatch(html, /id="day-today"[^>]*\bhidden\b/);
+  assert.match(app, /todayBtn\.disabled = isToday\(\)/);
+  assert.match(app, /messages-count/);
+  assert.match(app, /sortMessagesForRoute/);
   assert.doesNotMatch(html, /id="next-summary"/);
   assert.doesNotMatch(html, /Etter drift/);
   assert.doesNotMatch(html, /data-i18n="route.label"/);
