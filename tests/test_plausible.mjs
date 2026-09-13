@@ -5,9 +5,13 @@ import {
   FEEDBACK_MAIL,
   appMode,
   feedbackMailto,
+  plausibleContext,
+  plausibleRoute,
+  resetTestState,
+  setTestState,
   track,
 } from "../assets/app.js";
-import { setLang } from "../assets/i18n.js?v=38";
+import { setLang } from "../assets/i18n.js?v=41";
 
 const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
 const app = readFileSync(new URL("../assets/app.js", import.meta.url), "utf8");
@@ -21,6 +25,9 @@ test("index.html lastar Plausible utan informasjonskapslar", () => {
   assert.match(html, /plausible\.init\(/);
   assert.match(html, /customProperties/);
   assert.match(html, /transformRequest/);
+  assert.match(html, /fergeruter-route-choice/);
+  assert.match(html, /standal-trandal/);
+  assert.match(html, /saebo-leknes/);
   assert.match(html, /\/dev\//);
   assert.doesNotMatch(html, /google-analytics|gtag\(|googletagmanager/i);
 });
@@ -48,9 +55,9 @@ test("header har ikkje ferjegrafikk mellom kaiene", () => {
 
 test("sida har den dekorative stiplede streken øverst", () => {
   assert.match(html, /class="skyline"/);
-  assert.match(html, /assets\/styles\.css\?v=38/);
-  assert.match(html, /assets\/app\.js\?v=38/);
-  assert.match(app, /from "\.\/i18n\.js\?v=38"/);
+  assert.match(html, /assets\/styles\.css\?v=41/);
+  assert.match(html, /assets\/app\.js\?v=41/);
+  assert.match(app, /from "\.\/i18n\.js\?v=41"/);
   const css = readFileSync(new URL("../assets/styles.css", import.meta.url), "utf8");
   assert.match(css, /\.skyline\s*\{[^}]*repeating-linear-gradient/s);
   assert.match(css, /safe-area-inset-top/);
@@ -59,7 +66,7 @@ test("sida har den dekorative stiplede streken øverst", () => {
   assert.doesNotMatch(css, /1\.05fr 0\.95fr/);
   assert.doesNotMatch(css, /@media \(min-width: 860px\)/);
   const sw = readFileSync(new URL("../sw.js", import.meta.url), "utf8");
-  assert.match(sw, /fergeruter-dev-v38/);
+  assert.match(sw, /fergeruter-dev-v41/);
   assert.match(sw, /function isTimetableJson/);
   assert.match(sw, /function isMessagesJson/);
   assert.match(sw, /staleWhileRevalidate\(request,\s*\{\s*notify: true/);
@@ -103,16 +110,45 @@ test("track kallar plausible med namn og eigenskapar", () => {
     },
   };
   try {
+    resetTestState();
+    setLang("nn");
     track("Day next");
-    track("Visit nn", { app: "web" }, { interactive: false });
+    track("Visit nn", null, { interactive: false });
     assert.equal(calls[0].name, "Day next");
-    assert.equal(calls[0].opts, undefined);
+    assert.deepEqual(calls[0].opts, {
+      props: { lang: "nn", app: "web", route: "standal-trandal" },
+    });
     assert.equal(calls[1].name, "Visit nn");
-    assert.deepEqual(calls[1].opts, { props: { app: "web" }, interactive: false });
+    assert.deepEqual(calls[1].opts, {
+      props: { lang: "nn", app: "web", route: "standal-trandal" },
+      interactive: false,
+    });
+    setTestState({ routeChoice: "1135" });
+    track("Route 1135");
+    assert.deepEqual(calls[2].opts.props, {
+      lang: "nn",
+      app: "web",
+      route: "saebo-leknes",
+    });
   } finally {
     if (previous === undefined) delete globalThis.window;
     else globalThis.window = previous;
   }
+});
+
+test("plausibleRoute er Standal–Trandal eller Sæbø–Leknes", () => {
+  setLang("nn");
+  assert.equal(plausibleRoute("1136"), "standal-trandal");
+  assert.equal(plausibleRoute("1135"), "saebo-leknes");
+  resetTestState();
+  assert.equal(plausibleRoute(), "standal-trandal");
+  setTestState({ routeChoice: "1135" });
+  assert.deepEqual(plausibleContext({ foo: 1 }), {
+    lang: "nn",
+    app: "web",
+    route: "saebo-leknes",
+    foo: 1,
+  });
 });
 
 test("track gjer ingenting utan plausible", () => {

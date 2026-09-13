@@ -866,6 +866,8 @@ test("sida har val for å byte fergestrekning", () => {
   const app = readFileSync(new URL("../assets/app.js", import.meta.url), "utf8");
   assert.match(html, /id="route-filter"/);
   assert.match(html, /class="header-routes/);
+  assert.match(html, /data-i18n="route.label"/);
+  assert.match(html, /class="filters route-switch"/);
   assert.match(html, /id="route-badge"/);
   assert.match(html, /class="extras-row"/);
   assert.match(html, /id="messages-summary"/);
@@ -877,7 +879,6 @@ test("sida har val for å byte fergestrekning", () => {
   assert.match(app, /sortMessagesForRoute/);
   assert.doesNotMatch(html, /id="next-summary"/);
   assert.doesNotMatch(html, /Etter drift/);
-  assert.doesNotMatch(html, /data-i18n="route.label"/);
   assert.doesNotMatch(html, /class="route-row"/);
   assert.doesNotMatch(html, /class="view-row"/);
   assert.doesNotMatch(html, /class="conn-row"/);
