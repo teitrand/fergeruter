@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,560;9..144,700&family=Outfit:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/styles.css?v=34">
+  <link rel="stylesheet" href="assets/styles.css?v=35">
   <!-- Privacy-friendly analytics by Plausible -->
   <script async src="https://plausible.io/js/pa-zLwKfsUV57HIZfM4j6wLS.js"></script>
   <script>
@@ -115,29 +115,36 @@
       <rect x="28" y="16" width="3" height="10" fill="#e07a3d"/>
     </svg>
     <p class="eyebrow" data-i18n="eyebrow">Rute 1136 · Fjord1 / FRAM</p>
-    <h1 id="route-title">Standal–Trandal–Sæbø–Skår–Valderøya–Store Kalvøy</h1>
+    <div class="header-title">
+      <h1 id="route-title">Standal–Trandal–Sæbø–Skår–Valderøya–Store Kalvøy</h1>
+      <span id="route-badge" class="route-badge" hidden data-i18n="route.badgeKombi">Kombirute</span>
+    </div>
+    <div id="route-filter" class="header-routes filters" role="group" data-i18n-aria="route.filterAria" aria-label="Vel fergestrekning"></div>
     <p class="lede" id="lede-status" hidden></p>
   </header>
 
   <main id="innhald">
     <div class="layout" id="layout">
-      <section class="panel" id="messages-panel" aria-labelledby="meldingar-title" hidden>
-        <div class="panel-head">
-          <h2 id="meldingar-title" data-i18n="messages.title">Trafikkmeldingar</h2>
-          <p class="meta" id="messages-meta" data-i18n="messages.loading">Hentar frå Fjord1…</p>
+      <section class="panel panel-messages" id="messages-panel" aria-labelledby="meldingar-title" hidden>
+        <div id="messages-summary" class="messages-summary"></div>
+        <div id="messages-details" class="messages-details" hidden>
+          <div class="panel-head">
+            <h2 id="meldingar-title" data-i18n="messages.title">Trafikkmeldingar</h2>
+            <p class="meta" id="messages-meta" data-i18n="messages.loading">Hentar frå Fjord1…</p>
+          </div>
+          <div class="filters" role="group" data-i18n-aria="messages.filterAria" aria-label="Filtrer meldingar">
+            <button type="button" class="chip is-active" data-filter="local" aria-pressed="true" data-i18n="messages.filterLocal">Hjørundfjorden</button>
+            <button type="button" class="chip" data-filter="route" aria-pressed="false" data-i18n="messages.filterRoute">Rute 1136</button>
+            <button type="button" class="chip" data-filter="issues" aria-pressed="false" data-i18n="messages.filterIssues">Berre avvik</button>
+          </div>
+          <div id="messages" class="message-list"></div>
+          <p class="footnote">
+            <span data-i18n="messages.source">Kjelde</span>:
+            <a href="https://www.fjord1.no/trafikkmeldingar" target="_blank" rel="noreferrer">fjord1.no/trafikkmeldingar</a>
+            ·
+            <a href="https://www.fjord1.no/kundeservice/foer-du-reiser/SMS-om-trafikken" target="_blank" rel="noreferrer" data-i18n="messages.sms">Få SMS</a>
+          </p>
         </div>
-        <div class="filters" role="group" data-i18n-aria="messages.filterAria" aria-label="Filtrer meldingar">
-          <button type="button" class="chip is-active" data-filter="local" aria-pressed="true" data-i18n="messages.filterLocal">Hjørundfjorden</button>
-          <button type="button" class="chip" data-filter="route" aria-pressed="false" data-i18n="messages.filterRoute">Rute 1136</button>
-          <button type="button" class="chip" data-filter="issues" aria-pressed="false" data-i18n="messages.filterIssues">Berre avvik</button>
-        </div>
-        <div id="messages" class="message-list"></div>
-        <p class="footnote">
-          <span data-i18n="messages.source">Kjelde</span>:
-          <a href="https://www.fjord1.no/trafikkmeldingar" target="_blank" rel="noreferrer">fjord1.no/trafikkmeldingar</a>
-          ·
-          <a href="https://www.fjord1.no/kundeservice/foer-du-reiser/SMS-om-trafikken" target="_blank" rel="noreferrer" data-i18n="messages.sms">Få SMS</a>
-        </p>
       </section>
 
       <section class="panel" aria-labelledby="day-label" id="timetable-panel">
@@ -145,21 +152,12 @@
           <button type="button" id="day-prev" class="daybtn" data-i18n-aria="day.prev" aria-label="Førre dag">‹</button>
           <h2 id="day-label" class="day-label" data-i18n="day.loading">Lastar rutetabell…</h2>
           <button type="button" id="day-next" class="daybtn" data-i18n-aria="day.next" aria-label="Neste dag">›</button>
-          <button type="button" id="day-today" class="daybtn daybtn-today" data-i18n="day.today">I dag</button>
+          <button type="button" id="day-today" class="daybtn daybtn-today" hidden data-i18n="day.today">I dag</button>
         </div>
-        <div class="route-row">
-          <span class="conn-label" id="route-label" data-i18n="route.label">Samband</span>
-          <div id="route-filter" class="filters" role="group" aria-labelledby="route-label"></div>
-        </div>
-        <div id="next-summary" class="next-summary"></div>
         <div id="stop-filter" class="filters stops" role="group" data-i18n-aria="stop.filterAria" aria-label="Filtrer på stoppestad"></div>
-        <div class="view-row">
-          <span class="conn-label" id="view-label" data-i18n="view.label">Visning</span>
-          <div id="view-filter" class="filters" role="group" aria-labelledby="view-label"></div>
-        </div>
-        <div class="conn-row">
-          <span class="conn-label" id="conn-label" data-i18n="conn.label">Korrespondanse</span>
-          <div id="conn-filter" class="filters" role="group" aria-labelledby="conn-label"></div>
+        <div class="extras-row" role="group" data-i18n-aria="extras.filterAria" aria-label="Ankomsttider og korrespondanse">
+          <div id="view-filter" class="filters" role="group" data-i18n-aria="view.label" aria-label="Visning"></div>
+          <div id="conn-filter" class="filters" role="group" data-i18n-aria="conn.label" aria-label="Korrespondanse"></div>
         </div>
         <div id="timeline-reveal"></div>
         <div id="departures" class="timeline"></div>
@@ -216,6 +214,6 @@
   <noscript>
     <p>Slå på JavaScript for å sjå rutetabellen, eller opne <a href="https://www.fjord1.no/trafikkmeldingar">trafikkmeldingane hos Fjord1</a>.</p>
   </noscript>
-  <script src="assets/app.js?v=34" type="module"></script>
+  <script src="assets/app.js?v=35" type="module"></script>
 </body>
 </html>

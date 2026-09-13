@@ -678,9 +678,22 @@ test("valt 1135 viser kombiruta når kombiruta gjeld", () => {
 
 test("sida har val for å byte fergestrekning", () => {
   const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  const app = readFileSync(new URL("../assets/app.js", import.meta.url), "utf8");
   assert.match(html, /id="route-filter"/);
+  assert.match(html, /class="header-routes/);
+  assert.match(html, /id="route-badge"/);
+  assert.match(html, /class="extras-row"/);
+  assert.match(html, /id="messages-summary"/);
+  assert.match(html, /id="messages-details"/);
+  assert.doesNotMatch(html, /id="next-summary"/);
   assert.doesNotMatch(html, /Etter drift/);
-  assert.match(html, /data-i18n="route.label"/);
+  assert.doesNotMatch(html, /data-i18n="route.label"/);
+  assert.doesNotMatch(html, /class="route-row"/);
+  assert.doesNotMatch(html, /class="view-row"/);
+  assert.doesNotMatch(html, /class="conn-row"/);
+  assert.doesNotMatch(app, /t\("conn.none"\)/);
+  assert.match(app, /t\("view.arrivals"\)/);
+  assert.match(app, /messagesExpanded/);
 });
 
 test("rutetabellen kan hentast frå lokal cache utan nett", () => {
@@ -845,9 +858,40 @@ test("kombirute er éi samanhengande rute utan tomflytting", () => {
       "neste Frå-celle er neste anløp"
     );
     assert.ok(events.every((event) => event.kind !== "transfer"));
+    assert.equal(events.filter((event) => event.kind === "split").length, 0);
     const mid = Math.floor(legs.length / 2);
     const status = ferryStatus(legs, clockMin(legs[mid].departure) - 10, legs);
     assert.doesNotMatch(status?.text || "", /utan passasjerar/);
     assert.doesNotMatch(status?.short || "", /utan passasjerar/);
   }
+});
+
+test("tabellen merkar både start og slutt når ruta skifter to gonger", () => {
+  const legs = [
+    {
+      from: "Standal",
+      to: "Trandal",
+      departure: "07:40:00",
+      arrival: "07:55:00",
+      table: "1136",
+    },
+    {
+      from: "Sæbø",
+      to: "Leknes",
+      departure: "14:00:00",
+      arrival: "14:13:00",
+      table: "kombi",
+    },
+    {
+      from: "Standal",
+      to: "Trandal",
+      departure: "18:30:00",
+      arrival: "18:45:00",
+      table: "1136",
+    },
+  ];
+  const splits = buildEvents(legs, null).filter((event) => event.kind === "split");
+  assert.equal(splits.length, 2);
+  assert.equal(splits[0].at, 14 * 60);
+  assert.equal(splits[1].at, 18 * 60 + 30);
 });
