@@ -38,6 +38,10 @@ import {
   writeCachedTimetable,
   messagesFingerprint,
   messagesUrl,
+  isRouteControl,
+  cancelledSailingsFromText,
+  isPartialCancel,
+  isCancelledDeparture,
 } from "../assets/app.js";
 
 const ruter = JSON.parse(readFileSync(new URL("../data/ruter.json", import.meta.url), "utf8"));
@@ -257,6 +261,65 @@ test("enskild kansellert avgang skøyt ikkje til 1135", () => {
   );
   assert.equal(plan.mode, "1136");
   assert.equal(plan.switch, null);
+});
+
+const KVILE_SMS =
+  "FJORD1 Rute 1136 Standal-Trandal-Valderøya-Store Kalvøy (www.Fjord1.no):  Grunna kviletidsbestemmelser og pålagt kvile til mannskapet vert følgjande avgangar innstilt: 20:00 og 20:40 frå Standal, 20:20 og 21:00 frå Trandal";
+
+test("innstilte kveldsavgangar skøyt ikkje til 1135, men merkar turane", () => {
+  assert.equal(modeFromText(KVILE_SMS), "1136");
+  assert.equal(modeFromText("Rute 1136 Standal-Trandal er innstilt inntil vidare."), "1135");
+  assert.ok(isPartialCancel(KVILE_SMS));
+  assert.equal(
+    isRouteControl({
+      heading: "Standal-Trandal-Valderøya-Store Kalvøy",
+      text: KVILE_SMS,
+      isLocal: true,
+      isRouteControl: true,
+      routeMode: "1135",
+    }),
+    false
+  );
+  assert.deepEqual(cancelledSailingsFromText(KVILE_SMS), [
+    { time: "20:00:00", from: "Standal" },
+    { time: "20:40:00", from: "Standal" },
+    { time: "20:20:00", from: "Trandal" },
+    { time: "21:00:00", from: "Trandal" },
+  ]);
+
+  setTestState({
+    routes: ruter,
+    kombirute: kombi,
+    date: "2026-09-13",
+    routeChoice: "1136",
+    messages: {
+      messages: [
+        {
+          heading: "Standal-Trandal-Valderøya-Store Kalvøy",
+          text: KVILE_SMS,
+          isLocal: true,
+          isRouteControl: true,
+          routeMode: "1135",
+          publishedAt: "2026-09-13T17:50:00+02:00",
+          validTo: "2026-09-14T21:59:00Z",
+        },
+      ],
+    },
+  });
+  assert.equal(operationalMode("2026-09-13"), "1136");
+  assert.equal(activeMode(), "1136");
+  const legs = legsForDate("2026-09-13");
+  const standal2000 = legs.find((leg) => leg.from === "Standal" && leg.departure === "20:00:00");
+  const trandal2020 = legs.find((leg) => leg.from === "Trandal" && leg.departure === "20:20:00");
+  const standal2040 = legs.find((leg) => leg.from === "Standal" && leg.departure === "20:40:00");
+  const trandal2100 = legs.find((leg) => leg.from === "Trandal" && leg.departure === "21:00:00");
+  const earlier = legs.find((leg) => leg.from === "Standal" && leg.departure === "10:00:00");
+  assert.ok(standal2000);
+  assert.ok(isCancelledDeparture(standal2000));
+  assert.ok(isCancelledDeparture(trandal2020));
+  assert.ok(isCancelledDeparture(standal2040));
+  assert.ok(isCancelledDeparture(trandal2100));
+  assert.equal(isCancelledDeparture(earlier), false);
 });
 
 test("nyaste lokale melding styrer modus", () => {
