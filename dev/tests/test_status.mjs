@@ -8,6 +8,7 @@ import {
   homeQuay,
   isLiveFresh,
   keepTimelineEvent,
+  layoverAfter,
   liveBlockedUntil,
   liveFetchUrls,
   liveStatus,
@@ -23,7 +24,7 @@ import {
   shouldFetchLive,
   serviceWindowMinutes,
 } from "../assets/app.js";
-import { setLang } from "../assets/i18n.js?v=33";
+import { setLang } from "../assets/i18n.js?v=34";
 
 beforeEach(() => {
   setLang("nn");
@@ -206,22 +207,97 @@ test("segling viser destinasjon og båe kaier, utan eiga ankomst-rad", () => {
   assert.equal(first.at, 7 * 60 + 40);
 });
 
-test("ved valt kai står avgangar derifrå, og innkomst som dempa linje", () => {
+test("ved valt kai står berre avgangar derifrå, ikkje dempa innkomst", () => {
   setTestState({ stopFilter: "Sæbø" });
   const events = buildEvents(wednesday, null);
-  const inbound = events.find(
-    (event) => event.kind === "arr" && event.leg.from === "Trandal" && event.leg.to === "Sæbø"
-  );
+  assert.ok(events.every((event) => event.kind !== "arr"));
   const outbound = events.find(
     (event) => event.kind === "dep" && event.leg.from === "Sæbø" && event.leg.to === "Trandal"
   );
   const inboundAsDep = events.find(
     (event) => event.kind === "dep" && event.leg.from === "Trandal" && event.leg.to === "Sæbø"
   );
-  assert.equal(inbound.at, 8 * 60 + 30);
   assert.equal(outbound.at, 8 * 60 + 35);
   assert.equal(inboundAsDep, undefined);
   assert.ok(events.filter((event) => event.kind === "dep").every((event) => event.leg.from === "Sæbø"));
+});
+
+test("kort vending er ikkje liggetid, lengre opphald er", () => {
+  assert.equal(
+    layoverAfter(
+      leg("Leknes", "Sæbø", "13:00:00", "13:13:00"),
+      leg("Sæbø", "Leknes", "13:15:00", "13:28:00")
+    ),
+    null
+  );
+  assert.equal(
+    layoverAfter(
+      leg("Leknes", "Sæbø", "13:00:00", "13:13:00"),
+      leg("Sæbø", "Leknes", "13:32:00", "13:45:00")
+    ),
+    null
+  );
+  const stay = layoverAfter(
+    leg("Leknes", "Sæbø", "13:00:00", "13:13:00"),
+    leg("Sæbø", "Leknes", "13:33:00", "13:46:00")
+  );
+  assert.equal(stay.quay, "Sæbø");
+  assert.equal(stay.minutes, 20);
+  assert.equal(
+    layoverAfter(
+      leg("Valderøya", "Store Kalvøy", "11:10:00", "11:30:00"),
+      leg("Standal", "Trandal", "14:40:00", "14:55:00")
+    ),
+    null
+  );
+});
+
+test("tabellen merkar liggetid ved matpause, ikkje innkomst-rad", () => {
+  const legs = [
+    leg("Sæbø", "Leknes", "09:00:00", "09:13:00"),
+    leg("Leknes", "Sæbø", "09:15:00", "09:28:00"),
+    leg("Sæbø", "Leknes", "10:30:00", "10:43:00"),
+  ];
+  const events = buildEvents(legs, null);
+  assert.ok(events.every((event) => event.kind !== "arr"));
+  const stay = events.find((event) => event.kind === "layover");
+  assert.ok(stay);
+  assert.equal(stay.quays[0], "Sæbø");
+  assert.equal(stay.at, 9 * 60 + 28);
+  assert.equal(stay.until, 10 * 60 + 30);
+  assert.equal(stay.stay.minutes, 62);
+  assert.equal(
+    events.filter((event) => event.kind === "layover" && event.quays[0] === "Leknes").length,
+    0
+  );
+  assert.equal(keepTimelineEvent(stay, events, 9 * 60 + 50), true);
+  assert.equal(keepTimelineEvent(stay, events, 10 * 60 + 30), false);
+  setTestState({ stopFilter: "Leknes" });
+  const leknes = buildEvents(legs, null);
+  assert.ok(leknes.every((event) => event.kind !== "layover"));
+  assert.ok(leknes.every((event) => event.kind !== "arr"));
+  setTestState({ stopFilter: "Sæbø" });
+  const saebo = buildEvents(legs, null);
+  assert.equal(saebo.filter((event) => event.kind === "layover").length, 1);
+});
+
+test("liggetid visest òg når ankomsttider er skjulte", () => {
+  setTestState({ hideArrivals: true });
+  const events = buildEvents(
+    [
+      leg("Leknes", "Sæbø", "09:15:00", "09:28:00"),
+      leg("Sæbø", "Leknes", "10:30:00", "10:43:00"),
+    ],
+    null
+  );
+  assert.equal(events.filter((event) => event.kind === "layover").length, 1);
+});
+
+test("onsdag har liggetid på Store Kalvøy, ikkje fem-minutts vending", () => {
+  const stays = buildEvents(wednesday, null).filter((event) => event.kind === "layover");
+  assert.equal(stays.length, 1);
+  assert.equal(stays[0].quays[0], "Store Kalvøy");
+  assert.equal(stays[0].stay.minutes, 40);
 });
 
 test("flytting kjem etter siste segling", () => {

@@ -774,6 +774,32 @@ test("1136 merkar berre PDF-fotnote 1) og 3) som signal", () => {
   assert.equal(valderoya.signal.minutesBefore, 180);
 });
 
+test("1135 merkar matpause som liggetid, ikkje innkomst ved valt kai", () => {
+  setTestState({
+    routes: ruter,
+    kombirute: kombi,
+    date: "2026-09-13",
+    routeChoice: "1135",
+    messages: { messages: [] },
+  });
+  const legs = legsForDate("2026-09-13");
+  const all = buildEvents(legs, null);
+  assert.ok(all.every((event) => event.kind !== "arr"));
+  const stays = all.filter((event) => event.kind === "layover");
+  assert.ok(stays.length > 0);
+  assert.ok(stays.every((event) => event.quays[0] === "Sæbø"));
+  assert.ok(stays.every((event) => event.stay.minutes >= 20));
+  const meal = stays.find((event) => event.at === 9 * 60 + 28);
+  assert.equal(meal.stay.minutes, 62);
+  setTestState({ stopFilter: "Leknes" });
+  const leknes = buildEvents(legs, null);
+  assert.ok(leknes.every((event) => event.kind !== "arr"));
+  assert.ok(leknes.every((event) => event.kind !== "layover"));
+  setTestState({ stopFilter: "Sæbø" });
+  const saebo = buildEvents(legs, null);
+  assert.ok(saebo.some((event) => event.kind === "layover" && event.stay.minutes === 62));
+});
+
 test("1135 har inga PDF-fotnote og inga signalmerke", () => {
   setTestState({
     routes: ruter,
