@@ -1,6 +1,6 @@
 {
   "source": "https://www.fjord1.no/trafikkmeldingar",
-  "fetchedAt": "2026-09-13T17:05:14.095410+00:00",
+  "fetchedAt": "2026-09-13T17:11:40.881010+00:00",
   "messages": [
     {
       "id": "RG9tYWluQ29udGVudDoyMTc1MzcxOA==",
@@ -15,8 +15,8 @@
       "severity": "cancelled",
       "isRoute1136": true,
       "isLocal": true,
-      "isRouteControl": true,
-      "routeMode": "1135",
+      "isRouteControl": false,
+      "routeMode": "1136",
       "routeWindow": null,
       "activateAt": null,
       "vessel": null,
