@@ -331,7 +331,7 @@ test("1136-modus har ikkje Leknes-bein", () => {
   assert.ok(legs.every((leg) => leg.from !== "Leknes" && leg.to !== "Leknes"));
 });
 
-test("Øye-korrespondanse visest ikkje, byte på Sæbø visest når båe ferjene køyrer", () => {
+test("Øye-korrespondanse visest ikkje, destinasjonar på Sæbø visest når båe ferjene køyrer", () => {
   const connections = {
     hub: "Festøya",
     roadTo: "Standal",
@@ -348,8 +348,9 @@ test("Øye-korrespondanse visest ikkje, byte på Sæbø visest når båe ferjene
     messages: { messages: [] },
   });
   const ids1136 = visibleConnectionLines(legsForDate(WEEKDAY)).map((line) => line.id);
-  assert.deepEqual(ids1136, ["saebo", "solavagen"]);
+  assert.deepEqual(ids1136, ["saebo-trandal", "saebo-standal", "saebo-skar", "solavagen"]);
   assert.ok(!ids1136.includes("oye"));
+  assert.ok(!ids1136.includes("saebo"));
 
   setTestState({
     messages: {
@@ -359,33 +360,96 @@ test("Øye-korrespondanse visest ikkje, byte på Sæbø visest når båe ferjene
     },
   });
   const idsKombi = visibleConnectionLines(legsForDate(WEEKDAY)).map((line) => line.id);
-  assert.ok(!idsKombi.includes("saebo"));
+  assert.ok(!idsKombi.includes("saebo-trandal"));
+  assert.ok(!idsKombi.includes("saebo-standal"));
+  assert.ok(!idsKombi.includes("saebo-skar"));
   assert.ok(!idsKombi.includes("oye"));
   assert.ok(idsKombi.includes("solavagen"));
 });
 
-test("byte på Sæbø koplar 1136-ankomst til neste 1135, og motsett", () => {
+test("byte mot Trandal koplar 1136-ankomst til neste 1135", () => {
   setTestState({
     routes: ruter,
     kombirute: kombi,
     date: WEEKDAY,
     routeChoice: "1136",
-    connection: "saebo",
+    connection: "saebo-trandal",
     messages: { messages: [] },
   });
   const index = connectionIndex(WEEKDAY);
   assert.equal(index.hub, "Sæbø");
   assert.equal(index.other, "1135");
+  assert.equal(index.dest, "Trandal");
   const toSaebo = { from: "Trandal", to: "Sæbø", departure: "08:00:00", arrival: "08:30:00" };
   assert.equal(connectionNote(index, "arr", toSaebo), "Vidare 09:15 frå Sæbø mot Leknes");
+  const fromSkar = { from: "Sæbø", to: "Skår", departure: "08:35:00", arrival: "08:55:00" };
+  assert.equal(connectionNote(index, "dep", fromSkar), null);
+});
+
+test("byte mot Skår merkar signaltur når ein kjem frå Leknes", () => {
+  setTestState({
+    routes: ruter,
+    kombirute: kombi,
+    date: WEEKDAY,
+    routeChoice: "1136",
+    connection: "saebo-skar",
+    messages: { messages: [] },
+  });
+  const index = connectionIndex(WEEKDAY);
   const fromSaebo = { from: "Sæbø", to: "Skår", departure: "08:35:00", arrival: "08:55:00" };
   assert.equal(connectionNote(index, "dep", fromSaebo), "Ta ferja 07:30 frå Leknes for å rekke denne");
 
-  setTestState({ routeChoice: "1135" });
-  const back = connectionIndex(WEEKDAY);
-  assert.equal(back.other, "1136");
+  setTestState({ routeChoice: "1135", connection: "saebo-skar" });
+  const toSkar = connectionIndex(WEEKDAY);
+  assert.equal(toSkar.other, "1136");
+  assert.equal(toSkar.dest, "Skår");
+  const fromLeknes = { from: "Leknes", to: "Sæbø", departure: "07:30:00", arrival: "07:43:00" };
+  assert.equal(
+    connectionNote(toSkar, "arr", fromLeknes),
+    "Vidare 08:35 frå Sæbø mot Skår. Signaltur, ring 1136 (91 66 93 40)"
+  );
+  const laterLeknes = { from: "Leknes", to: "Sæbø", departure: "08:30:00", arrival: "08:43:00" };
+  assert.equal(
+    connectionNote(toSkar, "arr", laterLeknes),
+    "Vidare 16:50 frå Sæbø mot Skår. Signaltur, ring 1136 (91 66 93 40)"
+  );
+});
+
+test("byte mot Standal følgjer same segling via Trandal og merkar signaltur", () => {
+  setTestState({
+    routes: ruter,
+    kombirute: kombi,
+    date: WEEKDAY,
+    routeChoice: "1135",
+    connection: "saebo-standal",
+    messages: { messages: [] },
+  });
+  const index = connectionIndex(WEEKDAY);
+  assert.equal(index.dest, "Standal");
   const fromLeknes = { from: "Leknes", to: "Sæbø", departure: "08:30:00", arrival: "08:43:00" };
-  assert.equal(connectionNote(back, "arr", fromLeknes), "Vidare 09:20 frå Sæbø mot Trandal");
+  assert.equal(
+    connectionNote(index, "arr", fromLeknes),
+    "Vidare 09:20 frå Sæbø mot Standal. Signaltur, ring 1136 (91 66 93 40)"
+  );
+
+  setTestState({ connection: "saebo-trandal" });
+  const toTrandal = connectionIndex(WEEKDAY);
+  assert.equal(
+    connectionNote(toTrandal, "arr", fromLeknes),
+    "Vidare 09:20 frå Sæbø mot Trandal. Signaltur, ring 1136 (91 66 93 40)"
+  );
+
+  setTestState({ routeChoice: "1136", connection: "saebo-standal" });
+  const fromTrandalLeg = {
+    from: "Sæbø",
+    to: "Trandal",
+    departure: "09:20:00",
+    arrival: "09:45:00",
+  };
+  assert.equal(
+    connectionNote(connectionIndex(WEEKDAY), "dep", fromTrandalLeg),
+    "Ta ferja 08:30 frå Leknes for å rekke denne"
+  );
 });
 
 test("frå klokka skøyt to tabellar, kai kjem frå tabellen", () => {
@@ -658,7 +722,10 @@ test("valt 1135 viser Sæbø–Leknes sjølv ved normal 1136-drift", () => {
     )
   );
   const ids = visibleConnectionLines(legs).map((line) => line.id);
-  assert.ok(ids.includes("saebo"));
+  assert.ok(ids.includes("saebo-trandal"));
+  assert.ok(ids.includes("saebo-standal"));
+  assert.ok(ids.includes("saebo-skar"));
+  assert.ok(!ids.includes("saebo"));
   assert.ok(!ids.includes("oye"));
   assert.ok(!ids.includes("solavagen"));
   assert.ok(!ids.includes("hundeidvika"));
