@@ -7,7 +7,7 @@ import {
   setLang,
   t,
   weekdays,
-} from "./i18n.js?v=37";
+} from "./i18n.js?v=38";
 
 const MESSAGES_URL = "data/trafikkmeldinger.json";
 const ROUTES_URL = "data/ruter.json";
@@ -28,6 +28,30 @@ const FJORD1_PDF =
   "https://www.fjord1.no/ruteoversikt/moere-og-romsdal/standal-trandal-valderoeya-store-kalvoey/(page)/pdf";
 const FJORD1_PDF_1135 =
   "https://www.fjord1.no/ruteoversikt/moere-og-romsdal/leknes-saeboe/(page)/pdf";
+const FJORD1_GRAPHQL_URL = "https://www.fjord1.no/graphql";
+const FJORD1_MESSAGES_PAGE = "https://www.fjord1.no/trafikkmeldingar";
+/** HTML-lesar med CORS; Fjord1 GraphQL svarar utan Access-Control-Allow-Origin. */
+const FJORD1_HTML_READER = `https://r.jina.ai/${FJORD1_MESSAGES_PAGE}`;
+const FJORD1_GRAPHQL_KEY = "fergeruter-fjord1-graphql";
+const FJORD1_MESSAGES_QUERY = `{
+  content {
+    trafficMessages(first: 50, sortBy: [_datePublished, _desc]) {
+      edges {
+        node {
+          id
+          heading
+          countyNumber
+          connectionNumber
+          date
+          content
+          importantMessage
+          validFrom { timestamp }
+          validTo { timestamp }
+        }
+      }
+    }
+  }
+}`;
 const ALLOWED_MODES = new Set(["1136", "1135", "kombi"]);
 const CHOOSABLE_ROUTES = new Set(["1136", "1135"]);
 const NORMAL_RE = /normal drift/i;
@@ -35,14 +59,25 @@ const CANCEL_RE = /innstilt|innstilling/i;
 const PARTIAL_CANCEL_RE =
   /følgjande avgangar|avgangar innstilt|avgang(?:en|ar)?\s+(?:kl\.?|klokka)/i;
 const KOMBI_RE = /kombinasjon|kombirute|kombinert rute/i;
+const DELAY_RE = /forsink/i;
+const CAPACITY_RE = /kapasitet|kapasistet|farleg last|farlig last/i;
 const HAS_1135_RE = /\b1135\b/;
 const HAS_1136_RE = /\b1136\b/;
+const ROUTE_1136_HINT_RE =
+  /\b1136\b|trandal|standal|valderøy|store kalvøy|sæbø|skår/i;
+const LOCAL_ROUTE_RE = /\b(1136|1135|1049)\b/i;
+const LOCAL_PLACE_RE =
+  /trandal|standal|sæbø|skår|store kalvøy|valderøy|bjørke|urke|festøy|hundeidvik/i;
+const CONN_1136 = 132;
+const CONN_1135 = 134;
 const HIDE_ARRIVALS_KEY = "fergeruter-hide-arrivals";
 /** Opphald på kai som er langt nok til å visast som liggetid, t.d. matpause. */
 const LAYOVER_MIN_MINUTES = 20;
 const ROUTE_CHOICE_KEY = "fergeruter-route-choice";
 const TIMETABLE_CACHE_KEY = "fergeruter-timetable-v1";
 const MESSAGES_POLL_MS = 3 * 60 * 1000;
+/** GitHub-kopien er «gammal» når Actions ikkje har køyrd; då sjekkar sida Fjord1. */
+const MESSAGES_STALE_MS = 8 * 60 * 1000;
 const LIVE_MIN_INTERVAL_MS = 55 * 1000;
 const LIVE_BACKOFF_START_MS = 60 * 1000;
 const LIVE_MAX_BACKOFF_MS = 15 * 60 * 1000;
@@ -78,6 +113,7 @@ let lastLiveStructureKey = null;
 let tickTimer = null;
 let messagesTimer = null;
 let messagesInflight = null;
+let fjord1GraphqlBlocked = false;
 let wakeTimer = null;
 let bootedAt = 0;
 
@@ -724,6 +760,296 @@ function vesselFromText(text) {
   const unique = [...new Set(names)];
   if (unique.length === 1) return titleVessel(unique[0]);
   return null;
+}
+
+function pad2(n) {
+  return String(n).padStart(2, "0");
+}
+
+function fromOsloWall(year, month, day, hour = 0, minute = 0, second = 0) {
+  const wall = `${year}-${pad2(month)}-${pad2(day)}T${pad2(hour)}:${pad2(minute)}:${pad2(second)}`;
+  for (const offset of ["+02:00", "+01:00"]) {
+    const ms = Date.parse(wall + offset);
+    if (!Number.isFinite(ms)) continue;
+    const parts = osloParts(new Date(ms));
+    if (
+      Number(parts.year) === year &&
+      Number(parts.month) === month &&
+      Number(parts.day) === day &&
+      Number(parts.hour) === hour &&
+      Number(parts.minute) === minute &&
+      Number(parts.second) === second
+    ) {
+      return new Date(ms).toISOString();
+    }
+  }
+  const ms = Date.parse(`${wall}Z`);
+  return Number.isFinite(ms) ? new Date(ms).toISOString() : null;
+}
+
+function isoFromUnix(ts) {
+  const n = Number(ts);
+  if (!n) return null;
+  return new Date(n * 1000).toISOString();
+}
+
+function parseFjord1Published(dateStr, fallbackTs) {
+  const raw = String(dateStr || "").trim();
+  const match = raw.match(
+    /^(\d{1,2})\.(\d{1,2})\.(\d{4})(?:[,\s]+(?:kl\.?\s*)?(\d{1,2})[:.](\d{2})(?::(\d{2}))?)?/i
+  );
+  if (match) {
+    const iso = fromOsloWall(
+      Number(match[3]),
+      Number(match[2]),
+      Number(match[1]),
+      Number(match[4] || 0),
+      Number(match[5] || 0),
+      Number(match[6] || 0)
+    );
+    if (iso) return iso;
+  }
+  return isoFromUnix(fallbackTs);
+}
+
+function classifyMessage(text) {
+  if (!text) return "info";
+  const hasNormal = NORMAL_RE.test(text);
+  const hasCancel = CANCEL_RE.test(text);
+  const hasDelay = DELAY_RE.test(text);
+  const hasCapacity = CAPACITY_RE.test(text);
+  if (hasCancel && hasNormal) return hasDelay ? "delay" : "normal";
+  if (hasCancel) return "cancelled";
+  if (hasDelay) return "delay";
+  if (hasNormal) return "normal";
+  if (hasCapacity) return "capacity";
+  return "info";
+}
+
+function isRoute1136Message(heading, text, connectionNumber) {
+  if (Number(connectionNumber) === CONN_1136) return true;
+  return ROUTE_1136_HINT_RE.test(`${heading || ""} ${text || ""}`);
+}
+
+function isLocalMessage(heading, text, connectionNumber) {
+  if (isRoute1136Message(heading, text, connectionNumber)) return true;
+  const blob = `${heading || ""} ${text || ""}`;
+  return LOCAL_ROUTE_RE.test(blob) || LOCAL_PLACE_RE.test(blob);
+}
+
+function compactMessageText(value) {
+  return String(value || "").replace(/\s+/g, " ").trim();
+}
+
+function messageMergeKey(msg) {
+  return `${compactMessageText(msg?.heading)}|${compactMessageText(msg?.text)}`;
+}
+
+function liveMessageId(heading, text) {
+  const key = messageMergeKey({ heading, text });
+  let hash = 0;
+  for (let i = 0; i < key.length; i += 1) hash = (hash * 31 + key.charCodeAt(i)) | 0;
+  return `live:${(hash >>> 0).toString(16)}`;
+}
+
+function decodeHtmlEntities(value) {
+  return String(value || "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)));
+}
+
+function normalizeFjord1Node(node) {
+  const heading = compactMessageText(node?.heading);
+  const text = compactMessageText(node?.content ?? node?.text);
+  const connection = node?.connectionNumber ?? null;
+  const validFromTs = node?.validFrom?.timestamp ?? node?.validFrom;
+  const validToTs = node?.validTo?.timestamp ?? node?.validTo;
+  const published = parseFjord1Published(node?.date || "", validFromTs);
+  const blob = `${heading} ${text}`;
+  const local = isLocalMessage(heading, text, connection);
+  return {
+    id: node?.id || liveMessageId(heading, text),
+    heading,
+    text,
+    publishedAt: published,
+    validFrom: isoFromUnix(validFromTs),
+    validTo: isoFromUnix(validToTs),
+    countyNumber: node?.countyNumber ?? null,
+    connectionNumber: connection,
+    important: Boolean(node?.importantMessage || node?.important),
+    severity: classifyMessage(text),
+    isRoute1136: isRoute1136Message(heading, text, connection),
+    isLocal: local,
+    isRouteControl:
+      !isPartialCancel(blob) &&
+      !is1049Only(heading, text) &&
+      (local || HJORUNDFJORD_RE.test(blob)),
+    routeMode: modeFromText(blob),
+    routeWindow: windowFromText(blob, published),
+    activateAt: activateAtFromText(blob),
+    vessel: vesselFromText(blob),
+    routeSwitch: switchFromText(blob),
+  };
+}
+
+function parseFjord1TrafficHtml(html) {
+  const source = decodeHtmlEntities(html || "");
+  const found = [];
+  const blockRe =
+    /fjord1-alert__header">\s*<span class="ezstring-field">([^<]*)<\/span>[\s\S]*?fjord1-alert__content">\s*<span class="ezstring-field">([^<]*)<\/span>[\s\S]*?fjord1-alert__footer">\s*([^<]+)/g;
+  for (const match of source.matchAll(blockRe)) {
+    found.push(
+      normalizeFjord1Node({
+        heading: match[1],
+        content: match[2],
+        date: compactMessageText(match[3]),
+      })
+    );
+  }
+  if (found.length) return found;
+  for (const chunk of source.split(/\n{2,}/)) {
+    const line = compactMessageText(chunk);
+    const match = line.match(/^Rute\s+\d+\s+(.+?):\s*(.+)$/i);
+    if (!match) continue;
+    found.push(
+      normalizeFjord1Node({
+        heading: match[1],
+        content: line,
+      })
+    );
+  }
+  return found;
+}
+
+function fjord1Payload(messages, { fetchedAt = null, live = true, complete = false } = {}) {
+  return {
+    source: FJORD1_MESSAGES_PAGE,
+    fetchedAt: fetchedAt || new Date().toISOString(),
+    fetchedLive: live,
+    complete,
+    messages,
+  };
+}
+
+function messagesAreStale(payload, now = Date.now()) {
+  const ms = Date.parse(payload?.fetchedAt || "");
+  if (!Number.isFinite(ms)) return true;
+  return now - ms > MESSAGES_STALE_MS;
+}
+
+function mergeMessagePayloads(base, live) {
+  if (!live?.messages?.length) return base || null;
+  if (!base?.messages?.length || live.complete) return live;
+  const byKey = new Map();
+  for (const msg of base.messages) byKey.set(messageMergeKey(msg), msg);
+  let added = false;
+  for (const msg of live.messages) {
+    const key = messageMergeKey(msg);
+    const existing = byKey.get(key);
+    if (!existing) {
+      byKey.set(key, msg);
+      added = true;
+      continue;
+    }
+    if (publishedMs(msg) > publishedMs(existing)) {
+      byKey.set(key, { ...existing, ...msg, id: existing.id || msg.id });
+      added = true;
+    }
+  }
+  if (!added && !live.fetchedLive) return base;
+  const messages = [...byKey.values()].sort((a, b) => publishedMs(b) - publishedMs(a));
+  return {
+    source: live.source || base.source,
+    fetchedAt: live.fetchedAt || base.fetchedAt,
+    fetchedLive: Boolean(live.fetchedLive || added),
+    messages,
+  };
+}
+
+function fjord1GraphqlIsBlocked() {
+  if (fjord1GraphqlBlocked) return true;
+  try {
+    if (
+      typeof sessionStorage !== "undefined" &&
+      sessionStorage.getItem(FJORD1_GRAPHQL_KEY) === "blocked"
+    ) {
+      fjord1GraphqlBlocked = true;
+      return true;
+    }
+  } catch {
+    // private mode
+  }
+  return false;
+}
+
+function markFjord1GraphqlBlocked() {
+  fjord1GraphqlBlocked = true;
+  try {
+    sessionStorage.setItem(FJORD1_GRAPHQL_KEY, "blocked");
+  } catch {
+    // private mode
+  }
+}
+
+async function fetchWithTimeout(url, options = {}, ms = 12000) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), ms);
+  try {
+    return await fetch(url, { ...options, signal: ctrl.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function fetchFjord1Graphql() {
+  const response = await fetchWithTimeout(FJORD1_GRAPHQL_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify({ query: FJORD1_MESSAGES_QUERY }),
+    cache: "no-store",
+  });
+  if (!response.ok) throw new Error(response.statusText);
+  const body = await response.json();
+  if (body?.errors) throw new Error("Fjord1 GraphQL-feil");
+  const edges = body?.data?.content?.trafficMessages?.edges || [];
+  const messages = edges
+    .map((edge) => edge?.node)
+    .filter(Boolean)
+    .map(normalizeFjord1Node);
+  return fjord1Payload(messages, { complete: true });
+}
+
+async function fetchFjord1Html() {
+  const response = await fetchWithTimeout(FJORD1_HTML_READER, {
+    headers: { "X-Return-Format": "html", Accept: "text/html,text/plain" },
+    cache: "no-store",
+  });
+  if (!response.ok) throw new Error(response.statusText);
+  const messages = parseFjord1TrafficHtml(await response.text());
+  if (!messages.length) throw new Error("Ingen Fjord1-meldingar i HTML");
+  return fjord1Payload(messages);
+}
+
+async function fetchFjord1Messages() {
+  if (!fjord1GraphqlIsBlocked()) {
+    try {
+      return await fetchFjord1Graphql();
+    } catch {
+      markFjord1GraphqlBlocked();
+    }
+  }
+  return fetchFjord1Html();
+}
+
+async function fetchMessagesJson() {
+  const response = await fetch(messagesUrl(), { cache: "no-cache" });
+  if (!response.ok) throw new Error(response.statusText);
+  return response.json();
 }
 
 function latestLocalMessage(now = Date.now()) {
@@ -2274,9 +2600,6 @@ function applyMessageFilter(messages) {
   return sortMessagesForRoute(local);
 }
 
-const CONN_1136 = 132;
-const CONN_1135 = 134;
-
 function messageRouteScore(msg, route = chosenRoute()) {
   const blob = messageBlob(msg);
   const heading = String(msg?.heading || "");
@@ -2326,7 +2649,10 @@ function renderMessages() {
   layout.classList.toggle("is-single", !hasLocal);
   if (!hasLocal) return;
   const filtered = applyMessageFilter(all);
-  meta.textContent = t("messages.fetched", { when: formatDateTime(state.messages.fetchedAt) });
+  meta.textContent = t(
+    state.messages.fetchedLive ? "messages.fetchedLive" : "messages.fetched",
+    { when: formatDateTime(state.messages.fetchedAt) }
+  );
   renderMessageSummary(filtered);
   const details = document.getElementById("messages-details");
   if (details) details.hidden = !state.messagesExpanded;
@@ -2482,30 +2808,42 @@ async function loadMessages() {
 
 async function loadMessagesOnce() {
   const meta = document.getElementById("messages-meta");
+  let json = null;
+  let error = null;
   try {
-    // Fjord1-fila kan skifte kvart 5. minutt. no-cache revaliderer utan å omgå ETag.
-    const response = await fetch(messagesUrl(), { cache: "no-cache" });
-    if (!response.ok) throw new Error(response.statusText);
-    const payload = await response.json();
-    const same =
-      state.messages &&
-      messagesFingerprint(state.messages) === messagesFingerprint(payload);
-    state.messages = payload;
-    if (same) return;
-    renderMessages();
-    if (hasTimetable()) {
-      renderRouteChrome();
-      renderTimeline();
-      renderLedeStatus();
+    json = await fetchMessagesJson();
+  } catch (err) {
+    error = err;
+  }
+  let live = null;
+  if (!json || messagesAreStale(json)) {
+    try {
+      live = await fetchFjord1Messages();
+    } catch (err) {
+      error = error || err;
     }
-  } catch (error) {
+  }
+  const payload = mergeMessagePayloads(json, live) || json || live;
+  if (!payload) {
     if (!state.messages) {
       if (meta) meta.textContent = t("messages.fetchError");
       document.getElementById("messages")?.replaceChildren(
         el("p", "empty", t("messages.seeFjord1"))
       );
     }
-    console.error(error);
+    if (error) console.error(error);
+    return;
+  }
+  const same =
+    state.messages &&
+    messagesFingerprint(state.messages) === messagesFingerprint(payload);
+  state.messages = payload;
+  if (same) return;
+  renderMessages();
+  if (hasTimetable()) {
+    renderRouteChrome();
+    renderTimeline();
+    renderLedeStatus();
   }
 }
 
@@ -2939,6 +3277,7 @@ function resetTestState() {
   state.liveBackoffMs = 0;
   state.liveBlockedUntil = 0;
   lastLiveStructureKey = null;
+  fjord1GraphqlBlocked = false;
 }
 
 export {
@@ -2947,6 +3286,7 @@ export {
   LIVE_MAX_BACKOFF_MS,
   LIVE_SERVICE_MARGIN_MIN,
   MESSAGES_POLL_MS,
+  MESSAGES_STALE_MS,
   TIMETABLE_CACHE_KEY,
   ROUTE_CHOICE_KEY,
   WAKE_DEBOUNCE_MS,
@@ -2970,12 +3310,18 @@ export {
   homeQuay,
   isCancelledDeparture,
   cancelledSailingsFromText,
+  classifyMessage,
   isPartialCancel,
   isLiveFresh,
   isUncertainDeparture,
   isPreview,
   isRouteControl,
+  mergeMessagePayloads,
+  messagesAreStale,
   messagesUrl,
+  normalizeFjord1Node,
+  parseFjord1Published,
+  parseFjord1TrafficHtml,
   keepTimelineEvent,
   excerptText,
   layoverAfter,
