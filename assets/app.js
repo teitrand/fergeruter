@@ -7,7 +7,7 @@ import {
   setLang,
   t,
   weekdays,
-} from "./i18n.js?v=38";
+} from "./i18n.js?v=41";
 
 const MESSAGES_URL = "data/trafikkmeldinger.json";
 const ROUTES_URL = "data/ruter.json";
@@ -124,15 +124,27 @@ function el(tag, className, text) {
   return node;
 }
 
+function plausibleRoute(choice = chosenRoute()) {
+  return choice === "1135" ? "saebo-leknes" : "standal-trandal";
+}
+
+function plausibleContext(extra) {
+  return {
+    lang: getLang(),
+    app: appMode(),
+    route: plausibleRoute(),
+    ...extra,
+  };
+}
+
 /** Anonym Plausible-hending. Feilar aldri ut til brukaren. */
 function track(name, props, { interactive = true } = {}) {
   try {
     const fn = typeof window !== "undefined" ? window.plausible : null;
     if (typeof fn !== "function") return;
-    const payload = {};
-    if (props && Object.keys(props).length) payload.props = props;
+    const payload = { props: plausibleContext(props) };
     if (!interactive) payload.interactive = false;
-    fn(name, Object.keys(payload).length ? payload : undefined);
+    fn(name, payload);
   } catch {
     // statistikk skal ikkje stoppe sida
   }
@@ -2266,7 +2278,7 @@ function renderRouteFilter() {
     { value: "1135", label: t("route.1135") },
   ];
   for (const option of options) {
-    const btn = el("button", "chip chip-small", option.label);
+    const btn = el("button", "chip", option.label);
     btn.type = "button";
     const active = chosen === option.value;
     btn.setAttribute("aria-pressed", String(active));
@@ -3332,6 +3344,8 @@ export {
   messageRouteScore,
   messageTimeLines,
   pastDepartureCount,
+  plausibleContext,
+  plausibleRoute,
   sortMessagesForRoute,
   messagesFingerprint,
   minDeadheadMinutes,
@@ -3382,6 +3396,6 @@ if (typeof document !== "undefined") {
   loadRoutes();
   scheduleTick();
   scheduleMessagesPoll();
-  track(`Visit ${getLang()}`, { app: appMode() }, { interactive: false });
+  track(`Visit ${getLang()}`, null, { interactive: false });
   if (appMode() === "pwa") track("Visit pwa", null, { interactive: false });
 }
