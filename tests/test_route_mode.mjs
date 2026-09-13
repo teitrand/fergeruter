@@ -604,15 +604,15 @@ test("valet om samband vert hugsa, men ikkje kombirute", () => {
     setItem: (key, value) => store.set(key, String(value)),
     removeItem: (key) => store.delete(key),
   };
-  assert.equal(readRouteChoice(storage), null);
+  assert.equal(readRouteChoice(storage), "1136");
   writeRouteChoice("1135", storage);
   assert.equal(readRouteChoice(storage), "1135");
   writeRouteChoice("1136", storage);
   assert.equal(readRouteChoice(storage), "1136");
   writeRouteChoice(null, storage);
-  assert.equal(readRouteChoice(storage), null);
+  assert.equal(readRouteChoice(storage), "1136");
   writeRouteChoice("kombi", storage);
-  assert.equal(readRouteChoice(storage), null);
+  assert.equal(readRouteChoice(storage), "1136");
 });
 
 test("valt 1135 viser Sæbø–Leknes sjølv ved normal 1136-drift", () => {
@@ -640,7 +640,7 @@ test("valt 1135 viser Sæbø–Leknes sjølv ved normal 1136-drift", () => {
   assert.ok(!ids.includes("hundeidvika"));
 });
 
-test("valt 1136 viser Standal-tabellen sjølv når kombiruta gjeld", () => {
+test("valt 1136 viser kombiruta når kombiruta gjeld", () => {
   setTestState({
     routes: ruter,
     kombirute: kombi,
@@ -651,30 +651,35 @@ test("valt 1136 viser Standal-tabellen sjølv når kombiruta gjeld", () => {
     },
   });
   assert.equal(operationalMode(), "kombi");
-  assert.equal(activeMode(), "1136");
+  assert.equal(chosenRoute(), "1136");
+  assert.equal(activeMode(), "kombi");
   const legs = legsForDate(WEEKDAY);
   assert.ok(legs.length > 0);
-  assert.ok(legs.every((leg) => leg.from !== "Leknes" && leg.to !== "Leknes"));
-  assert.ok(buildEvents(legs, null).every((event) => event.kind !== "split"));
+  assert.ok(legs.some((leg) => leg.to === "Leknes" || leg.from === "Leknes"));
 });
 
-test("etter drift følgjer framleis Fjord1-meldingane", () => {
+test("valt 1135 viser kombiruta når kombiruta gjeld", () => {
   setTestState({
     routes: ruter,
     kombirute: kombi,
-    routeChoice: null,
+    date: WEEKDAY,
+    routeChoice: "1135",
     messages: {
       messages: [{ isLocal: true, text: SMS, routeMode: "kombi", validTo: "2099-01-01T00:00:00Z" }],
     },
   });
-  assert.equal(chosenRoute(), null);
+  assert.equal(operationalMode(), "kombi");
+  assert.equal(chosenRoute(), "1135");
   assert.equal(activeMode(), "kombi");
+  const legs = legsForDate(WEEKDAY);
+  assert.ok(legs.some((leg) => leg.from === "Sæbø" && leg.to === "Leknes"));
+  assert.ok(legs.some((leg) => leg.from === "Standal" || leg.to === "Standal"));
 });
 
 test("sida har val for å byte fergestrekning", () => {
   const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
   assert.match(html, /id="route-filter"/);
-  assert.match(html, /id="route-note"/);
+  assert.doesNotMatch(html, /Etter drift/);
   assert.match(html, /data-i18n="route.label"/);
 });
 
