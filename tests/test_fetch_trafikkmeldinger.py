@@ -193,16 +193,7 @@ class RouteModeTests(unittest.TestCase):
             mod.vessel_from_text("M/F Geiranger og M/F Kvernes kan brukast.")
         )
 
-    def test_nynorsk_weekday_range_is_read(self):
-        text = (
-            "På grunn av planlagt verkstedopphald blir det utført kombinert rute "
-            "i sambandet frå måndag 14.09 til og med fredag 18.09."
-        )
-        self.assertEqual(
-            mod.window_from_text(text, "2026-09-11T10:45:00+02:00"),
-            {"from": "2026-09-14", "to": "2026-09-18"},
-        )
-        self.assertEqual(mod.route_mode_from_text(text), "kombi")
+    def test_date_range_is_read(self):
         text = (
             "Grunna verkstadopphald vert det køyrt kombinert rute frå 14.06 til 18.06. "
             "Det blir MF Kvernes i rute."
@@ -213,6 +204,16 @@ class RouteModeTests(unittest.TestCase):
         )
         self.assertEqual(mod.route_mode_from_text(text), "kombi")
         self.assertIsNone(mod.switch_from_text(text))
+
+    def test_nynorsk_mandag_in_range_is_read(self):
+        text = (
+            "Rute 1136: På grunn av planlagt verkstedopphald blir det utført kombinert "
+            "rute i sambandet frå måndag 14.09 til og med fredag 18.09."
+        )
+        self.assertEqual(
+            mod.window_from_text(text, "2026-09-11T10:00:00+02:00"),
+            {"from": "2026-09-14", "to": "2026-09-18"},
+        )
 
     def test_rutestart_date_is_read(self):
         text = "Det vert normal drift i sambandet frå rutestart fredag 05.06."
@@ -246,6 +247,23 @@ class RouteModeTests(unittest.TestCase):
         self.assertEqual(mod.route_mode_from_text(text), "1136")
         self.assertIsNone(mod.switch_from_text(text))
         self.assertEqual(mod.activate_at_from_text(text), "14:50:00")
+
+    def test_listed_cancelled_sailings_do_not_switch_to_1135(self):
+        text = (
+            "FJORD1 Rute 1136 Standal-Trandal-Valderøya-Store Kalvøy (www.Fjord1.no):  "
+            "Grunna kviletidsbestemmelser og pålagt kvile til mannskapet vert "
+            "følgjande avgangar innstilt: 20:00 og 20:40 frå Standal, 20:20 og 21:00 frå Trandal"
+        )
+        self.assertTrue(mod.is_partial_cancel(text))
+        self.assertEqual(mod.classify(text), "cancelled")
+        self.assertEqual(mod.route_mode_from_text(text), "1136")
+        self.assertFalse(
+            mod.is_route_control("Standal-Trandal-Valderøya-Store Kalvøy", text, True)
+        )
+        self.assertEqual(
+            mod.route_mode_from_text("Rute 1136 Standal-Trandal er innstilt inntil vidare."),
+            "1135",
+        )
 
 
 class FetchTests(unittest.TestCase):

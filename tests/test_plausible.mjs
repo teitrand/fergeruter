@@ -7,7 +7,7 @@ import {
   feedbackMailto,
   track,
 } from "../assets/app.js";
-import { setLang } from "../assets/i18n.js";
+import { setLang } from "../assets/i18n.js?v=38";
 
 const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
 const app = readFileSync(new URL("../assets/app.js", import.meta.url), "utf8");
@@ -48,16 +48,18 @@ test("header har ikkje ferjegrafikk mellom kaiene", () => {
 
 test("sida har den dekorative stiplede streken øverst", () => {
   assert.match(html, /class="skyline"/);
-  assert.match(html, /assets\/styles\.css\?v=30/);
-  assert.match(html, /assets\/app\.js\?v=30/);
+  assert.match(html, /assets\/styles\.css\?v=38/);
+  assert.match(html, /assets\/app\.js\?v=38/);
+  assert.match(app, /from "\.\/i18n\.js\?v=38"/);
   const css = readFileSync(new URL("../assets/styles.css", import.meta.url), "utf8");
   assert.match(css, /\.skyline\s*\{[^}]*repeating-linear-gradient/s);
   assert.match(css, /safe-area-inset-top/);
-  assert.match(css, /#timetable-panel\s*\{[^}]*min-height:\s*24rem/s);
+  assert.match(css, /\.messages-bar-excerpt\s*\{[^}]*width:\s*100%/s);
+  assert.match(css, /\.messages-bar-body\s*\{[^}]*width:\s*100%/s);
   assert.doesNotMatch(css, /1\.05fr 0\.95fr/);
   assert.doesNotMatch(css, /@media \(min-width: 860px\)/);
   const sw = readFileSync(new URL("../sw.js", import.meta.url), "utf8");
-  assert.match(sw, /fergeruter-dev-v30/);
+  assert.match(sw, /fergeruter-dev-v38/);
   assert.match(sw, /function isTimetableJson/);
   assert.match(sw, /function isMessagesJson/);
   assert.match(sw, /staleWhileRevalidate\(request,\s*\{\s*notify: true/);
@@ -74,12 +76,13 @@ test("appen sender namngjevne brukshendingar til Plausible", () => {
     "Day next",
     "Day today",
     "Stop ${option.value || \"all\"}",
-    "Connection ${option.value || \"none\"}",
+    "Connection ${next || \"none\"}",
     "Messages ${btn.dataset.filter}",
     "Show past",
     "Hide past",
     "Show arrivals",
     "Hide arrivals",
+    "Route ${next}",
     "Install app",
     "App installed",
     "Feedback yes",

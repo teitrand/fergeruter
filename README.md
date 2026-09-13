@@ -4,7 +4,7 @@ Statisk oversikt over **trafikkmeldingar frå Fjord1** og **seglingsplanen** for
 
 Sida viser heile dagen som ei samanhengande tidslinje med alle anløpa i rekkjefølgje, og ei **No**-linje som fortel om ferja ligg til kai eller er på veg. Posisjonen er i utgangspunktet rekna ut frå den aktive tabellen. Når Entur sender køyretøyposisjon for 1136 eller 1135, visest den som sanntid. Etter siste passasjertur (t.d. onsdag på Valderøya) reknar sida med at ferja går tilbake til Standal utan passasjerar og ligg der over natta — den turen står ikkje i Entur.
 
-Rutetabellane for 1136 og 1135 blir lasta ned frå Entur og lagra i `data/ruter.json`. Dei blir berre henta på nytt når innhaldet faktisk er endra. Kombinasjonsruta ligg ikkje i Entur; ho er transkribert frå FRAM-PDF til `data/kombirute.json`. Trafikkmeldingar og rutetabell kjem frå lokale JSON-filer; nettlesaren kallar Entur berre for valfri køyretøyposisjon (CORS er open).
+Rutetabellane for 1136 og 1135 blir lasta ned frå Entur og lagra i `data/ruter.json`. Dei blir berre henta på nytt når innhaldet faktisk er endra. Kombinasjonsruta ligg ikkje i Entur; ho er transkribert frå FRAM-PDF til `data/kombirute.json`. Rutetabellen kjem frå lokale JSON-filer; nettlesaren kallar Entur berre for valfri køyretøyposisjon (CORS er open). Trafikkmeldingar kjem frå Fjord1 når GitHub-kopien er gammal, elles frå `data/trafikkmeldinger.json`.
 
 ## Kjelder
 
@@ -14,6 +14,7 @@ Rutetabellane for 1136 og 1135 blir lasta ned frå Entur og lagra i `data/ruter.
 - Sanntidsposisjon: [Entur SIRI VM](https://developer.entur.no/open-data/realtime) (`datasetId=MOR`, `LineRef=MOR:Line:1136` og `1135`) når ferja rapporterer. Små ferjer kan vere utan køyretøy i straumen, særleg utanom rutetid. I kombimodus brukast sanntid berre om Kvernes rapporterer; elles melding + tidslinje.
 - AIS-kart: [NAIS / Kystverket](https://nais.kystverket.no/) for M/F Kvernes (MMSI 257297400). BarentsWatch sitt AIS-API er gratis under NLOD, men krev innlogging med klient-id og hemmelegheit, så det passar ikkje på ei statisk GitHub Pages-side.
 - Papir-ruteplan 1136: [Fjord1 rute 1136 (PDF)](https://www.fjord1.no/ruteoversikt/moere-og-romsdal/standal-trandal-valderoeya-store-kalvoey/(page)/pdf)
+- Papir-ruteplan 1135: [Fjord1 rute 1135 (PDF)](https://www.fjord1.no/ruteoversikt/moere-og-romsdal/leknes-saeboe/(page)/pdf)
 
 ## Tre tabellar og ruteval
 
@@ -23,11 +24,11 @@ Rutetabellane for 1136 og 1135 blir lasta ned frå Entur og lagra i `data/ruter.
 | `1135` | Entur 1135 Sæbø–Leknes | 1136 er innstilt, og det er ikkje kombirute |
 | `kombi` | `data/kombirute.json` | Teksten har `kombinasjon` / `kombirute` / `kombinert rute`, eller både 1135 og 1136 er innstilt |
 
-Nyaste **gyldige lokale** Fjord1-melding styrer valet. Banneret viser framleis Fjord1-teksten, pluss ei merknad og lenke til FRAM-PDF-en når kombiruta er aktiv.
+Nyaste **gyldige lokale** Fjord1-melding styrer tabellen når 1136 er innstilt eller det er kombirute; då visest det same i **begge** sambanda. Ved normal drift vel du 1136 eller 1135 i sambandsvalet. Banneret viser framleis Fjord1-teksten, pluss ei merknad og lenke til FRAM-PDF-en når kombiruta er aktiv.
 
 Korrespondansar: Solavågen og Hundeidvika via Festøya→Standal som før. Når aktiv tabell har **Leknes** (kombirute eller 1135), kjem òg buss **133 Leknes–Øye**.
 
-Fjord1 tillèt ikkje CORS frå nettlesaren, så meldingane blir henta av eit skript til `data/trafikkmeldinger.json`.
+Fjord1 sitt GraphQL-endepunkt svarar, men utan CORS-løyve frå `teitrand.github.io`, så nettlesaren får ikkje lese det direkte. GitHub Actions hentar framleis meldingane til `data/trafikkmeldinger.json` (cron på `main`). Når den fila er eldre enn åtte minutt, sjekkar appen Fjord1-sida live (GraphQL fyrst, deretter HTML via ein open lesar med CORS) og flettar inn nye meldingar.
 
 ## Køyre lokalt
 
@@ -37,7 +38,7 @@ python3 scripts/fetch_ruter.py
 python3 -m http.server 8080
 ```
 
-Opne [http://localhost:8080](http://localhost:8080). På localhost (og `/dev/`) kan du tvinge tabell med `?rute=kombi`, `?rute=1135` eller `?rute=1136`. På produksjon styrer berre ekte driftsmeldingar.
+Opne [http://localhost:8080](http://localhost:8080). Øvst i rutetabellen kan du byte **samband**: *Standal–Trandal* (1136) eller *Sæbø–Leknes* (1135). Valet blir hugsa i nettlesaren. Når Fjord1 køyrer kombirute (eller innstiller 1136), visest den tabellen i begge sambanda. På localhost (og `/dev/`) kan du òg tvinge tabell med `?rute=kombi`, `?rute=1135` eller `?rute=1136`.
 
 ## Språk
 
@@ -64,11 +65,11 @@ Pages kjem framleis frå `main` (legacy). Testhosten blir derfor kopiert inn som
 - **Alltid via `dev` før prod.** `dev` skal vere føre `main`. Feature-grein frå `dev` → PR mot `dev` → test på `/dev/` → først då merge `dev` → `main`. Ikkje opne feature-PR mot `main`.
 - Service worker på `/dev/` har eige scope og eige cache-namn, så testinga ikkje stal cache frå prod
 - Plausible tel ikkje på `/dev/` (same som localhost)
-- Trafikkmelding-jobben køyrer framleis berre på `main`. Testhosten `/dev/` les same `data/trafikkmeldinger.json` som produksjon, så meldingane er like.
+- Trafikkmelding-jobben køyrer framleis berre på `main`. Testhosten `/dev/` les same `data/trafikkmeldinger.json` som produksjon som reserve; når kopien er gammal, hentar både `/dev/` og produksjon meldingar live frå Fjord1.
 
 ## Oppdatering
 
-- Trafikkmeldingar: kvart 5. minutt på `main` (tetteste GitHub Actions tillèt). Fila blir **ikkje** skriven om meldingane er dei same. Nettlesaren sjekkar fila kvart 3. minutt medan sida er open (ETag/revalidering), og med ein gong når fana blir synleg att.
+- Trafikkmeldingar: GitHub Actions kvart 5. minutt på `main` (tettaste GitHub tillèt; køyringane kan verte forseinka). Fila blir **ikkje** skriven om meldingane er dei same. Nettlesaren sjekkar fila kvart 3. minutt medan sida er open. Er kopien eldre enn 8 minutt, sjekkar ho Fjord1 direkte og viser nye meldingar med ein gong.
 - Rutetabell 1136+1135 og korrespondansar (inkl. 133): last ned att **berre når tabellen er endra**. Nettlesaren viser sist lagra tabell med ein gong og oppdaterer i bakgrunnen:
 
 ```bash
@@ -104,6 +105,7 @@ I Plausible-panelet ser du:
 | `Day prev` / `Day next` / `Day today` | Blad i rutetabellen |
 | `Stop all` / `Stop Standal` / … | Filter på stoppestad |
 | `Connection none` / `solavagen` / `hundeidvika` | Korrespondanse |
+| `Route 1136` / `Route 1135` | Byte fergestrekning |
 | `Messages local` / `route` / `issues` | Filter på trafikkmeldingar |
 | `Show past` / `Hide past` | Vis eller skjul tidlegare anløp |
 | `Install app` / `App installed` | Installer-knappen, og når appen faktisk er lagt til |

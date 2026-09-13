@@ -22,15 +22,33 @@ import {
   setTestState,
   vesselFromText,
   visibleConnectionLines,
+  connectionIndex,
+  connectionNote,
   readHideArrivals,
+  readRouteChoice,
   showArrivals,
   writeHideArrivals,
+  writeRouteChoice,
+  chosenRoute,
+  operationalMode,
+  activeMode,
   TIMETABLE_CACHE_KEY,
   readCachedTimetable,
   timetableFingerprint,
   writeCachedTimetable,
   messagesFingerprint,
   messagesUrl,
+  isRouteControl,
+  cancelledSailingsFromText,
+  isPartialCancel,
+  isCancelledDeparture,
+  classifyMessage,
+  mergeMessagePayloads,
+  messagesAreStale,
+  MESSAGES_STALE_MS,
+  normalizeFjord1Node,
+  parseFjord1Published,
+  parseFjord1TrafficHtml,
 } from "../assets/app.js";
 
 const ruter = JSON.parse(readFileSync(new URL("../data/ruter.json", import.meta.url), "utf8"));
@@ -87,13 +105,6 @@ test("datoar i meldinga styrer når kombiruta gjeld", () => {
     from: "2026-06-14",
     to: "2026-06-18",
   });
-  assert.deepEqual(
-    windowFromText(
-      "utført kombinert rute i sambandet frå måndag 14.09 til og med fredag 18.09.",
-      "2026-09-11T10:45:00+02:00"
-    ),
-    { from: "2026-09-14", to: "2026-09-18" }
-  );
   assert.equal(
     routeModeFromMessages(messages, Date.parse("2026-06-12T10:00:00+02:00"), "2026-06-12"),
     "1136"
@@ -105,6 +116,30 @@ test("datoar i meldinga styrer når kombiruta gjeld", () => {
   assert.equal(
     routeModeFromMessages(messages, Date.parse("2026-06-19T10:00:00+02:00"), "2026-06-19"),
     "1136"
+  );
+});
+
+test("nynorsk måndag i datoperioden startar ikkje kombiruta for tidleg", () => {
+  const text =
+    "Rute 1136 Standal-Trandal-Valderøya-Store Kalvøy: På grunn av planlagt verkstedopphald blir det utført kombinert rute i sambandet frå måndag 14.09 til og med fredag 18.09. Det blir MF Geiranger i rute (91669321).";
+  assert.deepEqual(windowFromText(text, "2026-09-11T10:00:00+02:00"), {
+    from: "2026-09-14",
+    to: "2026-09-18",
+  });
+  const msg = normalizeFjord1Node({
+    heading: "Standal-Trandal-Valderøya-Store Kalvøy",
+    content: text,
+    date: "11.09.2026, kl. 10:00",
+  });
+  assert.equal(msg.routeMode, "kombi");
+  assert.deepEqual(msg.routeWindow, { from: "2026-09-14", to: "2026-09-18" });
+  assert.equal(
+    routeModeFromMessages([msg], Date.parse("2026-09-13T16:00:00Z"), "2026-09-13"),
+    "1136"
+  );
+  assert.equal(
+    routeModeFromMessages([msg], Date.parse("2026-09-14T08:00:00Z"), "2026-09-14"),
+    "kombi"
   );
 });
 
@@ -259,6 +294,65 @@ test("enskild kansellert avgang skøyt ikkje til 1135", () => {
   assert.equal(plan.switch, null);
 });
 
+const KVILE_SMS =
+  "FJORD1 Rute 1136 Standal-Trandal-Valderøya-Store Kalvøy (www.Fjord1.no):  Grunna kviletidsbestemmelser og pålagt kvile til mannskapet vert følgjande avgangar innstilt: 20:00 og 20:40 frå Standal, 20:20 og 21:00 frå Trandal";
+
+test("innstilte kveldsavgangar skøyt ikkje til 1135, men merkar turane", () => {
+  assert.equal(modeFromText(KVILE_SMS), "1136");
+  assert.equal(modeFromText("Rute 1136 Standal-Trandal er innstilt inntil vidare."), "1135");
+  assert.ok(isPartialCancel(KVILE_SMS));
+  assert.equal(
+    isRouteControl({
+      heading: "Standal-Trandal-Valderøya-Store Kalvøy",
+      text: KVILE_SMS,
+      isLocal: true,
+      isRouteControl: true,
+      routeMode: "1135",
+    }),
+    false
+  );
+  assert.deepEqual(cancelledSailingsFromText(KVILE_SMS), [
+    { time: "20:00:00", from: "Standal" },
+    { time: "20:40:00", from: "Standal" },
+    { time: "20:20:00", from: "Trandal" },
+    { time: "21:00:00", from: "Trandal" },
+  ]);
+
+  setTestState({
+    routes: ruter,
+    kombirute: kombi,
+    date: "2026-09-13",
+    routeChoice: "1136",
+    messages: {
+      messages: [
+        {
+          heading: "Standal-Trandal-Valderøya-Store Kalvøy",
+          text: KVILE_SMS,
+          isLocal: true,
+          isRouteControl: true,
+          routeMode: "1135",
+          publishedAt: "2026-09-13T17:50:00+02:00",
+          validTo: "2026-09-14T21:59:00Z",
+        },
+      ],
+    },
+  });
+  assert.equal(operationalMode("2026-09-13"), "1136");
+  assert.equal(activeMode(), "1136");
+  const legs = legsForDate("2026-09-13");
+  const standal2000 = legs.find((leg) => leg.from === "Standal" && leg.departure === "20:00:00");
+  const trandal2020 = legs.find((leg) => leg.from === "Trandal" && leg.departure === "20:20:00");
+  const standal2040 = legs.find((leg) => leg.from === "Standal" && leg.departure === "20:40:00");
+  const trandal2100 = legs.find((leg) => leg.from === "Trandal" && leg.departure === "21:00:00");
+  const earlier = legs.find((leg) => leg.from === "Standal" && leg.departure === "10:00:00");
+  assert.ok(standal2000);
+  assert.ok(isCancelledDeparture(standal2000));
+  assert.ok(isCancelledDeparture(trandal2020));
+  assert.ok(isCancelledDeparture(standal2040));
+  assert.ok(isCancelledDeparture(trandal2100));
+  assert.equal(isCancelledDeparture(earlier), false);
+});
+
 test("nyaste lokale melding styrer modus", () => {
   assert.equal(
     routeModeFromMessages(
@@ -331,7 +425,7 @@ test("1136-modus har ikkje Leknes-bein", () => {
   assert.ok(legs.every((leg) => leg.from !== "Leknes" && leg.to !== "Leknes"));
 });
 
-test("Øye-korrespondanse visest berre når Leknes er i tabellen", () => {
+test("Øye-korrespondanse visest ikkje, destinasjonar på Sæbø visest når båe ferjene køyrer", () => {
   const connections = {
     hub: "Festøya",
     roadTo: "Standal",
@@ -344,16 +438,13 @@ test("Øye-korrespondanse visest berre når Leknes er i tabellen", () => {
     routes: ruter,
     kombirute: kombi,
     connections,
+    date: WEEKDAY,
     messages: { messages: [] },
   });
   const ids1136 = visibleConnectionLines(legsForDate(WEEKDAY)).map((line) => line.id);
-  assert.deepEqual(ids1136, ["solavagen"]);
-
-  setTestState({ connections: null });
-  const defaultKombi = visibleConnectionLines([
-    { from: "Sæbø", to: "Leknes", departure: "08:15:00", arrival: "08:30:00" },
-  ]).map((line) => line.id);
-  assert.ok(defaultKombi.includes("oye"));
+  assert.deepEqual(ids1136, ["saebo-trandal", "saebo-standal", "saebo-skar", "solavagen"]);
+  assert.ok(!ids1136.includes("oye"));
+  assert.ok(!ids1136.includes("saebo"));
 
   setTestState({
     messages: {
@@ -363,8 +454,96 @@ test("Øye-korrespondanse visest berre når Leknes er i tabellen", () => {
     },
   });
   const idsKombi = visibleConnectionLines(legsForDate(WEEKDAY)).map((line) => line.id);
-  assert.ok(idsKombi.includes("oye"));
+  assert.ok(!idsKombi.includes("saebo-trandal"));
+  assert.ok(!idsKombi.includes("saebo-standal"));
+  assert.ok(!idsKombi.includes("saebo-skar"));
+  assert.ok(!idsKombi.includes("oye"));
   assert.ok(idsKombi.includes("solavagen"));
+});
+
+test("byte mot Trandal koplar 1136-ankomst til neste 1135", () => {
+  setTestState({
+    routes: ruter,
+    kombirute: kombi,
+    date: WEEKDAY,
+    routeChoice: "1136",
+    connection: "saebo-trandal",
+    messages: { messages: [] },
+  });
+  const index = connectionIndex(WEEKDAY);
+  assert.equal(index.hub, "Sæbø");
+  assert.equal(index.other, "1135");
+  assert.equal(index.dest, "Trandal");
+  const toSaebo = { from: "Trandal", to: "Sæbø", departure: "08:00:00", arrival: "08:30:00" };
+  assert.equal(connectionNote(index, "arr", toSaebo), "Vidare 09:15 frå Sæbø mot Leknes");
+  const fromSkar = { from: "Sæbø", to: "Skår", departure: "08:35:00", arrival: "08:55:00" };
+  assert.equal(connectionNote(index, "dep", fromSkar), null);
+});
+
+test("byte mot Skår merkar signaltur når ein kjem frå Leknes", () => {
+  setTestState({
+    routes: ruter,
+    kombirute: kombi,
+    date: WEEKDAY,
+    routeChoice: "1136",
+    connection: "saebo-skar",
+    messages: { messages: [] },
+  });
+  const index = connectionIndex(WEEKDAY);
+  const fromSaebo = { from: "Sæbø", to: "Skår", departure: "08:35:00", arrival: "08:55:00" };
+  assert.equal(connectionNote(index, "dep", fromSaebo), "Ta ferja 07:30 frå Leknes for å rekke denne");
+
+  setTestState({ routeChoice: "1135", connection: "saebo-skar" });
+  const toSkar = connectionIndex(WEEKDAY);
+  assert.equal(toSkar.other, "1136");
+  assert.equal(toSkar.dest, "Skår");
+  const fromLeknes = { from: "Leknes", to: "Sæbø", departure: "07:30:00", arrival: "07:43:00" };
+  assert.equal(
+    connectionNote(toSkar, "arr", fromLeknes),
+    "Vidare 08:35 frå Sæbø mot Skår. Signaltur, ring 1136 (91 66 93 40)"
+  );
+  const laterLeknes = { from: "Leknes", to: "Sæbø", departure: "08:30:00", arrival: "08:43:00" };
+  assert.equal(
+    connectionNote(toSkar, "arr", laterLeknes),
+    "Vidare 16:50 frå Sæbø mot Skår. Signaltur, ring 1136 (91 66 93 40)"
+  );
+});
+
+test("byte mot Standal følgjer same segling via Trandal og merkar signaltur", () => {
+  setTestState({
+    routes: ruter,
+    kombirute: kombi,
+    date: WEEKDAY,
+    routeChoice: "1135",
+    connection: "saebo-standal",
+    messages: { messages: [] },
+  });
+  const index = connectionIndex(WEEKDAY);
+  assert.equal(index.dest, "Standal");
+  const fromLeknes = { from: "Leknes", to: "Sæbø", departure: "08:30:00", arrival: "08:43:00" };
+  assert.equal(
+    connectionNote(index, "arr", fromLeknes),
+    "Vidare 09:20 frå Sæbø mot Standal. Signaltur, ring 1136 (91 66 93 40)"
+  );
+
+  setTestState({ connection: "saebo-trandal" });
+  const toTrandal = connectionIndex(WEEKDAY);
+  assert.equal(
+    connectionNote(toTrandal, "arr", fromLeknes),
+    "Vidare 09:20 frå Sæbø mot Trandal. Signaltur, ring 1136 (91 66 93 40)"
+  );
+
+  setTestState({ routeChoice: "1136", connection: "saebo-standal" });
+  const fromTrandalLeg = {
+    from: "Sæbø",
+    to: "Trandal",
+    departure: "09:20:00",
+    arrival: "09:45:00",
+  };
+  assert.equal(
+    connectionNote(connectionIndex(WEEKDAY), "dep", fromTrandalLeg),
+    "Ta ferja 08:30 frå Leknes for å rekke denne"
+  );
 });
 
 test("frå klokka skøyt to tabellar, kai kjem frå tabellen", () => {
@@ -599,6 +778,114 @@ test("valet om ankomsttider vert hugsa", () => {
   assert.equal(readHideArrivals(storage), false);
 });
 
+test("valet om samband vert hugsa, men ikkje kombirute", () => {
+  const store = new Map();
+  const storage = {
+    getItem: (key) => (store.has(key) ? store.get(key) : null),
+    setItem: (key, value) => store.set(key, String(value)),
+    removeItem: (key) => store.delete(key),
+  };
+  assert.equal(readRouteChoice(storage), "1136");
+  writeRouteChoice("1135", storage);
+  assert.equal(readRouteChoice(storage), "1135");
+  writeRouteChoice("1136", storage);
+  assert.equal(readRouteChoice(storage), "1136");
+  writeRouteChoice(null, storage);
+  assert.equal(readRouteChoice(storage), "1136");
+  writeRouteChoice("kombi", storage);
+  assert.equal(readRouteChoice(storage), "1136");
+});
+
+test("valt 1135 viser Sæbø–Leknes sjølv ved normal 1136-drift", () => {
+  setTestState({
+    routes: ruter,
+    kombirute: kombi,
+    date: WEEKDAY,
+    routeChoice: "1135",
+    messages: { messages: [] },
+  });
+  assert.equal(operationalMode(), "1136");
+  assert.equal(chosenRoute(), "1135");
+  assert.equal(activeMode(), "1135");
+  const legs = legsForDate(WEEKDAY);
+  assert.ok(legs.length > 0);
+  assert.ok(
+    legs.every(
+      (leg) =>
+        (leg.from === "Sæbø" && leg.to === "Leknes") || (leg.from === "Leknes" && leg.to === "Sæbø")
+    )
+  );
+  const ids = visibleConnectionLines(legs).map((line) => line.id);
+  assert.ok(ids.includes("saebo-trandal"));
+  assert.ok(ids.includes("saebo-standal"));
+  assert.ok(ids.includes("saebo-skar"));
+  assert.ok(!ids.includes("saebo"));
+  assert.ok(!ids.includes("oye"));
+  assert.ok(!ids.includes("solavagen"));
+  assert.ok(!ids.includes("hundeidvika"));
+});
+
+test("valt 1136 viser kombiruta når kombiruta gjeld", () => {
+  setTestState({
+    routes: ruter,
+    kombirute: kombi,
+    date: WEEKDAY,
+    routeChoice: "1136",
+    messages: {
+      messages: [{ isLocal: true, text: SMS, routeMode: "kombi", validTo: "2099-01-01T00:00:00Z" }],
+    },
+  });
+  assert.equal(operationalMode(), "kombi");
+  assert.equal(chosenRoute(), "1136");
+  assert.equal(activeMode(), "kombi");
+  const legs = legsForDate(WEEKDAY);
+  assert.ok(legs.length > 0);
+  assert.ok(legs.some((leg) => leg.to === "Leknes" || leg.from === "Leknes"));
+});
+
+test("valt 1135 viser kombiruta når kombiruta gjeld", () => {
+  setTestState({
+    routes: ruter,
+    kombirute: kombi,
+    date: WEEKDAY,
+    routeChoice: "1135",
+    messages: {
+      messages: [{ isLocal: true, text: SMS, routeMode: "kombi", validTo: "2099-01-01T00:00:00Z" }],
+    },
+  });
+  assert.equal(operationalMode(), "kombi");
+  assert.equal(chosenRoute(), "1135");
+  assert.equal(activeMode(), "kombi");
+  const legs = legsForDate(WEEKDAY);
+  assert.ok(legs.some((leg) => leg.from === "Sæbø" && leg.to === "Leknes"));
+  assert.ok(legs.some((leg) => leg.from === "Standal" || leg.to === "Standal"));
+});
+
+test("sida har val for å byte fergestrekning", () => {
+  const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  const app = readFileSync(new URL("../assets/app.js", import.meta.url), "utf8");
+  assert.match(html, /id="route-filter"/);
+  assert.match(html, /class="header-routes/);
+  assert.match(html, /id="route-badge"/);
+  assert.match(html, /class="extras-row"/);
+  assert.match(html, /id="messages-summary"/);
+  assert.match(html, /id="messages-details"/);
+  assert.match(html, /id="day-today"[\s\S]*?id="day-prev"[\s\S]*?id="day-label"[\s\S]*?id="day-next"/);
+  assert.doesNotMatch(html, /id="day-today"[^>]*\bhidden\b/);
+  assert.match(app, /todayBtn\.disabled = isToday\(\)/);
+  assert.match(app, /messages-count/);
+  assert.match(app, /sortMessagesForRoute/);
+  assert.doesNotMatch(html, /id="next-summary"/);
+  assert.doesNotMatch(html, /Etter drift/);
+  assert.doesNotMatch(html, /data-i18n="route.label"/);
+  assert.doesNotMatch(html, /class="route-row"/);
+  assert.doesNotMatch(html, /class="view-row"/);
+  assert.doesNotMatch(html, /class="conn-row"/);
+  assert.doesNotMatch(app, /t\("conn.none"\)/);
+  assert.match(app, /t\("view.arrivals"\)/);
+  assert.match(app, /messagesExpanded/);
+});
+
 test("rutetabellen kan hentast frå lokal cache utan nett", () => {
   const store = new Map();
   const storage = {
@@ -690,6 +977,32 @@ test("1136 merkar berre PDF-fotnote 1) og 3) som signal", () => {
   assert.equal(valderoya.signal.minutesBefore, 180);
 });
 
+test("1135 merkar matpause som liggetid, ikkje innkomst ved valt kai", () => {
+  setTestState({
+    routes: ruter,
+    kombirute: kombi,
+    date: "2026-09-13",
+    routeChoice: "1135",
+    messages: { messages: [] },
+  });
+  const legs = legsForDate("2026-09-13");
+  const all = buildEvents(legs, null);
+  assert.ok(all.every((event) => event.kind !== "arr"));
+  const stays = all.filter((event) => event.kind === "layover");
+  assert.ok(stays.length > 0);
+  assert.ok(stays.every((event) => event.quays[0] === "Sæbø"));
+  assert.ok(stays.every((event) => event.stay.minutes >= 20));
+  const meal = stays.find((event) => event.at === 9 * 60 + 28);
+  assert.equal(meal.stay.minutes, 62);
+  setTestState({ stopFilter: "Leknes" });
+  const leknes = buildEvents(legs, null);
+  assert.ok(leknes.every((event) => event.kind !== "arr"));
+  assert.ok(leknes.every((event) => event.kind !== "layover"));
+  setTestState({ stopFilter: "Sæbø" });
+  const saebo = buildEvents(legs, null);
+  assert.ok(saebo.some((event) => event.kind === "layover" && event.stay.minutes === 62));
+});
+
 test("1135 har inga PDF-fotnote og inga signalmerke", () => {
   setTestState({
     routes: ruter,
@@ -735,9 +1048,177 @@ test("kombirute er éi samanhengande rute utan tomflytting", () => {
       "neste Frå-celle er neste anløp"
     );
     assert.ok(events.every((event) => event.kind !== "transfer"));
+    assert.equal(events.filter((event) => event.kind === "split").length, 0);
     const mid = Math.floor(legs.length / 2);
     const status = ferryStatus(legs, clockMin(legs[mid].departure) - 10, legs);
     assert.doesNotMatch(status?.text || "", /utan passasjerar/);
     assert.doesNotMatch(status?.short || "", /utan passasjerar/);
   }
 });
+
+test("heildags kombirute får raud merking fyrste morgon, ikkje midt i perioden", () => {
+  const verksted = {
+    isLocal: true,
+    isRouteControl: true,
+    heading: "Leknes-Sæbø",
+    text: "På grunn av planlagt verkstedopphald blir det utført kombinert rute i sambandet frå måndag 14.09 til og med fredag 18.09.",
+    routeMode: "kombi",
+    routeWindow: { from: "2026-09-14", to: "2026-09-18" },
+    publishedAt: "2026-09-11T10:45:19+02:00",
+    validTo: "2026-09-18T21:55:00+00:00",
+  };
+  setTestState({
+    routes: ruter,
+    kombirute: kombi,
+    messages: { messages: [verksted] },
+  });
+  setTestState({ date: "2026-09-13" });
+  assert.equal(operationalMode("2026-09-13"), "1136");
+  assert.equal(buildEvents(legsForDate("2026-09-13"), null).filter((event) => event.kind === "split").length, 0);
+
+  setTestState({ date: "2026-09-14" });
+  assert.equal(operationalMode("2026-09-14"), "kombi");
+  const monday = legsForDate("2026-09-14");
+  const mondaySplits = buildEvents(monday, null).filter((event) => event.kind === "split");
+  assert.equal(mondaySplits.length, 1);
+  assert.equal(mondaySplits[0].at, clockMin(monday[0].departure));
+  assert.equal(monday[0].departure, "06:00:00");
+
+  setTestState({ date: "2026-09-15" });
+  assert.equal(operationalMode("2026-09-15"), "kombi");
+  assert.equal(buildEvents(legsForDate("2026-09-15"), null).filter((event) => event.kind === "split").length, 0);
+
+  setTestState({ date: "2026-09-19" });
+  assert.equal(operationalMode("2026-09-19"), "1136");
+  const saturday = legsForDate("2026-09-19");
+  const saturdaySplits = buildEvents(saturday, null).filter((event) => event.kind === "split");
+  assert.equal(saturdaySplits.length, 1);
+  assert.equal(saturdaySplits[0].at, clockMin(saturday[0].departure));
+});
+
+test("tabellen merkar både start og slutt når ruta skifter to gonger", () => {
+  const legs = [
+    {
+      from: "Standal",
+      to: "Trandal",
+      departure: "07:40:00",
+      arrival: "07:55:00",
+      table: "1136",
+    },
+    {
+      from: "Sæbø",
+      to: "Leknes",
+      departure: "14:00:00",
+      arrival: "14:13:00",
+      table: "kombi",
+    },
+    {
+      from: "Standal",
+      to: "Trandal",
+      departure: "18:30:00",
+      arrival: "18:45:00",
+      table: "1136",
+    },
+  ];
+  const splits = buildEvents(legs, null).filter((event) => event.kind === "split");
+  assert.equal(splits.length, 2);
+  assert.equal(splits[0].at, 14 * 60);
+  assert.equal(splits[1].at, 18 * 60 + 30);
+});
+
+const KVILE_HTML = `
+<div class="view-type view-type-standard traffic-message">
+  <div class="fjord1-alert fjord1-alert--warning">
+    <h3 class="fjord1-alert__header"><span class="ezstring-field">Standal-Trandal-Valderøya-Store Kalvøy</span></h3>
+    <div class="fjord1-alert__content">
+      <span class="ezstring-field">Rute 1136 Standal-Trandal-Valderøya-Store Kalvøy: Grunna kviletidsbestemmelser og pålagt kvile til mannskapet vert følgjande avgangar innstilt: 20:00 og 20:40 frå Standal, 20:20 og 21:00 frå Trandal</span>
+    </div>
+    <div class="fjord1-alert__footer">
+      13.09.2026, kl. 17:57
+    </div>
+  </div>
+</div>`;
+
+test("Fjord1-HTML med kvilemelding blir lokale innstilte avgangar, ikkje 1135", () => {
+  const messages = parseFjord1TrafficHtml(KVILE_HTML);
+  assert.equal(messages.length, 1);
+  const msg = messages[0];
+  assert.equal(msg.isLocal, true);
+  assert.equal(msg.isRoute1136, true);
+  assert.equal(msg.severity, "cancelled");
+  assert.equal(msg.routeMode, "1136");
+  assert.equal(msg.isRouteControl, false);
+  assert.equal(isPartialCancel(msg.text), true);
+  assert.deepEqual(
+    cancelledSailingsFromText(msg.text).map((item) => `${item.from}|${item.time}`),
+    ["Standal|20:00:00", "Standal|20:40:00", "Trandal|20:20:00", "Trandal|21:00:00"]
+  );
+  assert.equal(msg.publishedAt, "2026-09-13T15:57:00.000Z");
+});
+
+test("GraphQL-node blir normalisert likt Python-skriptet", () => {
+  const msg = normalizeFjord1Node({
+    id: "1",
+    heading: "Standal-Trandal-Valderøya-Store Kalvøy",
+    countyNumber: 15,
+    connectionNumber: 132,
+    date: "24.08.2026 12:46:06",
+    content: "Rute 1136: normal drift.",
+    importantMessage: false,
+    validFrom: { timestamp: 1787568366 },
+    validTo: { timestamp: 1787654704 },
+  });
+  assert.equal(msg.severity, "normal");
+  assert.equal(msg.isRoute1136, true);
+  assert.equal(msg.isLocal, true);
+  assert.equal(msg.routeMode, "1136");
+  assert.equal(msg.activateAt, null);
+  assert.equal(classifyMessage("må påregnes forsinkelser"), "delay");
+  assert.equal(parseFjord1Published("13.09.2026, kl. 17:57"), "2026-09-13T15:57:00.000Z");
+});
+
+test("live Fjord1-meldingar blir fletta inn i gammal GitHub-kopi", () => {
+  const stale = {
+    source: "https://www.fjord1.no/trafikkmeldingar",
+    fetchedAt: "2026-09-13T13:54:00.000Z",
+    messages: [
+      {
+        id: "old",
+        heading: "Drag - Kjøpsvik",
+        text: "Rute 201108: normal drift.",
+        publishedAt: "2026-08-30T07:56:37+02:00",
+        isLocal: false,
+      },
+    ],
+  };
+  assert.equal(messagesAreStale(stale, Date.parse("2026-09-13T16:00:00Z")), true);
+  assert.equal(
+    messagesAreStale(
+      { fetchedAt: "2026-09-13T15:55:00.000Z" },
+      Date.parse("2026-09-13T16:00:00Z")
+    ),
+    false
+  );
+  assert.ok(MESSAGES_STALE_MS > 5 * 60 * 1000);
+  const live = {
+    source: "https://www.fjord1.no/trafikkmeldingar",
+    fetchedAt: "2026-09-13T16:01:00.000Z",
+    fetchedLive: true,
+    messages: parseFjord1TrafficHtml(KVILE_HTML),
+  };
+  const merged = mergeMessagePayloads(stale, live);
+  assert.equal(merged.fetchedLive, true);
+  assert.equal(merged.messages.length, 2);
+  assert.ok(merged.messages.some((msg) => msg.text.includes("kviletidsbestemmelser")));
+  setTestState({
+    routes: ruter,
+    kombirute: kombi,
+    date: "2026-09-13",
+    routeChoice: "1136",
+    messages: merged,
+  });
+  assert.equal(routeModeFromMessages(merged.messages, Date.parse("2026-09-13T16:10:00Z"), "2026-09-13"), "1136");
+  assert.equal(isCancelledDeparture({ from: "Standal", departure: "20:00:00" }), true);
+  assert.equal(isCancelledDeparture({ from: "Standal", departure: "19:20:00" }), false);
+});
+

@@ -25,6 +25,10 @@ LOCAL_PLACE_RE = re.compile(
 )
 NORMAL_RE = re.compile(r"normal drift", re.I)
 CANCEL_RE = re.compile(r"innstilt|innstilling", re.I)
+PARTIAL_CANCEL_RE = re.compile(
+    r"følgjande avgangar|avgangar innstilt|avgang(?:en|ar)?\s+(?:kl\.?|klokka)",
+    re.I,
+)
 DELAY_RE = re.compile(r"forsink", re.I)
 CAPACITY_RE = re.compile(r"kapasitet|kapasistet|farleg last|farlig last", re.I)
 KOMBI_RE = re.compile(r"kombinasjon|kombirute|kombinert rute", re.I)
@@ -52,7 +56,7 @@ ACTIVATE_CLOCK_RE = re.compile(
     re.I | re.S,
 )
 WEEKDAY_RE = (
-    r"(?:måndag|mandag|tysdag|tirsdag|onsdag|torsdag|fredag|laurdag|lørdag|sundag|søndag)\s+"
+    r"(?:mandag|måndag|tysdag|tirsdag|onsdag|torsdag|fredag|laurdag|lørdag|søndag)\s+"
 )
 NUMDATE_RE = r"(\d{1,2})\.(\d{1,2})(?:\.(\d{2,4}))?"
 WINDOW_RANGE_RE = re.compile(
@@ -123,6 +127,14 @@ def is_route_1136(heading: str, text: str, connection_number: int | None) -> boo
     return bool(ROUTE_RE.search(blob))
 
 
+def is_partial_cancel(text: str) -> bool:
+    """Nemnte enkeltavgangar, ikkje heile sambandet innstilt."""
+    blob = text or ""
+    if not CANCEL_RE.search(blob) and not re.search(r"kanseller", blob, re.I):
+        return False
+    return bool(PARTIAL_CANCEL_RE.search(blob))
+
+
 def route_mode_from_text(text: str) -> str:
     """1136, 1135 eller kombi ut frå Fjord1-meldingstekst."""
     blob = text or ""
@@ -136,7 +148,7 @@ def route_mode_from_text(text: str) -> str:
     if has_kombi or (has_cancel and has_1135 and has_1136):
         return "kombi"
     if has_cancel and has_1136 and not has_1135:
-        return "1135"
+        return "1136" if is_partial_cancel(blob) else "1135"
     return "1136"
 
 
@@ -147,6 +159,8 @@ def is_1049_only(heading: str, text: str) -> bool:
 
 def is_route_control(heading: str, text: str, is_local: bool | None = None) -> bool:
     """Meldingar som kan byte 1136/1135/kombirute — ikkje berre 1049."""
+    if is_partial_cancel(text):
+        return False
     if is_1049_only(heading, text):
         return False
     if is_local:

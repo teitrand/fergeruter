@@ -10,7 +10,7 @@ import {
   stringKeys,
   stringsFor,
   t,
-} from "../assets/i18n.js";
+} from "../assets/i18n.js?v=38";
 
 function leg(from, to, departure, arrival, dates = ["2026-08-26"]) {
   return { from, to, departure, arrival, activeDates: dates };
@@ -24,12 +24,36 @@ const wednesday = [
 test("seglingstekst har destinasjon i alle språk", () => {
   setLang("nn");
   assert.equal(t("sailing.route", { from: "Standal", to: "Trandal" }), "Standal → Trandal");
-  assert.equal(t("sailing.arrival", { time: "07:00" }), "Ankomst 07:00");
+  assert.equal(t("sailing.cancelled"), "Innstilt");
   setLang("en");
   assert.equal(t("sailing.departure", { time: "06:45" }), "Departure 06:45");
   setLang("de");
   assert.equal(t("sailing.arrival", { time: "07:00" }), "Ankunft 07:00");
   setLang("nn");
+  assert.equal(t("layover.title"), "Liggetid");
+  assert.equal(t("layover.atQuay", { quay: "Sæbø" }), "Liggetid Sæbø");
+  assert.equal(t("layover.until", { duration: "1 t 2 min", time: "10:30" }), "1 t 2 min, til 10:30");
+  setLang("en");
+  assert.equal(t("layover.atQuay", { quay: "Sæbø" }), "Layover at Sæbø");
+  setLang("de");
+  assert.equal(t("layover.title"), "Liegezeit");
+  setLang("nn");
+  assert.equal(t("messages.expand"), "Vis meir");
+  assert.equal(t("messages.collapse"), "Vis mindre");
+  assert.equal(t("messages.andNMore", { n: 2 }), "og 2 til");
+  assert.equal(t("messages.excerptMore"), "…");
+  assert.equal(t("messages.fetchedLive", { when: "i dag 18:01" }), "Sist henta i dag 18:01 frå Fjord1");
+  assert.equal(t("route.badgeKombi"), "Kombirute");
+  assert.equal(
+    t("status.layoverAt", { quay: "Sæbø", duration: "32 min", time: "13:45" }),
+    "Ferja ligg til kai på Sæbø. Liggetid 32 min, til 13:45."
+  );
+  assert.equal(t("day.todayFull", { date: "søndag 13. september" }), "I dag · søndag 13. september");
+  assert.equal(
+    t("conn.signalCallPhone", { route: "1136", phone: "91 66 93 40" }),
+    "Signaltur, ring 1136 (91 66 93 40)"
+  );
+  assert.equal(t("conn.transferNote", { dest: "Skår", margin: 5 }), "Bytte på Sæbø mot Skår. Rekna med 5 min til å gå over.");
 });
 
 test("same i18n keys in nn, en and de", () => {
