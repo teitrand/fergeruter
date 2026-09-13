@@ -7,7 +7,7 @@ import {
   setLang,
   t,
   weekdays,
-} from "./i18n.js?v=34";
+} from "./i18n.js?v=35";
 
 const MESSAGES_URL = "data/trafikkmeldinger.json";
 const ROUTES_URL = "data/ruter.json";
@@ -58,6 +58,7 @@ const state = {
   date: null,
   showPast: false,
   hideArrivals: false,
+  messagesExpanded: false,
   routeChoice: "1136",
   messages: null,
   routes: null,
@@ -208,7 +209,17 @@ function formatDay(isoDate) {
 
 function headingDay(isoDate) {
   const text = formatDay(isoDate);
-  return text.charAt(0).toUpperCase() + text.slice(1);
+  const titled = text.charAt(0).toUpperCase() + text.slice(1);
+  if (isoDate === todayIso()) return t("day.todayFull", { date: titled });
+  return titled;
+}
+
+function excerptText(text, max = 140) {
+  const raw = String(text || "").replace(/\s+/g, " ").trim();
+  if (raw.length <= max) return raw;
+  const cut = raw.slice(0, max);
+  const at = cut.lastIndexOf(" ");
+  return `${(at > 80 ? cut.slice(0, at) : cut).trim()}…`;
 }
 
 function formatDateOnly(iso) {
@@ -1020,12 +1031,29 @@ function ferryStatus(legs, now = nowMinutes(), allLegs = null) {
     const next = legs[i + 1];
     if (next && now >= clockMinutes(leg.arrival) && now < clockMinutes(next.departure)) {
       const moving = !isCombinedTimetable() && leg.to !== next.from;
+      if (moving) {
+        return {
+          at: clockMinutes(leg.arrival) + 0.5,
+          underway: true,
+          text: t("status.repositionTo", { quay: next.from }),
+        };
+      }
+      const stay = layoverAfter(leg, next);
+      if (stay) {
+        return {
+          at: clockMinutes(leg.arrival) + 0.5,
+          layover: true,
+          short: t("status.mooredAt", { quay: stay.quay }),
+          text: t("status.layoverAt", {
+            quay: stay.quay,
+            duration: durationText(stay.minutes),
+            time: hhmm(stay.until),
+          }),
+        };
+      }
       return {
         at: clockMinutes(leg.arrival) + 0.5,
-        underway: moving,
-        text: moving
-          ? t("status.repositionTo", { quay: next.from })
-          : t("status.mooredAt", { quay: leg.to }),
+        text: t("status.mooredAt", { quay: leg.to }),
       };
     }
   }
@@ -1173,112 +1201,6 @@ function nextArrivalAt(legs, quay, skipPassed = false) {
       return true;
     }) || null
   );
-}
-
-/**
- * Neste tur i oversiktsboksen: fyrste avgang (frå valt kai, eller fyrste i
- * tabellen) og ankomst for same strekning. Ikkje neste innkomst attende på
- * avgangskaia — 06:45 Standal–Trandal skal vise 07:00 Trandal, ikkje 07:20 Standal.
- */
-function nextOverview(legs, quay, skipPassed = false) {
-  const dep = nextDepartureFrom(legs, quay, skipPassed);
-  if (!dep) return null;
-  return { dep, arr: dep };
-}
-
-/** Fyrste treffet på ein seinare dag, så boksen ikkje står tom om kvelden. */
-function lookAhead(fromDate, matches, maxDays = 7) {
-  for (let step = 1; step <= maxDays; step += 1) {
-    const date = shiftIso(fromDate, step);
-    const dayLegs = legsForDate(date);
-    const leg = dayLegs.find((item) => matches(item, dayLegs));
-    if (leg) return { date, leg };
-  }
-  return null;
-}
-
-function dayPrefix(date) {
-  if (date === shiftIso(todayIso(), 1)) return t("day.tomorrow");
-  return formatDay(date);
-}
-
-function resolveAhead(selected, current, matches) {
-  if (current) return { leg: current, date: selected, prefix: "" };
-  const ahead = lookAhead(selected, matches);
-  if (!ahead) return null;
-  return { leg: ahead.leg, date: ahead.date, prefix: dayPrefix(ahead.date) };
-}
-
-function buildNextRow(row) {
-  const node = el("div", "next-row");
-  node.append(el("span", "next-time", hhmm(row.time)));
-  const body = el("span", "next-body");
-  const name = el("span", "next-name", row.name);
-  if (row.leg.signal) name.append(el("span", "stop-tag", t("signal.onRequest")));
-  body.append(name);
-  const note = signalNote(row.leg, row.live);
-  if (note) body.append(note);
-  const connection = connectionNote(connectionIndex(row.date), row.kind, row.leg);
-  if (connection) body.append(el("span", "stop-note stop-conn", connection));
-  node.append(body);
-  const stateNode = el("span", "next-state");
-  if (row.prefix) {
-    stateNode.append(document.createTextNode(`${row.prefix} · `));
-  }
-  if (row.live && row.time) {
-    const cd = el("span", "next-countdown", countdown(row.time));
-    cd.dataset.countdown = row.time;
-    stateNode.append(cd);
-  } else if (row.state) {
-    stateNode.textContent = row.state;
-  }
-  node.append(stateNode);
-  return node;
-}
-
-/** Boks med neste avgang og ankomst for same tur. */
-function renderNextSummary(legs) {
-  const root = document.getElementById("next-summary");
-  root.replaceChildren();
-  const selected = selectedDate();
-  const skipPassed = isToday();
-  const quay = state.stopFilter;
-
-  const overview = nextOverview(legs, quay, skipPassed);
-  const depHit = resolveAhead(
-    selected,
-    overview?.dep ?? null,
-    (leg) => isVisibleDeparture(leg) && (!quay || leg.from === quay)
-  );
-  if (!depHit) return;
-
-  const live = depHit.date === todayIso();
-  const rows = [
-    {
-      time: depHit.leg.departure,
-      name: t("sailing.route", { from: depHit.leg.from, to: depHit.leg.to }),
-      prefix: depHit.prefix,
-      live,
-      leg: depHit.leg,
-      kind: "dep",
-      date: depHit.date,
-    },
-  ];
-  if (showArrivals()) {
-    rows.push({
-      time: depHit.leg.arrival,
-      name: t("next.arrival", { to: depHit.leg.to }),
-      prefix: depHit.prefix,
-      live,
-      leg: depHit.leg,
-      kind: "arr",
-      date: depHit.date,
-    });
-  }
-
-  const item = el("div", "next-item");
-  for (const row of rows) item.append(buildNextRow(row));
-  root.append(item);
 }
 
 /**
@@ -1518,7 +1440,8 @@ function transferRow(from, to, past) {
 }
 
 function statusRow(status) {
-  const row = el("div", `now${status.underway ? " is-underway" : " is-moored"}`);
+  const kind = status.layover ? " is-layover" : status.underway ? " is-underway" : " is-moored";
+  const row = el("div", `now${kind}`);
   row.append(el("span", "now-label", t("now")));
   row.append(el("span", "now-text", status.text));
   return row;
@@ -1569,14 +1492,21 @@ function buildEvents(legs, connections) {
     }
     if (next && leg.table && next.table && leg.table !== next.table) {
       const routeSwitch = activePlan().switch;
-      if (routeSwitch && !events.some((event) => event.kind === "split")) {
-        events.push({
-          at: clockMinutes(routeSwitch.time),
-          kind: "split",
-          quays: [],
-          build: (past) => splitRow(routeSwitch, next.table, past),
-        });
-      }
+      const notice =
+        routeSwitch && clockMinutes(routeSwitch.time) === clockMinutes(next.departure)
+          ? routeSwitch.notice
+          : null;
+      events.push({
+        at: clockMinutes(next.departure),
+        kind: "split",
+        quays: [],
+        build: (past) =>
+          splitRow(
+            { time: next.departure, quay: next.from, before: leg.table, notice },
+            next.table,
+            past
+          ),
+      });
     }
     if (
       !isCombinedTimetable() &&
@@ -1669,7 +1599,7 @@ function renderViewFilter() {
   if (!root) return;
   root.replaceChildren();
   const visible = showArrivals();
-  const btn = el("button", "chip chip-small", visible ? t("view.hideArrivals") : t("view.showArrivals"));
+  const btn = el("button", "chip chip-small", t("view.arrivals"));
   btn.type = "button";
   btn.setAttribute("aria-pressed", String(visible));
   if (visible) btn.classList.add("is-active");
@@ -1691,19 +1621,16 @@ function renderConnectionFilter() {
   if (state.connection && !visible.some((line) => line.id === state.connection)) {
     state.connection = null;
   }
-  const options = [{ value: null, label: t("conn.none") }].concat(
-    visible.map((line) => ({ value: line.id, label: line.label }))
-  );
-  for (const option of options) {
-    const btn = el("button", "chip chip-small", option.label);
+  for (const line of visible) {
+    const btn = el("button", "chip chip-small", line.label);
     btn.type = "button";
-    const active = state.connection === option.value;
+    const active = state.connection === line.id;
     btn.setAttribute("aria-pressed", String(active));
     if (active) btn.classList.add("is-active");
     btn.addEventListener("click", () => {
-      if (state.connection === option.value) return;
-      track(`Connection ${option.value || "none"}`);
-      selectConnection(option.value);
+      const next = state.connection === line.id ? null : line.id;
+      track(`Connection ${next || "none"}`);
+      selectConnection(next);
     });
     root.append(btn);
   }
@@ -1749,7 +1676,10 @@ function renderDayNav() {
   const label = document.getElementById("day-label");
   if (label) label.textContent = headingDay(selectedDate());
   const todayBtn = document.getElementById("day-today");
-  if (todayBtn) todayBtn.disabled = isToday();
+  if (todayBtn) {
+    todayBtn.hidden = isToday();
+    todayBtn.disabled = isToday();
+  }
 }
 
 /** Kort status øvst, alltid om i dag, uansett kva dag som er vald nedanfor. */
@@ -1794,8 +1724,11 @@ function timelineEventIsPast(event, events, now = nowMinutes()) {
   return sailingDoneAt(event) <= now;
 }
 
-function keepTimelineEvent(event, events, now = nowMinutes()) {
+function keepTimelineEvent(event, events, now = nowMinutes(), status = null) {
   if (event.status) return true;
+  if (isToday() && status?.layover && event.kind === "layover" && event.at <= now && event.until > now) {
+    return false;
+  }
   if (!isToday() || state.showPast) return true;
   if (event.kind === "split") {
     return events.some((item) => item.kind !== "split" && item.kind !== "status" && item.at > now);
@@ -1897,7 +1830,6 @@ function renderLive() {
   if (!legs.length) {
     lastLiveStructureKey = null;
     renderReveal(0);
-    renderNextSummary(legs);
     root.replaceChildren();
     root.append(el("p", "empty", t("empty.noTripsDay")));
     return;
@@ -1925,13 +1857,12 @@ function renderLive() {
   }
 
   lastLiveStructureKey = key;
-  renderNextSummary(legs);
   root.replaceChildren();
   const pastCount = pastDepartureCount(events, now);
   renderReveal(pastCount);
 
   for (const event of events) {
-    if (!keepTimelineEvent(event, events, now)) continue;
+    if (!keepTimelineEvent(event, events, now, status)) continue;
     const past = timelineEventIsPast(event, events, now);
     root.append(event.build(past));
   }
@@ -1985,6 +1916,9 @@ function renderMessages() {
   if (!hasLocal) return;
   const filtered = applyMessageFilter(all);
   meta.textContent = t("messages.fetched", { when: formatDateTime(state.messages.fetchedAt) });
+  renderMessageSummary(filtered);
+  const details = document.getElementById("messages-details");
+  if (details) details.hidden = !state.messagesExpanded;
   if (!filtered.length) {
     root.append(
       el(
@@ -2017,21 +1951,70 @@ function renderMessages() {
   }
 }
 
+const SEVERITY_RANK = { cancelled: 0, delay: 1, capacity: 2, info: 3, normal: 4 };
+
+function renderMessageSummary(filtered) {
+  const root = document.getElementById("messages-summary");
+  if (!root) return;
+  root.replaceChildren();
+  const bar = el("button", "messages-bar");
+  bar.type = "button";
+  bar.setAttribute("aria-expanded", String(Boolean(state.messagesExpanded)));
+  const body = el("span", "messages-bar-body");
+  if (!filtered.length) {
+    bar.classList.add("is-info");
+    body.append(
+      el(
+        "span",
+        "messages-bar-title",
+        state.messageFilter === "issues" ? t("empty.noIssues") : t("empty.noMessages")
+      )
+    );
+  } else {
+    const ranked = [...filtered].sort(
+      (a, b) => (SEVERITY_RANK[a.severity] ?? 9) - (SEVERITY_RANK[b.severity] ?? 9)
+    );
+    const top = ranked[0];
+    bar.classList.add(`is-${top.severity}`);
+    body.append(el("span", "messages-bar-title", top.heading || t("messages.title")));
+    if (!state.messagesExpanded) {
+      body.append(el("span", "messages-bar-excerpt", excerptText(top.text)));
+      if (filtered.length > 1) {
+        body.append(el("span", "messages-bar-more", t("messages.andNMore", { n: filtered.length - 1 })));
+      }
+    }
+  }
+  bar.append(body);
+  bar.append(
+    el(
+      "span",
+      "messages-bar-toggle",
+      state.messagesExpanded ? t("messages.collapse") : t("messages.expand")
+    )
+  );
+  bar.addEventListener("click", () => {
+    state.messagesExpanded = !state.messagesExpanded;
+    renderMessages();
+  });
+  root.append(bar);
+}
+
 function renderRouteChrome() {
   const mode = activeMode();
-  const plan = activePlan();
   const title = document.getElementById("route-title");
   if (title) {
-    title.textContent = plan.switch
-      ? t("route.titleSwitch", {
-          before: t(`split.table.${plan.switch.before}`),
-          after: t(`split.table.${plan.mode}`),
-        })
-      : mode === "kombi"
+    title.textContent =
+      mode === "kombi"
         ? t("route.titleKombi")
         : mode === "1135"
           ? t("route.title1135")
           : t("route.title1136");
+  }
+  const badge = document.getElementById("route-badge");
+  if (badge) {
+    const kombi = mode === "kombi";
+    badge.hidden = !kombi;
+    if (kombi) badge.textContent = t("route.badgeKombi");
   }
   document.title =
     mode === "kombi" ? t("meta.titleKombi") : mode === "1135" ? t("meta.title1135") : t("meta.title");
@@ -2528,6 +2511,7 @@ function resetTestState() {
   state.date = null;
   state.showPast = false;
   state.hideArrivals = false;
+  state.messagesExpanded = false;
   state.routeChoice = "1136";
   state.messages = null;
   state.routes = null;
@@ -2562,6 +2546,7 @@ export {
   delayMinutes,
   feedbackMailto,
   ferryStatus,
+  headingDay,
   firstKnownQuay,
   homeQuay,
   isLiveFresh,
@@ -2570,6 +2555,7 @@ export {
   isRouteControl,
   messagesUrl,
   keepTimelineEvent,
+  excerptText,
   layoverAfter,
   legsForDate,
   liveBlockedUntil,
@@ -2582,7 +2568,6 @@ export {
   modeFromText,
   nextArrivalAt,
   nextDepartureFrom,
-  nextOverview,
   noteLiveFailure,
   operationalMode,
   parseVehicleMonitoring,
@@ -2603,6 +2588,7 @@ export {
   showArrivals,
   serviceWindowMinutes,
   timetableFingerprint,
+  todayIso,
   track,
   vesselFromText,
   windowFromText,
