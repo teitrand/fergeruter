@@ -205,6 +205,16 @@ class RouteModeTests(unittest.TestCase):
         self.assertEqual(mod.route_mode_from_text(text), "kombi")
         self.assertIsNone(mod.switch_from_text(text))
 
+    def test_nynorsk_mandag_in_range_is_read(self):
+        text = (
+            "Rute 1136: På grunn av planlagt verkstedopphald blir det utført kombinert "
+            "rute i sambandet frå måndag 14.09 til og med fredag 18.09."
+        )
+        self.assertEqual(
+            mod.window_from_text(text, "2026-09-11T10:00:00+02:00"),
+            {"from": "2026-09-14", "to": "2026-09-18"},
+        )
+
     def test_rutestart_date_is_read(self):
         text = "Det vert normal drift i sambandet frå rutestart fredag 05.06."
         self.assertEqual(
