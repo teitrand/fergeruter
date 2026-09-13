@@ -7,7 +7,7 @@ import {
   setLang,
   t,
   weekdays,
-} from "./i18n.js?v=31";
+} from "./i18n.js?v=32";
 
 const MESSAGES_URL = "data/trafikkmeldinger.json";
 const ROUTES_URL = "data/ruter.json";
@@ -26,13 +26,17 @@ const KOMBI_PDF =
   "https://frammr.no/_f/p2/i2e02cdba-2cdc-4a23-b9bf-f6a6bd437bbe/kombinasjonsrute-sabo-leknes-skar-trandal-standal-20251118.pdf";
 const FJORD1_PDF =
   "https://www.fjord1.no/ruteoversikt/moere-og-romsdal/standal-trandal-valderoeya-store-kalvoey/(page)/pdf";
+const FJORD1_PDF_1135 =
+  "https://www.fjord1.no/ruteoversikt/moere-og-romsdal/leknes-saeboe/(page)/pdf";
 const ALLOWED_MODES = new Set(["1136", "1135", "kombi"]);
+const CHOOSABLE_ROUTES = new Set(["1136", "1135"]);
 const NORMAL_RE = /normal drift/i;
 const CANCEL_RE = /innstilt|innstilling/i;
 const KOMBI_RE = /kombinasjon|kombirute|kombinert rute/i;
 const HAS_1135_RE = /\b1135\b/;
 const HAS_1136_RE = /\b1136\b/;
 const HIDE_ARRIVALS_KEY = "fergeruter-hide-arrivals";
+const ROUTE_CHOICE_KEY = "fergeruter-route-choice";
 const TIMETABLE_CACHE_KEY = "fergeruter-timetable-v1";
 const MESSAGES_POLL_MS = 3 * 60 * 1000;
 const LIVE_MIN_INTERVAL_MS = 55 * 1000;
@@ -52,6 +56,7 @@ const state = {
   date: null,
   showPast: false,
   hideArrivals: false,
+  routeChoice: null,
   messages: null,
   routes: null,
   kombirute: null,
@@ -590,10 +595,23 @@ function routeSwitchFromMessages(messages, now = Date.now(), date = osloIsoFromM
   return resolveRoutePlan(messages, now, date).switch;
 }
 
+function chosenRoute() {
+  return CHOOSABLE_ROUTES.has(state.routeChoice) ? state.routeChoice : null;
+}
+
+function operationalMode(date = selectedDate()) {
+  return resolveRoutePlan(state.messages?.messages, Date.now(), date).mode || "1136";
+}
+
 function activePlan(date = selectedDate()) {
   const fromQuery = switchOverride();
   const resolved = resolveRoutePlan(state.messages?.messages, Date.now(), date);
-  const mode = routeOverride() || (fromQuery ? fromQuery.after : resolved.mode) || "1136";
+  const override = routeOverride();
+  const chosen = override ? null : chosenRoute();
+  const mode = override || chosen || (fromQuery ? fromQuery.after : resolved.mode) || "1136";
+  if (chosen) {
+    return { mode: chosen, switch: null, notice: null, uncertain: false };
+  }
   const parsed = fromQuery || resolved.switch;
   if (!parsed || (parsed.after || mode) !== mode) {
     return { mode, switch: null, notice: null, uncertain: false };
@@ -1029,6 +1047,29 @@ function writeHideArrivals(hide, storage) {
   }
 }
 
+function readRouteChoice(storage) {
+  try {
+    const store =
+      storage ?? (typeof localStorage !== "undefined" ? localStorage : null);
+    const raw = store?.getItem(ROUTE_CHOICE_KEY);
+    return CHOOSABLE_ROUTES.has(raw) ? raw : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeRouteChoice(choice, storage) {
+  try {
+    const store =
+      storage ?? (typeof localStorage !== "undefined" ? localStorage : null);
+    if (!store) return;
+    if (CHOOSABLE_ROUTES.has(choice)) store.setItem(ROUTE_CHOICE_KEY, choice);
+    else store.removeItem(ROUTE_CHOICE_KEY);
+  } catch {
+    // localStorage kan vere stengt.
+  }
+}
+
 /** Rutetabellen endrar seg sjeldan; hugsa sist vising så oppdatering av sida ikkje ventar på 400 KB JSON. */
 function timetableFingerprint(routes, kombirute, connections) {
   return JSON.stringify({
@@ -1264,7 +1305,7 @@ function visibleConnectionLines(legs) {
     if (line.id === "oye" || hub === "Leknes" || road === "Leknes") {
       return quays.includes("Leknes");
     }
-    return true;
+    return !road || quays.includes(road);
   });
 }
 
@@ -1536,6 +1577,54 @@ function renderStopFilter(legs) {
   }
 }
 
+function selectRoute(choice) {
+  const next = CHOOSABLE_ROUTES.has(choice) ? choice : null;
+  if (state.routeChoice === next) return;
+  state.routeChoice = next;
+  writeRouteChoice(next);
+  track(`Route ${next || "auto"}`);
+  state.stopFilter = null;
+  state.live = null;
+  state.liveFetchedAt = 0;
+  renderRouteChrome();
+  renderTimeline();
+  renderLedeStatus();
+}
+
+function renderRouteFilter() {
+  const root = document.getElementById("route-filter");
+  const note = document.getElementById("route-note");
+  if (!root) return;
+  root.replaceChildren();
+  const chosen = chosenRoute();
+  const options = [
+    { value: null, label: t("route.auto") },
+    { value: "1136", label: t("route.1136") },
+    { value: "1135", label: t("route.1135") },
+  ];
+  for (const option of options) {
+    const btn = el("button", "chip chip-small", option.label);
+    btn.type = "button";
+    const active = chosen === option.value;
+    btn.setAttribute("aria-pressed", String(active));
+    if (active) btn.classList.add("is-active");
+    btn.addEventListener("click", () => selectRoute(option.value));
+    root.append(btn);
+  }
+  if (!note) return;
+  const auto = operationalMode();
+  if (chosen && chosen !== auto) {
+    note.hidden = false;
+    note.textContent = t("route.manualNote", {
+      shown: t(`split.table.${chosen}`),
+      auto: t(`split.table.${auto}`),
+    });
+  } else {
+    note.hidden = true;
+    note.textContent = "";
+  }
+}
+
 function renderViewFilter() {
   const root = document.getElementById("view-filter");
   if (!root) return;
@@ -1731,6 +1820,7 @@ function liveStructureKey(events, now, status) {
     conn: state.connection,
     showPast: state.showPast,
     hideArr: state.hideArrivals,
+    route: state.routeChoice || "auto",
     statusAt: status?.at ?? null,
     statusText: status?.text ?? "",
     liveRec: state.live?.recordedAt || "",
@@ -1813,6 +1903,7 @@ function renderTimeline() {
   lastLiveStructureKey = null;
   renderedDate = selectedDate();
   renderStopFilter(legsForDate(renderedDate));
+  renderRouteFilter();
   renderViewFilter();
   renderConnectionFilter();
   renderLive();
@@ -1903,6 +1994,8 @@ function renderRouteChrome() {
           ? t("route.title1135")
           : t("route.title1136");
   }
+  document.title =
+    mode === "kombi" ? t("meta.titleKombi") : mode === "1135" ? t("meta.title1135") : t("meta.title");
   const eyebrow = document.querySelector(".eyebrow");
   if (eyebrow) {
     eyebrow.textContent =
@@ -1913,12 +2006,20 @@ function renderRouteChrome() {
     if (mode === "kombi") {
       pdf.href = state.kombirute?.source || KOMBI_PDF;
       pdf.textContent = t("footnote.kombiPdf");
+    } else if (mode === "1135") {
+      pdf.href = FJORD1_PDF_1135;
+      pdf.textContent = "fjord1.no";
     } else {
       pdf.href = FJORD1_PDF;
       pdf.textContent = "fjord1.no";
     }
   }
-  const vessel = mode === "kombi" ? vesselInfo(activeVessel()) : null;
+  const vessel =
+    mode === "kombi"
+      ? vesselInfo(activeVessel())
+      : mode === "1135"
+        ? vesselInfo("Geiranger")
+        : null;
   const operator = document.getElementById("footer-operator");
   if (operator) {
     operator.textContent = vessel
@@ -2388,6 +2489,7 @@ function resetTestState() {
   state.date = null;
   state.showPast = false;
   state.hideArrivals = false;
+  state.routeChoice = null;
   state.messages = null;
   state.routes = null;
   state.kombirute = null;
@@ -2406,12 +2508,14 @@ export {
   LIVE_SERVICE_MARGIN_MIN,
   MESSAGES_POLL_MS,
   TIMETABLE_CACHE_KEY,
+  ROUTE_CHOICE_KEY,
   WAKE_DEBOUNCE_MS,
   activateAtFromText,
   activeMode,
   activePlan,
   appMode,
   buildEvents,
+  chosenRoute,
   compareTimelineEvents,
   currentStatus,
   dayType,
@@ -2439,12 +2543,14 @@ export {
   nextDepartureFrom,
   nextOverview,
   noteLiveFailure,
+  operationalMode,
   parseVehicleMonitoring,
   quayAtStart,
   quayPlace,
   quaysInDay,
   readCachedTimetable,
   readHideArrivals,
+  readRouteChoice,
   resetTestState,
   resolveRoutePlan,
   routeModeFromMessages,
@@ -2462,6 +2568,7 @@ export {
   visibleConnectionLines,
   writeCachedTimetable,
   writeHideArrivals,
+  writeRouteChoice,
 };
 
 if (typeof document !== "undefined") {
@@ -2470,7 +2577,9 @@ if (typeof document !== "undefined") {
   applyStaticTranslations();
   syncLangButtons();
   state.hideArrivals = readHideArrivals();
+  state.routeChoice = readRouteChoice();
   bindControls();
+  renderRouteFilter();
   registerServiceWorker();
   loadMessages();
   loadRoutes();

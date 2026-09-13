@@ -23,8 +23,13 @@ import {
   vesselFromText,
   visibleConnectionLines,
   readHideArrivals,
+  readRouteChoice,
   showArrivals,
   writeHideArrivals,
+  writeRouteChoice,
+  chosenRoute,
+  operationalMode,
+  activeMode,
   TIMETABLE_CACHE_KEY,
   readCachedTimetable,
   timetableFingerprint,
@@ -590,6 +595,87 @@ test("valet om ankomsttider vert hugsa", () => {
   assert.equal(readHideArrivals(storage), true);
   writeHideArrivals(false, storage);
   assert.equal(readHideArrivals(storage), false);
+});
+
+test("valet om samband vert hugsa, men ikkje kombirute", () => {
+  const store = new Map();
+  const storage = {
+    getItem: (key) => (store.has(key) ? store.get(key) : null),
+    setItem: (key, value) => store.set(key, String(value)),
+    removeItem: (key) => store.delete(key),
+  };
+  assert.equal(readRouteChoice(storage), null);
+  writeRouteChoice("1135", storage);
+  assert.equal(readRouteChoice(storage), "1135");
+  writeRouteChoice("1136", storage);
+  assert.equal(readRouteChoice(storage), "1136");
+  writeRouteChoice(null, storage);
+  assert.equal(readRouteChoice(storage), null);
+  writeRouteChoice("kombi", storage);
+  assert.equal(readRouteChoice(storage), null);
+});
+
+test("valt 1135 viser Sæbø–Leknes sjølv ved normal 1136-drift", () => {
+  setTestState({
+    routes: ruter,
+    kombirute: kombi,
+    date: WEEKDAY,
+    routeChoice: "1135",
+    messages: { messages: [] },
+  });
+  assert.equal(operationalMode(), "1136");
+  assert.equal(chosenRoute(), "1135");
+  assert.equal(activeMode(), "1135");
+  const legs = legsForDate(WEEKDAY);
+  assert.ok(legs.length > 0);
+  assert.ok(
+    legs.every(
+      (leg) =>
+        (leg.from === "Sæbø" && leg.to === "Leknes") || (leg.from === "Leknes" && leg.to === "Sæbø")
+    )
+  );
+  const ids = visibleConnectionLines(legs).map((line) => line.id);
+  assert.ok(ids.includes("oye"));
+  assert.ok(!ids.includes("solavagen"));
+  assert.ok(!ids.includes("hundeidvika"));
+});
+
+test("valt 1136 viser Standal-tabellen sjølv når kombiruta gjeld", () => {
+  setTestState({
+    routes: ruter,
+    kombirute: kombi,
+    date: WEEKDAY,
+    routeChoice: "1136",
+    messages: {
+      messages: [{ isLocal: true, text: SMS, routeMode: "kombi", validTo: "2099-01-01T00:00:00Z" }],
+    },
+  });
+  assert.equal(operationalMode(), "kombi");
+  assert.equal(activeMode(), "1136");
+  const legs = legsForDate(WEEKDAY);
+  assert.ok(legs.length > 0);
+  assert.ok(legs.every((leg) => leg.from !== "Leknes" && leg.to !== "Leknes"));
+  assert.ok(buildEvents(legs, null).every((event) => event.kind !== "split"));
+});
+
+test("etter drift følgjer framleis Fjord1-meldingane", () => {
+  setTestState({
+    routes: ruter,
+    kombirute: kombi,
+    routeChoice: null,
+    messages: {
+      messages: [{ isLocal: true, text: SMS, routeMode: "kombi", validTo: "2099-01-01T00:00:00Z" }],
+    },
+  });
+  assert.equal(chosenRoute(), null);
+  assert.equal(activeMode(), "kombi");
+});
+
+test("sida har val for å byte fergestrekning", () => {
+  const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  assert.match(html, /id="route-filter"/);
+  assert.match(html, /id="route-note"/);
+  assert.match(html, /data-i18n="route.label"/);
 });
 
 test("rutetabellen kan hentast frå lokal cache utan nett", () => {

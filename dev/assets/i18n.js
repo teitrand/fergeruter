@@ -31,6 +31,8 @@ const MONTHS_SHORT = {
 const STRINGS = {
   nn: {
     "meta.title": "Fergeruter 1136 · Standal–Trandal",
+    "meta.title1135": "Fergeruter 1135 · Sæbø–Leknes",
+    "meta.titleKombi": "Fergeruter · Kombinasjonsrute",
     "meta.description":
       "Trafikkmeldingar frå Fjord1 og seglingsplan for ferjesamband 1136 Standal–Trandal–Sæbø–Skår. Alle anløp i rekkjefølgje, med status for kvar ferja er akkurat no.",
     skip: "Hopp til innhald",
@@ -76,6 +78,12 @@ const STRINGS = {
     "day.today": "I dag",
     "day.tomorrow": "i morgon",
     "stop.filterAria": "Filtrer på stoppestad",
+    "route.label": "Samband",
+    "route.auto": "Etter drift",
+    "route.1136": "Standal–Trandal",
+    "route.1135": "Sæbø–Leknes",
+    "route.filterAria": "Vel fergestrekning",
+    "route.manualNote": "Viser {shown}. Drifta no er {auto}.",
     "conn.label": "Korrespondanse",
     "conn.none": "Ingen",
     "conn.note":
@@ -174,6 +182,8 @@ const STRINGS = {
   },
   en: {
     "meta.title": "Ferry times 1136 · Standal–Trandal",
+    "meta.title1135": "Ferry times 1135 · Sæbø–Leknes",
+    "meta.titleKombi": "Ferry times · Combined timetable",
     "meta.description":
       "Traffic notices from Fjord1 and the sailing schedule for ferry route 1136 Standal–Trandal–Sæbø–Skår. Every call in order, with where the ferry is right now.",
     skip: "Skip to content",
@@ -219,6 +229,12 @@ const STRINGS = {
     "day.today": "Today",
     "day.tomorrow": "tomorrow",
     "stop.filterAria": "Filter by stop",
+    "route.label": "Route",
+    "route.auto": "Current service",
+    "route.1136": "Standal–Trandal",
+    "route.1135": "Sæbø–Leknes",
+    "route.filterAria": "Choose ferry route",
+    "route.manualNote": "Showing {shown}. Current service is {auto}.",
     "conn.label": "Connections",
     "conn.none": "None",
     "conn.note":
@@ -317,6 +333,8 @@ const STRINGS = {
   },
   de: {
     "meta.title": "Fährzeiten 1136 · Standal–Trandal",
+    "meta.title1135": "Fährzeiten 1135 · Sæbø–Leknes",
+    "meta.titleKombi": "Fährzeiten · Kombinationsfahrplan",
     "meta.description":
       "Verkehrsmeldungen von Fjord1 und Fahrplan für die Fährlinie 1136 Standal–Trandal–Sæbø–Skår. Alle Anläufe der Reihe nach, mit Status wo die Fähre gerade ist.",
     skip: "Zum Inhalt springen",
@@ -362,6 +380,12 @@ const STRINGS = {
     "day.today": "Heute",
     "day.tomorrow": "morgen",
     "stop.filterAria": "Nach Anleger filtern",
+    "route.label": "Verbindung",
+    "route.auto": "Aktueller Betrieb",
+    "route.1136": "Standal–Trandal",
+    "route.1135": "Sæbø–Leknes",
+    "route.filterAria": "Fährverbindung wählen",
+    "route.manualNote": "Zeigt {shown}. Aktueller Betrieb ist {auto}.",
     "conn.label": "Anschluss",
     "conn.none": "Keine",
     "conn.note":

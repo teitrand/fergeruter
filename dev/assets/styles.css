@@ -491,6 +491,7 @@ h2.day-label {
   opacity: 0.78;
 }
 
+.route-row,
 .view-row,
 .conn-row {
   display: flex;
@@ -500,6 +501,21 @@ h2.day-label {
   margin: -0.4rem 0 0.9rem;
 }
 
+.route-row {
+  margin: 0.15rem 0 0.7rem;
+}
+
+.route-note {
+  margin: -0.25rem 0 0.85rem;
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.4;
+}
+
+.route-note[hidden] {
+  display: none;
+}
+
 .conn-label {
   font-size: 0.78rem;
   letter-spacing: 0.04em;
@@ -507,6 +523,7 @@ h2.day-label {
   color: var(--muted);
 }
 
+.route-row .filters,
 .view-row .filters,
 .conn-row .filters { margin-bottom: 0; }
 
