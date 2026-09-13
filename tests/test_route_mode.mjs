@@ -119,6 +119,30 @@ test("datoar i meldinga styrer når kombiruta gjeld", () => {
   );
 });
 
+test("nynorsk måndag i datoperioden startar ikkje kombiruta for tidleg", () => {
+  const text =
+    "Rute 1136 Standal-Trandal-Valderøya-Store Kalvøy: På grunn av planlagt verkstedopphald blir det utført kombinert rute i sambandet frå måndag 14.09 til og med fredag 18.09. Det blir MF Geiranger i rute (91669321).";
+  assert.deepEqual(windowFromText(text, "2026-09-11T10:00:00+02:00"), {
+    from: "2026-09-14",
+    to: "2026-09-18",
+  });
+  const msg = normalizeFjord1Node({
+    heading: "Standal-Trandal-Valderøya-Store Kalvøy",
+    content: text,
+    date: "11.09.2026, kl. 10:00",
+  });
+  assert.equal(msg.routeMode, "kombi");
+  assert.deepEqual(msg.routeWindow, { from: "2026-09-14", to: "2026-09-18" });
+  assert.equal(
+    routeModeFromMessages([msg], Date.parse("2026-09-13T16:00:00Z"), "2026-09-13"),
+    "1136"
+  );
+  assert.equal(
+    routeModeFromMessages([msg], Date.parse("2026-09-14T08:00:00Z"), "2026-09-14"),
+    "kombi"
+  );
+});
+
 test("normal drift frå rutestart byter ikkje tabell dagen før", () => {
   const messages = [
     {

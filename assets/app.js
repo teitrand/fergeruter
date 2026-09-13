@@ -377,7 +377,7 @@ const HJORUNDFJORD_RE =
   /\b(?:1135|1136)\b|trandal|standal|sæbø|skår|lekne|valderøy|store kalvøy|kombinasjon|kombirute|kombinert rute/i;
 const ONLY_1049_RE = /\b1049\b|festøy|hundeidvik/i;
 const WEEKDAY_TOKEN =
-  "(?:mandag|tysdag|tirsdag|onsdag|torsdag|fredag|laurdag|lørdag|søndag)\\s+";
+  "(?:mandag|måndag|tysdag|tirsdag|onsdag|torsdag|fredag|laurdag|lørdag|søndag)\\s+";
 const NUMDATE_TOKEN = "(\\d{1,2})\\.(\\d{1,2})(?:\\.(\\d{2,4}))?";
 
 function messageBlob(msg) {

@@ -56,7 +56,7 @@ ACTIVATE_CLOCK_RE = re.compile(
     re.I | re.S,
 )
 WEEKDAY_RE = (
-    r"(?:mandag|tysdag|tirsdag|onsdag|torsdag|fredag|laurdag|lørdag|søndag)\s+"
+    r"(?:mandag|måndag|tysdag|tirsdag|onsdag|torsdag|fredag|laurdag|lørdag|søndag)\s+"
 )
 NUMDATE_RE = r"(\d{1,2})\.(\d{1,2})(?:\.(\d{2,4}))?"
 WINDOW_RANGE_RE = re.compile(
