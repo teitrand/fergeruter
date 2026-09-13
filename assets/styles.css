@@ -207,26 +207,48 @@ h1, h2, h3 {
 
 .header-routes {
   grid-area: routes;
-  margin: 0.12rem 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.7rem;
+  margin: 0.38rem 0 0.08rem;
 }
 
-.header-routes.filters {
-  margin-bottom: 0;
+.route-switch-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.78;
 }
 
-.header-routes .chip {
+.route-switch {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  gap: 0.18rem;
+  margin: 0;
+  padding: 0.18rem;
+  border-radius: 999px;
+  background: rgba(4, 28, 36, 0.38);
+  border: 1px solid rgba(215, 238, 234, 0.32);
+}
+
+.route-switch .chip {
   background: transparent;
   color: var(--foam);
-  border-color: rgba(215, 238, 234, 0.4);
+  border-color: transparent;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
-.header-routes .chip:hover,
-.header-routes .chip:focus-visible {
-  border-color: var(--foam);
+.route-switch .chip:hover,
+.route-switch .chip:focus-visible {
+  border-color: transparent;
+  background: rgba(215, 238, 234, 0.14);
   outline: none;
 }
 
-.header-routes .chip.is-active {
+.route-switch .chip.is-active {
   background: var(--foam);
   color: var(--fjord);
   border-color: var(--foam);
@@ -1043,6 +1065,22 @@ h2.day-label {
   .header-title h1 {
     font-size: clamp(1.24rem, 5.6vw, 1.48rem);
     line-height: 1.28;
+  }
+
+  .header-routes {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.28rem;
+  }
+
+  .route-switch {
+    display: flex;
+    width: 100%;
+  }
+
+  .route-switch .chip {
+    flex: 1;
+    text-align: center;
   }
 
   .lede {

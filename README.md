@@ -38,7 +38,7 @@ python3 scripts/fetch_ruter.py
 python3 -m http.server 8080
 ```
 
-Opne [http://localhost:8080](http://localhost:8080). Øvst i rutetabellen kan du byte **samband**: *Standal–Trandal* (1136) eller *Sæbø–Leknes* (1135). Valet blir hugsa i nettlesaren. Når Fjord1 køyrer kombirute (eller innstiller 1136), visest den tabellen i begge sambanda. På localhost (og `/dev/`) kan du òg tvinge tabell med `?rute=kombi`, `?rute=1135` eller `?rute=1136`.
+Opne [http://localhost:8080](http://localhost:8080). Under tittelen kan du byte **samband**: *Standal–Trandal* (1136) eller *Sæbø–Leknes* (1135). Valet blir hugsa i nettlesaren. Når Fjord1 køyrer kombirute (eller innstiller 1136), visest den tabellen i begge sambanda. På localhost (og `/dev/`) kan du òg tvinge tabell med `?rute=kombi`, `?rute=1135` eller `?rute=1136`.
 
 ## Språk
 

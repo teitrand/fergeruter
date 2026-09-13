@@ -91,7 +91,7 @@ const STRINGS = {
     "route.label": "Samband",
     "route.1136": "Standal–Trandal",
     "route.1135": "Sæbø–Leknes",
-    "route.filterAria": "Vel fergestrekning",
+    "route.filterAria": "Vel samband",
     "conn.label": "Korrespondanse",
     "conn.none": "Ingen",
     "conn.note":
@@ -258,7 +258,7 @@ const STRINGS = {
     "route.label": "Route",
     "route.1136": "Standal–Trandal",
     "route.1135": "Sæbø–Leknes",
-    "route.filterAria": "Choose ferry route",
+    "route.filterAria": "Choose connection",
     "conn.label": "Connections",
     "conn.none": "None",
     "conn.note":
@@ -425,7 +425,7 @@ const STRINGS = {
     "route.label": "Verbindung",
     "route.1136": "Standal–Trandal",
     "route.1135": "Sæbø–Leknes",
-    "route.filterAria": "Fährverbindung wählen",
+    "route.filterAria": "Verbindung wählen",
     "conn.label": "Anschluss",
     "conn.none": "Keine",
     "conn.note":

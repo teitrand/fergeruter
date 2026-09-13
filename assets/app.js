@@ -7,7 +7,7 @@ import {
   setLang,
   t,
   weekdays,
-} from "./i18n.js?v=39";
+} from "./i18n.js?v=40";
 
 const MESSAGES_URL = "data/trafikkmeldinger.json";
 const ROUTES_URL = "data/ruter.json";
@@ -2278,7 +2278,7 @@ function renderRouteFilter() {
     { value: "1135", label: t("route.1135") },
   ];
   for (const option of options) {
-    const btn = el("button", "chip chip-small", option.label);
+    const btn = el("button", "chip", option.label);
     btn.type = "button";
     const active = chosen === option.value;
     btn.setAttribute("aria-pressed", String(active));
