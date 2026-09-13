@@ -7,7 +7,7 @@ import {
   setLang,
   t,
   weekdays,
-} from "./i18n.js?v=36";
+} from "./i18n.js?v=37";
 
 const MESSAGES_URL = "data/trafikkmeldinger.json";
 const ROUTES_URL = "data/ruter.json";
@@ -1251,8 +1251,8 @@ function nextArrivalAt(legs, quay, skipPassed = false) {
  * går derifrå etterpå.
  */
 const SAEBØ = "Sæbø";
-const FERRY_TRANSFER_ID = "saebo";
 const TRANSFER_MARGIN_MIN = 5;
+const TRANSFER_DESTINATIONS = ["Trandal", "Standal", "Skår"];
 
 function otherFerryMode() {
   if (isCombinedTimetable()) return null;
@@ -1262,40 +1262,170 @@ function otherFerryMode() {
   return null;
 }
 
+function transferLineId(dest) {
+  const slug = dest === "Skår" ? "skar" : String(dest || "").toLowerCase();
+  return `saebo-${slug}`;
+}
+
+function transferDestFromId(id) {
+  return TRANSFER_DESTINATIONS.find((dest) => transferLineId(dest) === id) || null;
+}
+
+function isFerryTransfer(id) {
+  return Boolean(transferDestFromId(id));
+}
+
+function legKey(leg) {
+  return leg.id || `${leg.from}|${leg.departure}|${leg.to}|${leg.arrival || ""}`;
+}
+
+function nextSameSailing(legs, current, seen) {
+  const from = quayPlace(current.to);
+  const earliest = clockMinutes(current.arrival);
+  let found = null;
+  for (const leg of legs) {
+    if (seen.has(legKey(leg))) continue;
+    if (quayPlace(leg.from) !== from) continue;
+    const dep = clockMinutes(leg.departure);
+    const gap = dep - earliest;
+    if (gap < 0 || gap >= LAYOVER_MIN_MINUTES) continue;
+    if (!found || dep < clockMinutes(found.departure)) found = leg;
+  }
+  return found;
+}
+
+function prevSameSailing(legs, current, seen) {
+  const to = quayPlace(current.from);
+  const latest = clockMinutes(current.departure);
+  let found = null;
+  for (const leg of legs) {
+    if (seen.has(legKey(leg))) continue;
+    if (quayPlace(leg.to) !== to) continue;
+    const arr = clockMinutes(leg.arrival);
+    const gap = latest - arr;
+    if (gap < 0 || gap >= LAYOVER_MIN_MINUTES) continue;
+    if (!found || arr > clockMinutes(found.arrival)) found = leg;
+  }
+  return found;
+}
+
+/** Går same segling vidare frå eit Sæbø-bein til destinasjonen. */
+function reachesDest(legs, start, dest) {
+  if (quayPlace(start.to) === dest) return true;
+  let current = start;
+  const seen = new Set([legKey(start)]);
+  for (let i = 0; i < 8; i++) {
+    const next = nextSameSailing(legs, current, seen);
+    if (!next) return false;
+    seen.add(legKey(next));
+    if (quayPlace(next.to) === dest) return true;
+    if (quayPlace(next.to) === SAEBØ) return false;
+    current = next;
+  }
+  return false;
+}
+
+/** Fyrste bein i same segling, der ein stig på ved destinasjonen. */
+function boardingFromDest(legs, arrival, dest) {
+  if (quayPlace(arrival.from) === dest) return arrival;
+  let current = arrival;
+  const seen = new Set([legKey(arrival)]);
+  for (let i = 0; i < 8; i++) {
+    const prev = prevSameSailing(legs, current, seen);
+    if (!prev) return null;
+    seen.add(legKey(prev));
+    if (quayPlace(prev.from) === dest) return prev;
+    if (quayPlace(prev.from) === SAEBØ) return null;
+    current = prev;
+  }
+  return null;
+}
+
+function cameFromDest(legs, arrival, dest) {
+  return Boolean(boardingFromDest(legs, arrival, dest));
+}
+
+function transferDestinationsFor(date) {
+  const legs = legsForMode("1136", date);
+  return TRANSFER_DESTINATIONS.filter((dest) =>
+    legs.some(
+      (leg) =>
+        (quayPlace(leg.from) === SAEBØ && reachesDest(legs, leg, dest)) ||
+        (quayPlace(leg.to) === SAEBØ && cameFromDest(legs, leg, dest))
+    )
+  );
+}
+
+function asTransferTrip(leg, { from, to, departure, arrival, signal }) {
+  return {
+    from,
+    to,
+    departure: departure || leg.departure,
+    arrival: arrival || leg.arrival,
+    signal: signal === undefined ? leg.signal : signal,
+    table: leg.table,
+  };
+}
+
 function ferryTransferIndex(date) {
+  const dest = transferDestFromId(state.connection);
   const other = otherFerryMode();
-  if (!other) return null;
+  if (!other || !dest) return null;
   const otherLegs = legsForMode(other, date);
+  const view = activeMode();
+  const toHub =
+    other === "1136"
+      ? otherLegs
+          .filter((leg) => quayPlace(leg.to) === SAEBØ && cameFromDest(otherLegs, leg, dest))
+          .map((leg) => {
+            const board = boardingFromDest(otherLegs, leg, dest) || leg;
+            return asTransferTrip(leg, {
+              from: dest,
+              to: SAEBØ,
+              departure: board.departure,
+              arrival: leg.arrival,
+              signal: board.signal || leg.signal,
+            });
+          })
+      : otherLegs
+          .filter((leg) => quayPlace(leg.to) === SAEBØ)
+          .map((leg) =>
+            asTransferTrip(leg, { from: leg.from, to: SAEBØ, signal: leg.signal })
+          );
+  const fromHub =
+    other === "1136"
+      ? otherLegs
+          .filter((leg) => quayPlace(leg.from) === SAEBØ && reachesDest(otherLegs, leg, dest))
+          .map((leg) =>
+            asTransferTrip(leg, {
+              from: SAEBØ,
+              to: dest,
+              departure: leg.departure,
+              arrival: leg.arrival,
+              signal: leg.signal,
+            })
+          )
+      : otherLegs
+          .filter((leg) => quayPlace(leg.from) === SAEBØ)
+          .map((leg) =>
+            asTransferTrip(leg, { from: SAEBØ, to: leg.to, signal: leg.signal })
+          );
   return {
     hub: SAEBØ,
     roadTo: SAEBØ,
     buffer: TRANSFER_MARGIN_MIN,
     ferry: true,
+    dest,
     other,
-    toHub: otherLegs
-      .filter((leg) => quayPlace(leg.to) === SAEBØ)
-      .map((leg) => ({
-        from: leg.from,
-        to: SAEBØ,
-        departure: leg.departure,
-        arrival: leg.arrival,
-      }))
-      .sort((a, b) => a.arrival.localeCompare(b.arrival)),
-    fromHub: otherLegs
-      .filter((leg) => quayPlace(leg.from) === SAEBØ)
-      .map((leg) => ({
-        from: SAEBØ,
-        to: leg.to,
-        departure: leg.departure,
-        arrival: leg.arrival,
-      }))
-      .sort((a, b) => a.departure.localeCompare(b.departure)),
+    view,
+    toHub: toHub.sort((a, b) => a.arrival.localeCompare(b.arrival)),
+    fromHub: fromHub.sort((a, b) => a.departure.localeCompare(b.departure)),
   };
 }
 
 function connectionIndex(date) {
   if (!state.connection) return null;
-  if (state.connection === FERRY_TRANSFER_ID) return ferryTransferIndex(date);
+  if (isFerryTransfer(state.connection)) return ferryTransferIndex(date);
   const data = state.connections;
   if (!data) return null;
   const line = data.lines.find((candidate) => candidate.id === state.connection);
@@ -1328,8 +1458,11 @@ function visibleConnectionLines(legs) {
   const quays = quaysInDay(legs);
   const lines = [];
   const other = otherFerryMode();
-  if (other && quays.includes(SAEBØ) && quaysInDay(legsForMode(other, selectedDate())).includes(SAEBØ)) {
-    lines.push({ id: FERRY_TRANSFER_ID, label: t("conn.transfer"), hub: SAEBØ });
+  const date = selectedDate();
+  if (other && quays.includes(SAEBØ) && quaysInDay(legsForMode(other, date)).includes(SAEBØ)) {
+    for (const dest of transferDestinationsFor(date)) {
+      lines.push({ id: transferLineId(dest), label: dest, hub: SAEBØ });
+    }
   }
   const road = (state.connections?.lines || DEFAULT_CONNECTION_LINES).filter((line) => {
     if (line.id === "oye" || line.hub === "Leknes" || line.roadTo === "Leknes") return false;
@@ -1354,19 +1487,46 @@ function outboundConnection(index, arrival) {
   return index.fromHub.find((trip) => clockMinutes(trip.departure) >= earliest) || null;
 }
 
+function connectionSignalText(trip, route) {
+  if (!trip?.signal || !route) return "";
+  const phone = trip.signal.phone;
+  return phone
+    ? t("conn.signalCallPhone", { route, phone })
+    : t("conn.signalCall", { route });
+}
+
+function withConnectionSignal(base, trip, index) {
+  const extra = connectionSignalText(trip, index.other);
+  return extra ? `${base}. ${extra}` : base;
+}
+
 function connectionNote(index, kind, leg) {
   if (!index) return null;
-  const quay = kind === "dep" ? leg.from : leg.to;
+  const quay = quayPlace(kind === "dep" ? leg.from : leg.to);
   if (quay !== index.roadTo) return null;
+  if (index.dest && index.view === "1136") {
+    const own = legsForMode("1136", selectedDate());
+    if (kind === "dep") {
+      if (!reachesDest(own, leg, index.dest)) return null;
+    } else if (!cameFromDest(own, leg, index.dest)) return null;
+  }
   if (kind === "dep") {
     const trip = inboundConnection(index, leg.departure);
     return trip
-      ? t("conn.takeFerry", { time: hhmm(trip.departure), from: trip.from })
+      ? withConnectionSignal(
+          t("conn.takeFerry", { time: hhmm(trip.departure), from: trip.from }),
+          trip,
+          index
+        )
       : t("conn.noInbound", { hub: index.hub });
   }
   const trip = outboundConnection(index, leg.arrival);
   return trip
-    ? t("conn.onward", { time: hhmm(trip.departure), hub: index.hub, to: trip.to })
+    ? withConnectionSignal(
+        t("conn.onward", { time: hhmm(trip.departure), hub: index.hub, to: trip.to }),
+        trip,
+        index
+      )
     : t("conn.noOutbound", { hub: index.hub });
 }
 
@@ -1764,8 +1924,12 @@ function renderConnectionFilter() {
     });
     root.append(btn);
   }
-  if (state.connection === FERRY_TRANSFER_ID) {
-    note.textContent = t("conn.transferNote", { margin: TRANSFER_MARGIN_MIN });
+  const dest = transferDestFromId(state.connection);
+  if (dest) {
+    note.textContent = t("conn.transferNote", {
+      dest,
+      margin: TRANSFER_MARGIN_MIN,
+    });
     return;
   }
   const data = state.connections;
@@ -1794,7 +1958,7 @@ async function loadConnections() {
 
 async function selectConnection(id) {
   state.connection = id;
-  const needsFile = id && id !== FERRY_TRANSFER_ID;
+  const needsFile = id && !isFerryTransfer(id);
   if (needsFile && !state.connections) {
     await loadConnections();
     if (!state.connections) {
@@ -2139,10 +2303,11 @@ function renderMessageSummary(filtered) {
   const bar = el("button", "messages-bar");
   bar.type = "button";
   bar.setAttribute("aria-expanded", String(Boolean(state.messagesExpanded)));
+  const head = el("span", "messages-bar-head");
   const body = el("span", "messages-bar-body");
   if (!filtered.length) {
     bar.classList.add("is-info");
-    body.append(
+    head.append(
       el(
         "span",
         "messages-bar-title",
@@ -2152,28 +2317,29 @@ function renderMessageSummary(filtered) {
   } else {
     const top = filtered[0];
     bar.classList.add(`is-${top.severity}`);
-    const head = el("span", "messages-bar-head");
     head.append(el("span", "messages-bar-title", top.heading || t("messages.title")));
     const count = el("span", "messages-count");
     count.textContent = String(filtered.length);
     count.setAttribute("aria-label", t("messages.countAria", { n: filtered.length }));
     head.append(count);
-    body.append(head);
     if (!state.messagesExpanded) {
-      body.append(el("span", "messages-bar-excerpt", excerptText(top.text)));
+      body.append(
+        el("span", "messages-bar-excerpt", String(top.text || "").replace(/\s+/g, " ").trim())
+      );
       if (filtered.length > 1) {
         body.append(el("span", "messages-bar-more", t("messages.andNMore", { n: filtered.length - 1 })));
       }
     }
   }
-  bar.append(body);
-  bar.append(
+  head.append(
     el(
       "span",
       "messages-bar-toggle",
       state.messagesExpanded ? t("messages.collapse") : t("messages.expand")
     )
   );
+  bar.append(head);
+  if (body.childNodes.length) bar.append(body);
   bar.addEventListener("click", () => {
     state.messagesExpanded = !state.messagesExpanded;
     renderMessages();
