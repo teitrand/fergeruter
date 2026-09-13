@@ -4,7 +4,7 @@ Statisk oversikt over **trafikkmeldingar frå Fjord1** og **seglingsplanen** for
 
 Sida viser heile dagen som ei samanhengande tidslinje med alle anløpa i rekkjefølgje, og ei **No**-linje som fortel om ferja ligg til kai eller er på veg. Posisjonen er i utgangspunktet rekna ut frå den aktive tabellen. Når Entur sender køyretøyposisjon for 1136 eller 1135, visest den som sanntid. Etter siste passasjertur (t.d. onsdag på Valderøya) reknar sida med at ferja går tilbake til Standal utan passasjerar og ligg der over natta — den turen står ikkje i Entur.
 
-Rutetabellane for 1136 og 1135 blir lasta ned frå Entur og lagra i `data/ruter.json`. Dei blir berre henta på nytt når innhaldet faktisk er endra. Kombinasjonsruta ligg ikkje i Entur; ho er transkribert frå FRAM-PDF til `data/kombirute.json`. Trafikkmeldingar og rutetabell kjem frå lokale JSON-filer; nettlesaren kallar Entur berre for valfri køyretøyposisjon (CORS er open).
+Rutetabellane for 1136 og 1135 blir lasta ned frå Entur og lagra i `data/ruter.json`. Dei blir berre henta på nytt når innhaldet faktisk er endra. Kombinasjonsruta ligg ikkje i Entur; ho er transkribert frå FRAM-PDF til `data/kombirute.json`. Rutetabellen kjem frå lokale JSON-filer; nettlesaren kallar Entur berre for valfri køyretøyposisjon (CORS er open). Trafikkmeldingar kjem frå Fjord1 når GitHub-kopien er gammal, elles frå `data/trafikkmeldinger.json`.
 
 ## Kjelder
 
@@ -28,7 +28,7 @@ Nyaste **gyldige lokale** Fjord1-melding styrer tabellen når 1136 er innstilt e
 
 Korrespondansar: Solavågen og Hundeidvika via Festøya→Standal som før. Når aktiv tabell har **Leknes** (kombirute eller 1135), kjem òg buss **133 Leknes–Øye**.
 
-Fjord1 tillèt ikkje CORS frå nettlesaren, så meldingane blir henta av eit skript til `data/trafikkmeldinger.json`.
+Fjord1 sitt GraphQL-endepunkt svarar, men utan CORS-løyve frå `teitrand.github.io`, så nettlesaren får ikkje lese det direkte. GitHub Actions hentar framleis meldingane til `data/trafikkmeldinger.json` (cron på `main`). Når den fila er eldre enn åtte minutt, sjekkar appen Fjord1-sida live (GraphQL fyrst, deretter HTML via ein open lesar med CORS) og flettar inn nye meldingar.
 
 ## Køyre lokalt
 
@@ -65,11 +65,11 @@ Pages kjem framleis frå `main` (legacy). Testhosten blir derfor kopiert inn som
 - **Alltid via `dev` før prod.** `dev` skal vere føre `main`. Feature-grein frå `dev` → PR mot `dev` → test på `/dev/` → først då merge `dev` → `main`. Ikkje opne feature-PR mot `main`.
 - Service worker på `/dev/` har eige scope og eige cache-namn, så testinga ikkje stal cache frå prod
 - Plausible tel ikkje på `/dev/` (same som localhost)
-- Trafikkmelding-jobben køyrer framleis berre på `main`. Testhosten `/dev/` les same `data/trafikkmeldinger.json` som produksjon, så meldingane er like.
+- Trafikkmelding-jobben køyrer framleis berre på `main`. Testhosten `/dev/` les same `data/trafikkmeldinger.json` som produksjon som reserve; når kopien er gammal, hentar både `/dev/` og produksjon meldingar live frå Fjord1.
 
 ## Oppdatering
 
-- Trafikkmeldingar: kvart 5. minutt på `main` (tetteste GitHub Actions tillèt). Fila blir **ikkje** skriven om meldingane er dei same. Nettlesaren sjekkar fila kvart 3. minutt medan sida er open (ETag/revalidering), og med ein gong når fana blir synleg att.
+- Trafikkmeldingar: GitHub Actions kvart 5. minutt på `main` (tettaste GitHub tillèt; køyringane kan verte forseinka). Fila blir **ikkje** skriven om meldingane er dei same. Nettlesaren sjekkar fila kvart 3. minutt medan sida er open. Er kopien eldre enn 8 minutt, sjekkar ho Fjord1 direkte og viser nye meldingar med ein gong.
 - Rutetabell 1136+1135 og korrespondansar (inkl. 133): last ned att **berre når tabellen er endra**. Nettlesaren viser sist lagra tabell med ein gong og oppdaterer i bakgrunnen:
 
 ```bash

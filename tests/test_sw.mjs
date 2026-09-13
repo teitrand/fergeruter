@@ -14,8 +14,8 @@ function isMessagesJson(url) {
 }
 
 test("rutetabell-JSON brukar stale-while-revalidate, meldingar og skall brukar network-first", () => {
-  assert.match(sw, /fergeruter-dev-v37/);
-  assert.match(sw, /i18n\.js\?v=37/);
+  assert.match(sw, /fergeruter-dev-v38/);
+  assert.match(sw, /i18n\.js\?v=38/);
   assert.match(sw, /function isTimetableJson/);
   assert.match(sw, /function isMessagesJson/);
   assert.match(sw, /staleWhileRevalidate\(request,\s*\{\s*notify: true/);
@@ -39,6 +39,10 @@ test("berre rute, kombi og korrespondanse tel som rutetabell", () => {
 
 test("trafikkmeldingar blir revaliderte utan cache-buster, rutetabellen ikkje", () => {
   assert.match(app, /fetch\(messagesUrl\(\), \{ cache: "no-cache" \}\)/);
+  assert.match(app, /fetchFjord1Messages/);
+  assert.match(app, /FJORD1_GRAPHQL_URL/);
+  assert.match(app, /FJORD1_HTML_READER/);
+  assert.match(app, /MESSAGES_STALE_MS = 8 \* 60 \* 1000/);
   assert.match(app, /fetch\(ROUTES_URL\)/);
   assert.match(app, /TIMETABLE_CACHE_KEY/);
   assert.match(app, /MESSAGES_POLL_MS = 3 \* 60 \* 1000/);

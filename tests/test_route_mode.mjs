@@ -42,6 +42,13 @@ import {
   cancelledSailingsFromText,
   isPartialCancel,
   isCancelledDeparture,
+  classifyMessage,
+  mergeMessagePayloads,
+  messagesAreStale,
+  MESSAGES_STALE_MS,
+  normalizeFjord1Node,
+  parseFjord1Published,
+  parseFjord1TrafficHtml,
 } from "../assets/app.js";
 
 const ruter = JSON.parse(readFileSync(new URL("../data/ruter.json", import.meta.url), "utf8"));
@@ -109,6 +116,30 @@ test("datoar i meldinga styrer når kombiruta gjeld", () => {
   assert.equal(
     routeModeFromMessages(messages, Date.parse("2026-06-19T10:00:00+02:00"), "2026-06-19"),
     "1136"
+  );
+});
+
+test("nynorsk måndag i datoperioden startar ikkje kombiruta for tidleg", () => {
+  const text =
+    "Rute 1136 Standal-Trandal-Valderøya-Store Kalvøy: På grunn av planlagt verkstedopphald blir det utført kombinert rute i sambandet frå måndag 14.09 til og med fredag 18.09. Det blir MF Geiranger i rute (91669321).";
+  assert.deepEqual(windowFromText(text, "2026-09-11T10:00:00+02:00"), {
+    from: "2026-09-14",
+    to: "2026-09-18",
+  });
+  const msg = normalizeFjord1Node({
+    heading: "Standal-Trandal-Valderøya-Store Kalvøy",
+    content: text,
+    date: "11.09.2026, kl. 10:00",
+  });
+  assert.equal(msg.routeMode, "kombi");
+  assert.deepEqual(msg.routeWindow, { from: "2026-09-14", to: "2026-09-18" });
+  assert.equal(
+    routeModeFromMessages([msg], Date.parse("2026-09-13T16:00:00Z"), "2026-09-13"),
+    "1136"
+  );
+  assert.equal(
+    routeModeFromMessages([msg], Date.parse("2026-09-14T08:00:00Z"), "2026-09-14"),
+    "kombi"
   );
 });
 
@@ -1094,3 +1125,100 @@ test("tabellen merkar både start og slutt når ruta skifter to gonger", () => {
   assert.equal(splits[0].at, 14 * 60);
   assert.equal(splits[1].at, 18 * 60 + 30);
 });
+
+const KVILE_HTML = `
+<div class="view-type view-type-standard traffic-message">
+  <div class="fjord1-alert fjord1-alert--warning">
+    <h3 class="fjord1-alert__header"><span class="ezstring-field">Standal-Trandal-Valderøya-Store Kalvøy</span></h3>
+    <div class="fjord1-alert__content">
+      <span class="ezstring-field">Rute 1136 Standal-Trandal-Valderøya-Store Kalvøy: Grunna kviletidsbestemmelser og pålagt kvile til mannskapet vert følgjande avgangar innstilt: 20:00 og 20:40 frå Standal, 20:20 og 21:00 frå Trandal</span>
+    </div>
+    <div class="fjord1-alert__footer">
+      13.09.2026, kl. 17:57
+    </div>
+  </div>
+</div>`;
+
+test("Fjord1-HTML med kvilemelding blir lokale innstilte avgangar, ikkje 1135", () => {
+  const messages = parseFjord1TrafficHtml(KVILE_HTML);
+  assert.equal(messages.length, 1);
+  const msg = messages[0];
+  assert.equal(msg.isLocal, true);
+  assert.equal(msg.isRoute1136, true);
+  assert.equal(msg.severity, "cancelled");
+  assert.equal(msg.routeMode, "1136");
+  assert.equal(msg.isRouteControl, false);
+  assert.equal(isPartialCancel(msg.text), true);
+  assert.deepEqual(
+    cancelledSailingsFromText(msg.text).map((item) => `${item.from}|${item.time}`),
+    ["Standal|20:00:00", "Standal|20:40:00", "Trandal|20:20:00", "Trandal|21:00:00"]
+  );
+  assert.equal(msg.publishedAt, "2026-09-13T15:57:00.000Z");
+});
+
+test("GraphQL-node blir normalisert likt Python-skriptet", () => {
+  const msg = normalizeFjord1Node({
+    id: "1",
+    heading: "Standal-Trandal-Valderøya-Store Kalvøy",
+    countyNumber: 15,
+    connectionNumber: 132,
+    date: "24.08.2026 12:46:06",
+    content: "Rute 1136: normal drift.",
+    importantMessage: false,
+    validFrom: { timestamp: 1787568366 },
+    validTo: { timestamp: 1787654704 },
+  });
+  assert.equal(msg.severity, "normal");
+  assert.equal(msg.isRoute1136, true);
+  assert.equal(msg.isLocal, true);
+  assert.equal(msg.routeMode, "1136");
+  assert.equal(msg.activateAt, null);
+  assert.equal(classifyMessage("må påregnes forsinkelser"), "delay");
+  assert.equal(parseFjord1Published("13.09.2026, kl. 17:57"), "2026-09-13T15:57:00.000Z");
+});
+
+test("live Fjord1-meldingar blir fletta inn i gammal GitHub-kopi", () => {
+  const stale = {
+    source: "https://www.fjord1.no/trafikkmeldingar",
+    fetchedAt: "2026-09-13T13:54:00.000Z",
+    messages: [
+      {
+        id: "old",
+        heading: "Drag - Kjøpsvik",
+        text: "Rute 201108: normal drift.",
+        publishedAt: "2026-08-30T07:56:37+02:00",
+        isLocal: false,
+      },
+    ],
+  };
+  assert.equal(messagesAreStale(stale, Date.parse("2026-09-13T16:00:00Z")), true);
+  assert.equal(
+    messagesAreStale(
+      { fetchedAt: "2026-09-13T15:55:00.000Z" },
+      Date.parse("2026-09-13T16:00:00Z")
+    ),
+    false
+  );
+  assert.ok(MESSAGES_STALE_MS > 5 * 60 * 1000);
+  const live = {
+    source: "https://www.fjord1.no/trafikkmeldingar",
+    fetchedAt: "2026-09-13T16:01:00.000Z",
+    fetchedLive: true,
+    messages: parseFjord1TrafficHtml(KVILE_HTML),
+  };
+  const merged = mergeMessagePayloads(stale, live);
+  assert.equal(merged.fetchedLive, true);
+  assert.equal(merged.messages.length, 2);
+  assert.ok(merged.messages.some((msg) => msg.text.includes("kviletidsbestemmelser")));
+  setTestState({
+    routes: ruter,
+    kombirute: kombi,
+    date: "2026-09-13",
+    routeChoice: "1136",
+    messages: merged,
+  });
+  assert.equal(routeModeFromMessages(merged.messages, Date.parse("2026-09-13T16:10:00Z"), "2026-09-13"), "1136");
+  assert.equal(isCancelledDeparture({ from: "Standal", departure: "20:00:00" }), true);
+  assert.equal(isCancelledDeparture({ from: "Standal", departure: "19:20:00" }), false);
+});
+
