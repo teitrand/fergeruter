@@ -716,6 +716,21 @@ h2.day-label {
   white-space: nowrap;
 }
 
+.stop-tag-stop {
+  color: var(--stop);
+  border-color: #f0c4bf;
+}
+
+.stop.is-cancelled .stop-time,
+.stop.is-cancelled .stop-name {
+  text-decoration: line-through;
+  color: var(--muted);
+}
+
+.stop.is-cancelled .stop-state {
+  color: var(--stop);
+}
+
 .stop-state {
   font-size: 0.82rem;
   color: var(--water);
