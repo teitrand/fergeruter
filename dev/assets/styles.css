@@ -264,9 +264,9 @@ h1, h2, h3 {
 
 .messages-bar {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 0.7rem;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.18rem;
   width: 100%;
   margin: 0;
   border: none;
@@ -294,18 +294,19 @@ h1, h2, h3 {
   background: #fff6f4;
 }
 
-.messages-bar-body {
-  display: flex;
-  flex-direction: column;
-  gap: 0.18rem;
-  min-width: 0;
-  flex: 1;
-}
-
 .messages-bar-head {
   display: flex;
   align-items: center;
   gap: 0.4rem;
+  width: 100%;
+  min-width: 0;
+}
+
+.messages-bar-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+  width: 100%;
   min-width: 0;
 }
 
@@ -313,6 +314,7 @@ h1, h2, h3 {
   font-family: Fraunces, Georgia, serif;
   font-weight: 600;
   line-height: 1.25;
+  flex: 1;
   min-width: 0;
 }
 
@@ -334,12 +336,17 @@ h1, h2, h3 {
 }
 
 .messages-bar-excerpt {
+  display: block;
+  width: 100%;
   color: var(--muted);
   font-size: 0.9rem;
   line-height: 1.35;
+  overflow-wrap: break-word;
 }
 
 .messages-bar-more {
+  display: block;
+  width: 100%;
   font-size: 0.88rem;
   font-weight: 650;
   color: var(--stop);
@@ -347,11 +354,11 @@ h1, h2, h3 {
 
 .messages-bar-toggle {
   flex: none;
+  margin-left: auto;
   font-size: 0.82rem;
   font-weight: 600;
   color: var(--water);
   white-space: nowrap;
-  padding-top: 0.1rem;
 }
 
 #timetable-panel {
@@ -420,7 +427,12 @@ h2 { font-size: 1.45rem; }
   margin-bottom: 0.3rem;
 }
 
-.card p { margin: 0; line-height: 1.45; }
+.card p {
+  margin: 0;
+  line-height: 1.45;
+  width: 100%;
+  overflow-wrap: break-word;
+}
 
 .card time, .when {
   display: block;
