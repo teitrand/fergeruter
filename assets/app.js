@@ -1252,9 +1252,54 @@ function nextArrivalAt(legs, quay, skipPassed = false) {
  * ei ferje som er framme på knutepunktet i tide, skal du ut treng du ei som
  * går derifrå etterpå.
  */
+const SAEBØ = "Sæbø";
+const FERRY_TRANSFER_ID = "saebo";
+const TRANSFER_MARGIN_MIN = 5;
+
+function otherFerryMode() {
+  if (isCombinedTimetable()) return null;
+  const mode = activeMode();
+  if (mode === "1135") return "1136";
+  if (mode === "1136") return "1135";
+  return null;
+}
+
+function ferryTransferIndex(date) {
+  const other = otherFerryMode();
+  if (!other) return null;
+  const otherLegs = legsForMode(other, date);
+  return {
+    hub: SAEBØ,
+    roadTo: SAEBØ,
+    buffer: TRANSFER_MARGIN_MIN,
+    ferry: true,
+    other,
+    toHub: otherLegs
+      .filter((leg) => quayPlace(leg.to) === SAEBØ)
+      .map((leg) => ({
+        from: leg.from,
+        to: SAEBØ,
+        departure: leg.departure,
+        arrival: leg.arrival,
+      }))
+      .sort((a, b) => a.arrival.localeCompare(b.arrival)),
+    fromHub: otherLegs
+      .filter((leg) => quayPlace(leg.from) === SAEBØ)
+      .map((leg) => ({
+        from: SAEBØ,
+        to: leg.to,
+        departure: leg.departure,
+        arrival: leg.arrival,
+      }))
+      .sort((a, b) => a.departure.localeCompare(b.departure)),
+  };
+}
+
 function connectionIndex(date) {
+  if (!state.connection) return null;
+  if (state.connection === FERRY_TRANSFER_ID) return ferryTransferIndex(date);
   const data = state.connections;
-  if (!data || !state.connection) return null;
+  if (!data) return null;
   const line = data.lines.find((candidate) => candidate.id === state.connection);
   if (!line) return null;
   const hub = line.hub || data.hub;
@@ -1279,20 +1324,21 @@ function connectionIndex(date) {
 const DEFAULT_CONNECTION_LINES = [
   { id: "solavagen", label: "Solavågen", hub: "Festøya", roadTo: "Standal" },
   { id: "hundeidvika", label: "Hundeidvika", hub: "Festøya", roadTo: "Standal" },
-  { id: "oye", label: "Øye", hub: "Leknes", roadTo: "Leknes" },
 ];
 
 function visibleConnectionLines(legs) {
   const quays = quaysInDay(legs);
-  const lines = state.connections?.lines || DEFAULT_CONNECTION_LINES;
-  return lines.filter((line) => {
-    const hub = line.hub || state.connections?.hub;
-    const road = line.roadTo || state.connections?.roadTo;
-    if (line.id === "oye" || hub === "Leknes" || road === "Leknes") {
-      return quays.includes("Leknes");
-    }
-    return !road || quays.includes(road);
+  const lines = [];
+  const other = otherFerryMode();
+  if (other && quays.includes(SAEBØ) && quaysInDay(legsForMode(other, selectedDate())).includes(SAEBØ)) {
+    lines.push({ id: FERRY_TRANSFER_ID, label: t("conn.transfer"), hub: SAEBØ });
+  }
+  const road = (state.connections?.lines || DEFAULT_CONNECTION_LINES).filter((line) => {
+    if (line.id === "oye" || line.hub === "Leknes" || line.roadTo === "Leknes") return false;
+    const dest = line.roadTo || state.connections?.roadTo;
+    return !dest || quays.includes(dest);
   });
+  return lines.concat(road);
 }
 
 function inboundConnection(index, departure) {
@@ -1719,6 +1765,10 @@ function renderConnectionFilter() {
     });
     root.append(btn);
   }
+  if (state.connection === FERRY_TRANSFER_ID) {
+    note.textContent = t("conn.transferNote", { margin: TRANSFER_MARGIN_MIN });
+    return;
+  }
   const data = state.connections;
   const line = data?.lines?.find((candidate) => candidate.id === state.connection);
   note.textContent =
@@ -1745,7 +1795,8 @@ async function loadConnections() {
 
 async function selectConnection(id) {
   state.connection = id;
-  if (id && !state.connections) {
+  const needsFile = id && id !== FERRY_TRANSFER_ID;
+  if (needsFile && !state.connections) {
     await loadConnections();
     if (!state.connections) {
       state.connection = null;
@@ -2635,6 +2686,8 @@ export {
   appMode,
   buildEvents,
   chosenRoute,
+  connectionIndex,
+  connectionNote,
   compareTimelineEvents,
   currentStatus,
   dayType,

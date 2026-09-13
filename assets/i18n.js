@@ -99,6 +99,9 @@ const STRINGS = {
     "conn.noInbound": "Ingen korresponderande ferje frå {hub}-sida",
     "conn.onward": "Vidare {time} frå {hub} mot {to}",
     "conn.noOutbound": "Ingen korresponderande ferje frå {hub} etterpå",
+    "conn.transfer": "Bytte på Sæbø",
+    "conn.transferNote":
+      "Bytte på Sæbø mellom rute 1136 og 1135. Rekna med {margin} min til å gå over.",
     "position.planned":
       "Posisjonen er rekna ut frå rutetabellen når Entur ikkje sender køyretøyposisjon.",
     "position.live": "Posisjonen kjem frå Entur i sanntid no.",
@@ -259,6 +262,9 @@ const STRINGS = {
     "conn.noInbound": "No connecting ferry from the {hub} side",
     "conn.onward": "Onward {time} from {hub} towards {to}",
     "conn.noOutbound": "No connecting ferry from {hub} afterwards",
+    "conn.transfer": "Change at Sæbø",
+    "conn.transferNote":
+      "Change at Sæbø between route 1136 and 1135. Allows {margin} min to walk over.",
     "position.planned":
       "Position is calculated from the timetable when Entur is not sending a vehicle position.",
     "position.live": "Position is from Entur live data now.",
@@ -419,6 +425,9 @@ const STRINGS = {
     "conn.noInbound": "Keine Anschlussfähre von der {hub}-Seite",
     "conn.onward": "Weiter um {time} von {hub} nach {to}",
     "conn.noOutbound": "Keine Anschlussfähre von {hub} danach",
+    "conn.transfer": "Umsteigen in Sæbø",
+    "conn.transferNote":
+      "Umsteigen in Sæbø zwischen Linie 1136 und 1135. {margin} Min. zum Wechseln eingerechnet.",
     "position.planned":
       "Die Position wird aus dem Fahrplan berechnet, wenn Entur keine Fahrzeugposition sendet.",
     "position.live": "Die Position kommt jetzt aus Entur-Echtzeit.",
