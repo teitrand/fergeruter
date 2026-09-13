@@ -10,7 +10,7 @@ import {
   stringKeys,
   stringsFor,
   t,
-} from "../assets/i18n.js?v=33";
+} from "../assets/i18n.js?v=34";
 
 function leg(from, to, departure, arrival, dates = ["2026-08-26"]) {
   return { from, to, departure, arrival, activeDates: dates };
@@ -29,6 +29,14 @@ test("seglingstekst har destinasjon i alle språk", () => {
   assert.equal(t("sailing.departure", { time: "06:45" }), "Departure 06:45");
   setLang("de");
   assert.equal(t("sailing.arrival", { time: "07:00" }), "Ankunft 07:00");
+  setLang("nn");
+  assert.equal(t("layover.title"), "Liggetid");
+  assert.equal(t("layover.atQuay", { quay: "Sæbø" }), "Liggetid Sæbø");
+  assert.equal(t("layover.until", { duration: "1 t 2 min", time: "10:30" }), "1 t 2 min, til 10:30");
+  setLang("en");
+  assert.equal(t("layover.atQuay", { quay: "Sæbø" }), "Layover at Sæbø");
+  setLang("de");
+  assert.equal(t("layover.title"), "Liegezeit");
   setLang("nn");
 });
 
