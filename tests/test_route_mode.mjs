@@ -866,6 +866,46 @@ test("kombirute er éi samanhengande rute utan tomflytting", () => {
   }
 });
 
+test("heildags kombirute får raud merking fyrste morgon, ikkje midt i perioden", () => {
+  const verksted = {
+    isLocal: true,
+    isRouteControl: true,
+    heading: "Leknes-Sæbø",
+    text: "På grunn av planlagt verkstedopphald blir det utført kombinert rute i sambandet frå måndag 14.09 til og med fredag 18.09.",
+    routeMode: "kombi",
+    routeWindow: { from: "2026-09-14", to: "2026-09-18" },
+    publishedAt: "2026-09-11T10:45:19+02:00",
+    validTo: "2026-09-18T21:55:00+00:00",
+  };
+  setTestState({
+    routes: ruter,
+    kombirute: kombi,
+    messages: { messages: [verksted] },
+  });
+  setTestState({ date: "2026-09-13" });
+  assert.equal(operationalMode("2026-09-13"), "1136");
+  assert.equal(buildEvents(legsForDate("2026-09-13"), null).filter((event) => event.kind === "split").length, 0);
+
+  setTestState({ date: "2026-09-14" });
+  assert.equal(operationalMode("2026-09-14"), "kombi");
+  const monday = legsForDate("2026-09-14");
+  const mondaySplits = buildEvents(monday, null).filter((event) => event.kind === "split");
+  assert.equal(mondaySplits.length, 1);
+  assert.equal(mondaySplits[0].at, clockMin(monday[0].departure));
+  assert.equal(monday[0].departure, "06:00:00");
+
+  setTestState({ date: "2026-09-15" });
+  assert.equal(operationalMode("2026-09-15"), "kombi");
+  assert.equal(buildEvents(legsForDate("2026-09-15"), null).filter((event) => event.kind === "split").length, 0);
+
+  setTestState({ date: "2026-09-19" });
+  assert.equal(operationalMode("2026-09-19"), "1136");
+  const saturday = legsForDate("2026-09-19");
+  const saturdaySplits = buildEvents(saturday, null).filter((event) => event.kind === "split");
+  assert.equal(saturdaySplits.length, 1);
+  assert.equal(saturdaySplits[0].at, clockMin(saturday[0].departure));
+});
+
 test("tabellen merkar både start og slutt når ruta skifter to gonger", () => {
   const legs = [
     {

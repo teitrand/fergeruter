@@ -1515,6 +1515,35 @@ function compareTimelineEvents(a, b) {
   return a.at - b.at || seq(a) - seq(b);
 }
 
+function tableName(mode) {
+  if (mode === "kombi" || mode === "1135" || mode === "1136") return mode;
+  return "1136";
+}
+
+/** Raud merkelapp ved fyrste avgang når kombiruta tek til eller sluttar heile dagen. */
+function dayStartSplit(legs) {
+  if (!legs.length) return null;
+  const plan = activePlan();
+  if (plan.switch) return null;
+  const mode = tableName(plan.mode);
+  const prev = tableName(operationalMode(shiftIso(selectedDate(), -1)));
+  if (mode === prev) return null;
+  if (mode !== "kombi" && prev !== "kombi") return null;
+  const first = legs.find((leg) => isVisibleDeparture(leg)) || legs[0];
+  if (!first?.departure) return null;
+  return {
+    at: clockMinutes(first.departure),
+    kind: "split",
+    quays: [],
+    build: (past) =>
+      splitRow(
+        { time: first.departure, quay: first.from, before: prev, notice: null },
+        mode,
+        past
+      ),
+  };
+}
+
 function buildEvents(legs, connections) {
   const events = [];
   const seenDep = new Set();
@@ -1586,6 +1615,8 @@ function buildEvents(legs, connections) {
       build: (past) => transferRow(last.to, home, past),
     });
   }
+  const start = dayStartSplit(legs);
+  if (start) events.push(start);
   return events;
 }
 
