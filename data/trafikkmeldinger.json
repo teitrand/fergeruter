@@ -1,6 +1,6 @@
 {
   "source": "https://www.fjord1.no/trafikkmeldingar",
-  "fetchedAt": "2026-09-13T09:46:44.883170+00:00",
+  "fetchedAt": "2026-09-13T13:54:10.718959+00:00",
   "messages": [
     {
       "id": "RG9tYWluQ29udGVudDoyMTc0NjcwOA==",
@@ -13,26 +13,6 @@
       "connectionNumber": 669,
       "important": false,
       "severity": "normal",
-      "isRoute1136": false,
-      "isLocal": false,
-      "isRouteControl": false,
-      "routeMode": "1136",
-      "routeWindow": null,
-      "activateAt": null,
-      "vessel": null,
-      "routeSwitch": null
-    },
-    {
-      "id": "RG9tYWluQ29udGVudDoyMTc0NDE0Nw==",
-      "heading": "Oldeide-Måløy",
-      "text": "Rute 1039 Måløy - Oldeide: Grunna dårleg vær er sambandet innstilt frå kl 14.35 og inntil vidare. Ombygging av Måløy Ferjekai fører til lavare terskel enn normalt for å innstille pga værforholda. Mvh Fjord1 på vegner av Skyss.",
-      "publishedAt": "2026-09-12T13:55:06+02:00",
-      "validFrom": "2026-09-12T11:55:06+00:00",
-      "validTo": "2026-09-13T11:54:24+00:00",
-      "countyNumber": 14,
-      "connectionNumber": 669,
-      "important": false,
-      "severity": "cancelled",
       "isRoute1136": false,
       "isLocal": false,
       "isRouteControl": false,
