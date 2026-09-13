@@ -7,7 +7,7 @@ import {
   setLang,
   t,
   weekdays,
-} from "./i18n.js?v=32";
+} from "./i18n.js?v=33";
 
 const MESSAGES_URL = "data/trafikkmeldinger.json";
 const ROUTES_URL = "data/ruter.json";
@@ -56,7 +56,7 @@ const state = {
   date: null,
   showPast: false,
   hideArrivals: false,
-  routeChoice: null,
+  routeChoice: "1136",
   messages: null,
   routes: null,
   kombirute: null,
@@ -596,23 +596,26 @@ function routeSwitchFromMessages(messages, now = Date.now(), date = osloIsoFromM
 }
 
 function chosenRoute() {
-  return CHOOSABLE_ROUTES.has(state.routeChoice) ? state.routeChoice : null;
+  return CHOOSABLE_ROUTES.has(state.routeChoice) ? state.routeChoice : "1136";
 }
 
 function operationalMode(date = selectedDate()) {
   return resolveRoutePlan(state.messages?.messages, Date.now(), date).mode || "1136";
 }
 
-function activePlan(date = selectedDate()) {
-  const fromQuery = switchOverride();
-  const resolved = resolveRoutePlan(state.messages?.messages, Date.now(), date);
-  const override = routeOverride();
-  const chosen = override ? null : chosenRoute();
-  const mode = override || chosen || (fromQuery ? fromQuery.after : resolved.mode) || "1136";
-  if (chosen) {
-    return { mode: chosen, switch: null, notice: null, uncertain: false };
-  }
-  const parsed = fromQuery || resolved.switch;
+function driftNeedsOperationalTable(resolved, parsed) {
+  const mode = resolved?.mode || "1136";
+  if (mode === "kombi" || mode === "1135") return true;
+  if (!parsed) return false;
+  return (
+    parsed.after === "kombi" ||
+    parsed.before === "kombi" ||
+    parsed.after === "1135" ||
+    parsed.before === "1135"
+  );
+}
+
+function applySwitchPlan(mode, parsed, date) {
   if (!parsed || (parsed.after || mode) !== mode) {
     return { mode, switch: null, notice: null, uncertain: false };
   }
@@ -624,6 +627,22 @@ function activePlan(date = selectedDate()) {
     notice,
     uncertain: Boolean(notice && clockMinutes(notice) < clockMinutes(routeSwitch.time)),
   };
+}
+
+function activePlan(date = selectedDate()) {
+  const fromQuery = switchOverride();
+  const resolved = resolveRoutePlan(state.messages?.messages, Date.now(), date);
+  const override = routeOverride();
+  const parsed = fromQuery || resolved.switch;
+  if (override) {
+    const forOverride = parsed && (parsed.after || override) === override ? parsed : null;
+    return applySwitchPlan(override, forOverride, date);
+  }
+  if (driftNeedsOperationalTable(resolved, parsed)) {
+    const mode = (fromQuery ? fromQuery.after : resolved.mode) || "1136";
+    return applySwitchPlan(mode, parsed, date);
+  }
+  return { mode: chosenRoute(), switch: null, notice: null, uncertain: false };
 }
 
 function titleVessel(name) {
@@ -1052,9 +1071,9 @@ function readRouteChoice(storage) {
     const store =
       storage ?? (typeof localStorage !== "undefined" ? localStorage : null);
     const raw = store?.getItem(ROUTE_CHOICE_KEY);
-    return CHOOSABLE_ROUTES.has(raw) ? raw : null;
+    return CHOOSABLE_ROUTES.has(raw) ? raw : "1136";
   } catch {
-    return null;
+    return "1136";
   }
 }
 
@@ -1063,8 +1082,8 @@ function writeRouteChoice(choice, storage) {
     const store =
       storage ?? (typeof localStorage !== "undefined" ? localStorage : null);
     if (!store) return;
-    if (CHOOSABLE_ROUTES.has(choice)) store.setItem(ROUTE_CHOICE_KEY, choice);
-    else store.removeItem(ROUTE_CHOICE_KEY);
+    const next = CHOOSABLE_ROUTES.has(choice) ? choice : "1136";
+    store.setItem(ROUTE_CHOICE_KEY, next);
   } catch {
     // localStorage kan vere stengt.
   }
@@ -1374,20 +1393,10 @@ function signalNote(leg, live) {
   return note;
 }
 
-function arrivingAtFilter(leg) {
-  const quay = state.stopFilter;
-  return Boolean(quay && leg.to === quay && leg.from !== quay);
-}
-
-function sailingAt(leg) {
-  const time = arrivingAtFilter(leg) && leg.arrival ? leg.arrival : leg.departure;
-  return clockMinutes(time);
-}
-
 function sailingDoneAt(event) {
+  if (event.kind === "arr") return event.at;
   if (event.kind !== "dep" || !event.leg) return event.at;
   const leg = event.leg;
-  if (arrivingAtFilter(leg) && leg.arrival) return clockMinutes(leg.arrival);
   if (state.stopFilter && state.stopFilter === leg.from && leg.from !== leg.to) {
     return clockMinutes(leg.departure);
   }
@@ -1395,24 +1404,18 @@ function sailingDoneAt(event) {
   return event.at;
 }
 
-function sailingPrimaryTime(leg) {
-  return arrivingAtFilter(leg) && leg.arrival ? leg.arrival : leg.departure;
-}
-
 function departureRow(leg, past, connections) {
-  const primary = sailingPrimaryTime(leg);
   const row = el("div", `stop stop-dep${past ? " is-past" : ""}`);
-  row.append(el("span", "stop-time", hhmm(primary)));
+  row.append(el("span", "stop-time", hhmm(leg.departure)));
   const body = el("span", "stop-body");
   const head = el("span", "stop-head");
   head.append(el("span", "stop-name", t("sailing.route", { from: leg.from, to: leg.to })));
   if (leg.signal) head.append(el("span", "stop-tag", t("signal.onRequest")));
   body.append(head);
   if (showArrivals()) {
-    const extra = arrivingAtFilter(leg)
-      ? t("sailing.departure", { time: hhmm(leg.departure) })
-      : t("sailing.arrival", { time: hhmm(leg.arrival) });
-    body.append(el("span", "stop-note stop-eta", extra));
+    body.append(
+      el("span", "stop-note stop-eta", t("sailing.arrival", { time: hhmm(leg.arrival) }))
+    );
   }
   const note = signalNote(leg, isToday());
   if (note) body.append(note);
@@ -1421,11 +1424,23 @@ function departureRow(leg, past, connections) {
   const arrConn = connectionNote(connections, "arr", leg);
   if (arrConn) body.append(el("span", "stop-note stop-conn", arrConn));
   row.append(body);
-  const departed = isToday() && hasPassed(primary);
-  const remaining = past || departed ? t("gone") : isToday() ? countdown(primary) : "";
+  const departed = isToday() && hasPassed(leg.departure);
+  const remaining = past || departed ? t("gone") : isToday() ? countdown(leg.departure) : "";
   const remainingNode = el("span", "stop-state", remaining);
-  if (isToday()) remainingNode.dataset.countdown = primary;
+  if (isToday()) remainingNode.dataset.countdown = leg.departure;
   row.append(remainingNode);
+  return row;
+}
+
+function arrivalRow(leg, past, connections) {
+  const row = el("div", `stop stop-arr${past ? " is-past" : ""}`);
+  row.append(el("span", "stop-time", hhmm(leg.arrival)));
+  const body = el("span", "stop-body");
+  body.append(el("span", "stop-name", t("next.arrival", { to: leg.to })));
+  const connection = connectionNote(connections, "arr", leg);
+  if (connection) body.append(el("span", "stop-note stop-conn", connection));
+  row.append(body);
+  row.append(el("span", "stop-state", ""));
   return row;
 }
 
@@ -1485,10 +1500,11 @@ function statusRow(status) {
   return row;
 }
 
-function matchesStop(quays) {
+function matchesStop(event) {
   if (!state.stopFilter) return true;
-  if (!quays || !quays.length) return true;
-  return quays.includes(state.stopFilter);
+  if (event?.kind === "dep" && event.leg) return event.leg.from === state.stopFilter;
+  if (!event?.quays || !event.quays.length) return true;
+  return event.quays.includes(state.stopFilter);
 }
 
 const EVENT_SEQ = { arr: 0, split: 1, transfer: 2, dep: 3, status: 4 };
@@ -1505,12 +1521,29 @@ function buildEvents(legs, connections) {
     const depKey = `${leg.from}|${leg.departure}`;
     if (isVisibleDeparture(leg) && !seenDep.has(depKey)) {
       seenDep.add(depKey);
+      if (!state.stopFilter || leg.from === state.stopFilter) {
+        events.push({
+          at: clockMinutes(leg.departure),
+          kind: "dep",
+          quays: [leg.from, leg.to],
+          leg,
+          build: (past) => departureRow(leg, past, connections),
+        });
+      }
+    }
+    if (
+      showArrivals() &&
+      state.stopFilter &&
+      leg.to === state.stopFilter &&
+      leg.from !== state.stopFilter &&
+      leg.arrival
+    ) {
       events.push({
-        at: sailingAt(leg),
-        kind: "dep",
-        quays: [leg.from, leg.to],
+        at: clockMinutes(leg.arrival),
+        kind: "arr",
+        quays: [leg.to],
         leg,
-        build: (past) => departureRow(leg, past, connections),
+        build: (past) => arrivalRow(leg, past, connections),
       });
     }
     const next = legs[index + 1];
@@ -1578,11 +1611,11 @@ function renderStopFilter(legs) {
 }
 
 function selectRoute(choice) {
-  const next = CHOOSABLE_ROUTES.has(choice) ? choice : null;
+  const next = CHOOSABLE_ROUTES.has(choice) ? choice : "1136";
   if (state.routeChoice === next) return;
   state.routeChoice = next;
   writeRouteChoice(next);
-  track(`Route ${next || "auto"}`);
+  track(`Route ${next}`);
   state.stopFilter = null;
   state.live = null;
   state.liveFetchedAt = 0;
@@ -1593,12 +1626,10 @@ function selectRoute(choice) {
 
 function renderRouteFilter() {
   const root = document.getElementById("route-filter");
-  const note = document.getElementById("route-note");
   if (!root) return;
   root.replaceChildren();
   const chosen = chosenRoute();
   const options = [
-    { value: null, label: t("route.auto") },
     { value: "1136", label: t("route.1136") },
     { value: "1135", label: t("route.1135") },
   ];
@@ -1610,18 +1641,6 @@ function renderRouteFilter() {
     if (active) btn.classList.add("is-active");
     btn.addEventListener("click", () => selectRoute(option.value));
     root.append(btn);
-  }
-  if (!note) return;
-  const auto = operationalMode();
-  if (chosen && chosen !== auto) {
-    note.hidden = false;
-    note.textContent = t("route.manualNote", {
-      shown: t(`split.table.${chosen}`),
-      auto: t(`split.table.${auto}`),
-    });
-  } else {
-    note.hidden = true;
-    note.textContent = "";
   }
 }
 
@@ -1865,7 +1884,7 @@ function renderLive() {
   }
 
   const events = buildEvents(legs, connectionIndex(selectedDate())).filter((event) =>
-    matchesStop(event.quays)
+    matchesStop(event)
   );
   const status = isToday() ? currentStatus(legs) : null;
   if (status) {
@@ -2489,7 +2508,7 @@ function resetTestState() {
   state.date = null;
   state.showPast = false;
   state.hideArrivals = false;
-  state.routeChoice = null;
+  state.routeChoice = "1136";
   state.messages = null;
   state.routes = null;
   state.kombirute = null;
