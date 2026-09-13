@@ -91,10 +91,12 @@ Ikkje parse PDF automatisk i CI.
 
 Sida brukar [Plausible](https://plausible.io/) for å telje vitjingar og **kva folk faktisk trykkjer på**. Det er utan informasjonskapslar og utan personopplysningar. Lokal utvikling på `localhost` og testhosten `/dev/` blir ikkje telt.
 
+Kvar vitjing (og kvar hending) får eigenskapane `lang` (`nn` / `en` / `de`), `app` (`web` / `pwa`) og `route` (`standal-trandal` / `saebo-leknes`). `route` er sambandsvalet som er lagra i nettlesaren (standard Standal–Trandal). I Plausible: **Filter → Property**, eller Site settings → **Custom properties** om `route` ikkje visest enno.
+
 I Plausible-panelet ser du:
 
 - Vitjingar, kjelder og utgåande lenkjer (t.d. Fjord1 og NAIS)
-- Språk og om sida er open i nettlesar eller som installert app (`lang` og `app` på kvar vitjing; krev eigenskapar/custom properties)
+- Språk, samband og om sida er open i nettlesar eller som installert app (`lang`, `route` og `app`)
 - Eigne hendingar for bruken av sida. Legg dei til som **mål (goals)** i Plausible (Site settings → Goals). Du kan òg la Plausible foreslå mål frå hendingar som allereie er sende inn.
 
 | Hending | Når |
@@ -105,7 +107,7 @@ I Plausible-panelet ser du:
 | `Day prev` / `Day next` / `Day today` | Blad i rutetabellen |
 | `Stop all` / `Stop Standal` / … | Filter på stoppestad |
 | `Connection none` / `solavagen` / `hundeidvika` | Korrespondanse |
-| `Route 1136` / `Route 1135` | Byte fergestrekning |
+| `Route 1136` / `Route 1135` | Byte fergestrekning (klikk). Sjå òg `route` på alle vitjingar |
 | `Messages local` / `route` / `issues` | Filter på trafikkmeldingar |
 | `Show past` / `Hide past` | Vis eller skjul tidlegare anløp |
 | `Install app` / `App installed` | Installer-knappen, og når appen faktisk er lagt til |
