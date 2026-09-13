@@ -10,7 +10,7 @@ import {
   stringKeys,
   stringsFor,
   t,
-} from "../assets/i18n.js?v=34";
+} from "../assets/i18n.js?v=35";
 
 function leg(from, to, departure, arrival, dates = ["2026-08-26"]) {
   return { from, to, departure, arrival, activeDates: dates };
@@ -38,6 +38,17 @@ test("seglingstekst har destinasjon i alle språk", () => {
   setLang("de");
   assert.equal(t("layover.title"), "Liegezeit");
   setLang("nn");
+  assert.equal(t("messages.expand"), "Vis meir");
+  assert.equal(t("messages.collapse"), "Vis mindre");
+  assert.equal(t("messages.andNMore", { n: 2 }), "og 2 til");
+  assert.equal(t("messages.excerptMore"), "…");
+  assert.equal(t("route.badgeKombi"), "Kombirute");
+  assert.equal(
+    t("status.layoverAt", { quay: "Sæbø", duration: "32 min", time: "13:45" }),
+    "Ferja ligg til kai på Sæbø. Liggetid 32 min, til 13:45."
+  );
+  assert.equal(t("day.todayFull", { date: "søndag 13. september" }), "I dag · søndag 13. september");
+  assert.equal(t("extras.filterAria"), "Ankomsttider og korrespondanse");
 });
 
 test("same i18n keys in nn, en and de", () => {

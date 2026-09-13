@@ -5,6 +5,7 @@ import {
   compareTimelineEvents,
   delayMinutes,
   ferryStatus,
+  statusProgress,
   homeQuay,
   isLiveFresh,
   keepTimelineEvent,
@@ -14,7 +15,9 @@ import {
   liveStatus,
   minDeadheadMinutes,
   nextArrivalAt,
-  nextOverview,
+  excerptText,
+  headingDay,
+  todayIso,
   noteLiveFailure,
   parseVehicleMonitoring,
   pastDepartureCount,
@@ -24,7 +27,7 @@ import {
   shouldFetchLive,
   serviceWindowMinutes,
 } from "../assets/app.js";
-import { setLang } from "../assets/i18n.js?v=34";
+import { setLang } from "../assets/i18n.js?v=35";
 
 beforeEach(() => {
   setLang("nn");
@@ -74,6 +77,26 @@ test("på veg i ein passasjertur", () => {
   const status = ferryStatus(wednesday, 7 * 60 + 45, wednesday);
   assert.equal(status.text, "Ferja er på veg mot Trandal");
   assert.equal(status.underway, true);
+  assert.equal(status.from, 7 * 60 + 40);
+  assert.equal(status.until, 7 * 60 + 55);
+  assert.equal(status.progress, 5 / 15);
+});
+
+test("NO-status fyller tida mellom stopp, òg i liggetid og kort kai-opphald", () => {
+  assert.equal(statusProgress(10, 20, 15), 0.5);
+  assert.equal(statusProgress(10, 20, 8), 0);
+  assert.equal(statusProgress(10, 20, 30), 1);
+  assert.equal(statusProgress(10, 10, 10), null);
+  const wait = ferryStatus(wednesday, 7 * 60 + 57, wednesday);
+  assert.equal(wait.underway, undefined);
+  assert.equal(wait.progress, 2 / 5);
+  const stay = ferryStatus(wednesday, 11 * 60 + 50, wednesday);
+  assert.equal(stay.layover, true);
+  assert.equal(stay.progress, 0.5);
+  const before = ferryStatus(wednesday, 7 * 60 + 10, wednesday);
+  assert.equal(before.progress, undefined);
+  const done = ferryStatus(weekdayHome, 21 * 60, weekdayHome);
+  assert.equal(done.progress, undefined);
 });
 
 test("etter siste passasjertur til Valderøya går ho heim utan folk", () => {
@@ -320,51 +343,51 @@ test("segling er synleg til ankomst når alle stopp er valt", () => {
   assert.equal(pastDepartureCount(events, 7 * 60 + 55), 1);
 });
 
-test("neste avgang har destinasjon, ankomst er på destinasjonen", () => {
-  const trip = nextOverview(wednesday, "Standal");
-  assert.equal(trip.dep.from, "Standal");
-  assert.equal(trip.dep.to, "Trandal");
-  assert.equal(trip.dep.departure, "07:40:00");
-  assert.equal(trip.arr.to, "Trandal");
-  assert.equal(trip.arr.arrival, "07:55:00");
+test("NO-status får liggetid-tekst og amber når ferja ligg i eit slikt opphald", () => {
+  const status = ferryStatus(wednesday, 11 * 60 + 50, wednesday);
+  assert.equal(status.layover, true);
+  assert.equal(status.underway, undefined);
+  assert.equal(status.short, "Ferja ligg til kai på Store Kalvøy");
+  assert.equal(
+    status.text,
+    "Ferja ligg til kai på Store Kalvøy. Liggetid 40 min, til 12:10."
+  );
+  const stays = buildEvents(wednesday, null).filter((event) => event.kind === "layover");
+  assert.equal(stays.length, 1);
+  assert.equal(keepTimelineEvent(stays[0], stays, 11 * 60 + 50, status), false);
+  assert.equal(keepTimelineEvent(stays[0], stays, 11 * 60 + 50), true);
 });
 
-test("utan kaival er neste tur fyrste avgang og ankomst på destinasjonen", () => {
-  const trip = nextOverview(wednesday, null);
-  assert.equal(trip.dep.from, "Standal");
-  assert.equal(trip.dep.to, "Trandal");
-  assert.equal(trip.arr.to, "Trandal");
-  assert.equal(trip.arr.arrival, "07:55:00");
+test("kort vending gjev vanleg kai-status, ikkje liggetid i NO", () => {
+  const legs = [
+    leg("Sæbø", "Leknes", "09:00:00", "09:13:00"),
+    leg("Leknes", "Sæbø", "09:15:00", "09:28:00"),
+  ];
+  const status = ferryStatus(legs, 9 * 60 + 14, legs);
+  assert.equal(status.layover, undefined);
+  assert.equal(status.text, "Ferja ligg til kai på Leknes");
+  assert.equal(layoverAfter(legs[0], legs[1]), null);
 });
 
-test("morgonpendelen viser 07:00 Trandal, ikkje 07:20 attende til Standal", () => {
+test("morgonpendelen har ankomst attende til Standal kl 07:20", () => {
   const morning = [
     leg("Standal", "Trandal", "06:45:00", "07:00:00"),
     leg("Trandal", "Standal", "07:05:00", "07:20:00"),
   ];
-  const trip = nextOverview(morning, null);
-  assert.equal(trip.dep.departure, "06:45:00");
-  assert.equal(trip.dep.from, "Standal");
-  assert.equal(trip.arr.to, "Trandal");
-  assert.equal(trip.arr.arrival, "07:00:00");
   const inbound = nextArrivalAt(morning, "Standal");
   assert.equal(inbound.arrival, "07:20:00");
-  assert.notEqual(trip.arr.arrival, inbound.arrival);
+  assert.equal(inbound.from, "Trandal");
 });
 
-test("valt kai viser neste tur derifrå, med ankomst på destinasjonen", () => {
-  const morning = [
-    leg("Standal", "Trandal", "06:45:00", "07:00:00"),
-    leg("Trandal", "Standal", "07:05:00", "07:20:00"),
-  ];
-  const fromStandal = nextOverview(morning, "Standal");
-  assert.equal(fromStandal.dep.departure, "06:45:00");
-  assert.equal(fromStandal.arr.to, "Trandal");
-  assert.equal(fromStandal.arr.arrival, "07:00:00");
-  const fromTrandal = nextOverview(morning, "Trandal");
-  assert.equal(fromTrandal.dep.departure, "07:05:00");
-  assert.equal(fromTrandal.arr.to, "Standal");
-  assert.equal(fromTrandal.arr.arrival, "07:20:00");
+test("utdrag bryt ved ord og I dag-overskrift høyrer til datoen", () => {
+  const long = "Ferja er innstilt i dag på grunn av tekniske problem ved kaiene i Hjørundfjorden.";
+  const excerpt = excerptText(long, 40);
+  assert.ok(excerpt.endsWith("…"));
+  assert.ok(excerpt.length <= 41);
+  assert.doesNotMatch(excerpt, / {2}/);
+  assert.equal(excerptText("Kort melding"), "Kort melding");
+  assert.match(headingDay(todayIso()), /^I dag · /);
+  assert.doesNotMatch(headingDay("2020-01-15"), /^I dag/);
 });
 
 test("sanntidsvindauge er fyrste avgang til siste ankomst", () => {
