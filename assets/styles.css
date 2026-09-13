@@ -297,7 +297,15 @@ h1, h2, h3 {
 .messages-bar-body {
   display: flex;
   flex-direction: column;
-  gap: 0.12rem;
+  gap: 0.18rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.messages-bar-head {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
   min-width: 0;
 }
 
@@ -305,6 +313,24 @@ h1, h2, h3 {
   font-family: Fraunces, Georgia, serif;
   font-weight: 600;
   line-height: 1.25;
+  min-width: 0;
+}
+
+.messages-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.2rem;
+  height: 1.2rem;
+  padding: 0 0.32rem;
+  border-radius: 999px;
+  background: var(--stop);
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 1;
+  flex: none;
 }
 
 .messages-bar-excerpt {
@@ -314,8 +340,9 @@ h1, h2, h3 {
 }
 
 .messages-bar-more {
-  font-size: 0.8rem;
-  color: var(--muted);
+  font-size: 0.88rem;
+  font-weight: 650;
+  color: var(--stop);
 }
 
 .messages-bar-toggle {
@@ -436,7 +463,7 @@ h2 { font-size: 1.45rem; }
 .daynav {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.45rem;
   margin-bottom: 0.65rem;
 }
 
@@ -445,27 +472,30 @@ h2 { font-size: 1.45rem; }
   background: #fff;
   color: var(--fjord);
   border-radius: 999px;
-  min-width: 2rem;
-  height: 2rem;
-  padding: 0 0.55rem;
+  min-width: 2.55rem;
+  height: 2.55rem;
+  padding: 0 0.7rem;
   font: inherit;
+  font-size: 1.25rem;
+  font-weight: 500;
   line-height: 1;
   cursor: pointer;
+  flex: none;
 }
 
 .daybtn:hover:not(:disabled) { border-color: var(--water); }
 
 .daybtn:disabled {
-  opacity: 0.4;
+  opacity: 0.42;
   cursor: default;
+  background: var(--foam);
 }
 
 .daybtn-today {
-  margin-left: 0.1rem;
   min-width: auto;
-  height: 1.85rem;
-  padding: 0 0.7rem;
-  font-size: 0.86rem;
+  padding: 0 0.95rem;
+  font-size: 0.95rem;
+  font-weight: 600;
 }
 
 h2.day-label {

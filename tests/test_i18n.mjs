@@ -10,7 +10,7 @@ import {
   stringKeys,
   stringsFor,
   t,
-} from "../assets/i18n.js?v=35";
+} from "../assets/i18n.js?v=36";
 
 function leg(from, to, departure, arrival, dates = ["2026-08-26"]) {
   return { from, to, departure, arrival, activeDates: dates };
@@ -42,6 +42,7 @@ test("seglingstekst har destinasjon i alle språk", () => {
   assert.equal(t("messages.collapse"), "Vis mindre");
   assert.equal(t("messages.andNMore", { n: 2 }), "og 2 til");
   assert.equal(t("messages.excerptMore"), "…");
+  assert.equal(t("messages.countAria", { n: 3 }), "3 meldingar");
   assert.equal(t("route.badgeKombi"), "Kombirute");
   assert.equal(
     t("status.layoverAt", { quay: "Sæbø", duration: "32 min", time: "13:45" }),
