@@ -7,6 +7,8 @@ import {
   ferryStatus,
   isPreview,
   legsForDate,
+  legsForPlaceFilter,
+  passengerJourneysFrom,
   modeFromText,
   nextArrivalAt,
   quayPlace,
@@ -423,6 +425,63 @@ test("1136-modus har ikkje Leknes-bein", () => {
   const legs = legsForDate(WEEKDAY);
   assert.ok(legs.length > 0);
   assert.ok(legs.every((leg) => leg.from !== "Leknes" && leg.to !== "Leknes"));
+});
+
+test("Skår til Standal visest som reise med mellomstopp", () => {
+  setTestState({
+    routes: ruter,
+    kombirute: kombi,
+    date: WEEKDAY,
+    routeChoice: "1136",
+    messages: { messages: [] },
+    fromFilter: "Skår",
+    toFilter: "Standal",
+  });
+  const events = buildEvents(legsForDate(WEEKDAY), null).filter((event) => event.kind === "dep");
+  assert.ok(events.length >= 3);
+  assert.equal(events[0].leg.from, "Skår");
+  assert.equal(events[events.length - 1].leg.to, "Standal");
+  assert.ok(events.some((event) => event.leg.from === "Sæbø"));
+  assert.ok(events.some((event) => event.leg.from === "Trandal"));
+});
+
+test("Leknes til Standal byter ferje på Sæbø i normal rute", () => {
+  setTestState({
+    routes: ruter,
+    kombirute: kombi,
+    date: WEEKDAY,
+    routeChoice: "1136",
+    messages: { messages: [] },
+    fromFilter: "Leknes",
+    toFilter: "Standal",
+  });
+  const legs = legsForPlaceFilter(WEEKDAY);
+  assert.ok(legs.some((leg) => leg.from === "Leknes"));
+  const journeys = passengerJourneysFrom(legs, "Leknes", "Standal");
+  assert.ok(journeys.length >= 1);
+  assert.ok(journeys.every((journey) => journey.transfer));
+  const first = journeys[0].legs;
+  assert.equal(first[0].from, "Leknes");
+  assert.equal(first[first.length - 1].to, "Standal");
+  assert.ok(first.some((leg) => leg.to === "Sæbø"));
+  const events = buildEvents(legs, null).filter((event) => event.kind === "dep");
+  assert.ok(events.some((event) => event.leg.from === "Leknes"));
+  assert.ok(events.some((event) => event.leg.to === "Standal"));
+});
+
+test("kombirute Standal til Skår ventar på Sæbø utan Leknes-pendel", () => {
+  useKombi();
+  setTestState({ date: WEEKDAY, fromFilter: "Standal", toFilter: "Skår" });
+  const journeys = passengerJourneysFrom(legsForDate(WEEKDAY), "Standal", "Skår");
+  const afternoon = journeys.find((journey) => journey.legs[0].departure === "15:50:00");
+  assert.ok(afternoon);
+  assert.ok(afternoon.wait);
+  assert.equal(afternoon.wait.quay, "Sæbø");
+  assert.equal(afternoon.wait.minutes, 65);
+  assert.deepEqual(
+    afternoon.legs.map((part) => `${part.from}→${part.to}`),
+    ["Standal→Trandal", "Trandal→Sæbø", "Sæbø→Leknes", "Leknes→Skår"]
+  );
 });
 
 test("Øye-korrespondanse visest ikkje, destinasjonar på Sæbø visest når båe ferjene køyrer", () => {
@@ -882,7 +941,10 @@ test("sida har val for å byte fergestrekning", () => {
   assert.doesNotMatch(html, /class="route-row"/);
   assert.doesNotMatch(html, /class="view-row"/);
   assert.doesNotMatch(html, /class="conn-row"/);
-  assert.doesNotMatch(app, /t\("conn.none"\)/);
+  assert.match(html, /id="trip-filter"/);
+  assert.match(app, /t\("conn.none"\)/);
+  assert.match(app, /t\("place.from"\)/);
+  assert.match(app, /t\("place.to"\)/);
   assert.match(app, /t\("view.arrivals"\)/);
   assert.match(app, /messagesExpanded/);
 });
@@ -995,11 +1057,11 @@ test("1135 merkar matpause som liggetid, ikkje innkomst ved valt kai", () => {
   assert.ok(stays.every((event) => event.stay.minutes >= 20));
   const meal = stays.find((event) => event.at === 9 * 60 + 28);
   assert.equal(meal.stay.minutes, 62);
-  setTestState({ stopFilter: "Leknes" });
+  setTestState({ fromFilter: "Leknes" });
   const leknes = buildEvents(legs, null);
   assert.ok(leknes.every((event) => event.kind !== "arr"));
   assert.ok(leknes.every((event) => event.kind !== "layover"));
-  setTestState({ stopFilter: "Sæbø" });
+  setTestState({ fromFilter: "Sæbø" });
   const saebo = buildEvents(legs, null);
   assert.ok(saebo.some((event) => event.kind === "layover" && event.stay.minutes === 62));
 });

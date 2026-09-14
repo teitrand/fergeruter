@@ -2,7 +2,7 @@
 
 Statisk oversikt over **trafikkmeldingar frå Fjord1** og **seglingsplanen** for Hjørundfjorden. Til vanleg viser sida rute **1136** Standal–Trandal–Sæbø–Skår–Valderøya–Store Kalvøy. Når Fjord1 innstiller 1136 (eller innfører kombirute), byter sida tabell automatisk.
 
-Sida viser heile dagen som ei samanhengande tidslinje med alle anløpa i rekkjefølgje, og ei **No**-linje som fortel om ferja ligg til kai eller er på veg. Posisjonen er i utgangspunktet rekna ut frå den aktive tabellen. Når Entur sender køyretøyposisjon for 1136 eller 1135, visest den som sanntid. Etter siste passasjertur (t.d. onsdag på Valderøya) reknar sida med at ferja går tilbake til Standal utan passasjerar og ligg der over natta — den turen står ikkje i Entur.
+Sida viser heile dagen som ei samanhengande tidslinje med alle anløpa i rekkjefølgje, og ei **No**-linje som fortel om ferja ligg til kai eller er på veg. Under dagen kan du velje **frå** og **til** (t.d. alle turar til Trandal, eller berre Standal→Trandal) og byte retning med pila mellom vala. Korrespondanse ligg i ei eiga nedtrekksliste. Posisjonen er i utgangspunktet rekna ut frå den aktive tabellen. Når Entur sender køyretøyposisjon for 1136 eller 1135, visest den som sanntid. Etter siste passasjertur (t.d. onsdag på Valderøya) reknar sida med at ferja går tilbake til Standal utan passasjerar og ligg der over natta — den turen står ikkje i Entur.
 
 Rutetabellane for 1136 og 1135 blir lasta ned frå Entur og lagra i `data/ruter.json`. Dei blir berre henta på nytt når innhaldet faktisk er endra. Kombinasjonsruta ligg ikkje i Entur; ho er transkribert frå FRAM-PDF til `data/kombirute.json`. Rutetabellen kjem frå lokale JSON-filer; nettlesaren kallar Entur berre for valfri køyretøyposisjon (CORS er open). Trafikkmeldingar kjem frå Fjord1 når GitHub-kopien er gammal, elles frå `data/trafikkmeldinger.json`.
 
@@ -105,7 +105,9 @@ I Plausible-panelet ser du:
 | `Visit pwa` | Sidan er open som installert app |
 | `Language nn` / `en` / `de` | Nokon byter språk |
 | `Day prev` / `Day next` / `Day today` | Blad i rutetabellen |
-| `Stop all` / `Stop Standal` / … | Filter på stoppestad |
+| `From all` / `From Standal` / … | Filter på frå-stad |
+| `To all` / `To Trandal` / … | Filter på til-stad |
+| `Swap direction` | Byte frå og til |
 | `Connection none` / `solavagen` / `hundeidvika` | Korrespondanse |
 | `Route 1136` / `Route 1135` | Byte fergestrekning (klikk). Sjå òg `route` på alle vitjingar |
 | `Messages local` / `route` / `issues` | Filter på trafikkmeldingar |
