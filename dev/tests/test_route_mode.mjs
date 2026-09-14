@@ -882,7 +882,10 @@ test("sida har val for å byte fergestrekning", () => {
   assert.doesNotMatch(html, /class="route-row"/);
   assert.doesNotMatch(html, /class="view-row"/);
   assert.doesNotMatch(html, /class="conn-row"/);
-  assert.doesNotMatch(app, /t\("conn.none"\)/);
+  assert.match(html, /id="trip-filter"/);
+  assert.match(app, /t\("conn.none"\)/);
+  assert.match(app, /t\("place.from"\)/);
+  assert.match(app, /t\("place.to"\)/);
   assert.match(app, /t\("view.arrivals"\)/);
   assert.match(app, /messagesExpanded/);
 });
@@ -995,11 +998,11 @@ test("1135 merkar matpause som liggetid, ikkje innkomst ved valt kai", () => {
   assert.ok(stays.every((event) => event.stay.minutes >= 20));
   const meal = stays.find((event) => event.at === 9 * 60 + 28);
   assert.equal(meal.stay.minutes, 62);
-  setTestState({ stopFilter: "Leknes" });
+  setTestState({ fromFilter: "Leknes" });
   const leknes = buildEvents(legs, null);
   assert.ok(leknes.every((event) => event.kind !== "arr"));
   assert.ok(leknes.every((event) => event.kind !== "layover"));
-  setTestState({ stopFilter: "Sæbø" });
+  setTestState({ fromFilter: "Sæbø" });
   const saebo = buildEvents(legs, null);
   assert.ok(saebo.some((event) => event.kind === "layover" && event.stay.minutes === 62));
 });

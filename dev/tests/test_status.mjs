@@ -4,6 +4,7 @@ import {
   buildEvents,
   compareTimelineEvents,
   delayMinutes,
+  emptyPlaceMessage,
   ferryStatus,
   statusProgress,
   homeQuay,
@@ -13,12 +14,14 @@ import {
   liveBlockedUntil,
   liveFetchUrls,
   liveStatus,
+  matchesLegPlaces,
   minDeadheadMinutes,
   nextArrivalAt,
   excerptText,
   headingDay,
   messageRouteScore,
   sortMessagesForRoute,
+  swapPlaceFilters,
   todayIso,
   noteLiveFailure,
   parseVehicleMonitoring,
@@ -29,7 +32,7 @@ import {
   shouldFetchLive,
   serviceWindowMinutes,
 } from "../assets/app.js";
-import { setLang } from "../assets/i18n.js?v=41";
+import { setLang } from "../assets/i18n.js?v=42";
 
 beforeEach(() => {
   setLang("nn");
@@ -232,8 +235,8 @@ test("segling viser destinasjon og båe kaier, utan eiga ankomst-rad", () => {
   assert.equal(first.at, 7 * 60 + 40);
 });
 
-test("ved valt kai står berre avgangar derifrå, ikkje dempa innkomst", () => {
-  setTestState({ stopFilter: "Sæbø" });
+test("ved valt frå-stad står berre avgangar derifrå, ikkje dempa innkomst", () => {
+  setTestState({ fromFilter: "Sæbø" });
   const events = buildEvents(wednesday, null);
   assert.ok(events.every((event) => event.kind !== "arr"));
   const outbound = events.find(
@@ -245,6 +248,49 @@ test("ved valt kai står berre avgangar derifrå, ikkje dempa innkomst", () => {
   assert.equal(outbound.at, 8 * 60 + 35);
   assert.equal(inboundAsDep, undefined);
   assert.ok(events.filter((event) => event.kind === "dep").every((event) => event.leg.from === "Sæbø"));
+});
+
+test("til-stad viser alle turar som endar der", () => {
+  setTestState({ toFilter: "Trandal" });
+  const events = buildEvents(wednesday, null).filter((event) => event.kind === "dep");
+  assert.ok(events.length > 1);
+  assert.ok(events.every((event) => event.leg.to === "Trandal"));
+  assert.ok(events.some((event) => event.leg.from === "Standal"));
+  assert.ok(events.some((event) => event.leg.from === "Sæbø"));
+  assert.equal(
+    events.find((event) => event.leg.from === "Trandal"),
+    undefined
+  );
+});
+
+test("frå og til saman viser berre den strekninga", () => {
+  setTestState({ fromFilter: "Standal", toFilter: "Trandal" });
+  const events = buildEvents(wednesday, null).filter((event) => event.kind === "dep");
+  assert.ok(events.length >= 1);
+  assert.ok(events.every((event) => event.leg.from === "Standal" && event.leg.to === "Trandal"));
+});
+
+test("byte frå og til snur filteret", () => {
+  setTestState({ fromFilter: "Trandal", toFilter: null });
+  swapPlaceFilters();
+  const toTrandal = buildEvents(wednesday, null).filter((event) => event.kind === "dep");
+  assert.ok(toTrandal.length > 0);
+  assert.ok(toTrandal.every((event) => event.leg.to === "Trandal"));
+  assert.ok(toTrandal.every((event) => matchesLegPlaces(event.leg)));
+  setTestState({ fromFilter: "Standal", toFilter: "Trandal" });
+  swapPlaceFilters();
+  const swapped = buildEvents(wednesday, null).filter((event) => event.kind === "dep");
+  assert.ok(swapped.length > 0);
+  assert.ok(swapped.every((event) => event.leg.from === "Trandal" && event.leg.to === "Standal"));
+});
+
+test("tomt frå-til-val får eiga melding", () => {
+  setTestState({ fromFilter: "Trandal", toFilter: "Store Kalvøy" });
+  assert.equal(emptyPlaceMessage(), "Ingen turar frå Trandal til Store Kalvøy denne dagen.");
+  setTestState({ fromFilter: null, toFilter: "Trandal" });
+  assert.equal(emptyPlaceMessage(), "Ingen turar til Trandal denne dagen.");
+  setTestState({ fromFilter: "Standal", toFilter: null });
+  assert.equal(emptyPlaceMessage(), "Ingen turar frå Standal denne dagen.");
 });
 
 test("kort vending er ikkje liggetid, lengre opphald er", () => {
@@ -297,11 +343,11 @@ test("tabellen merkar liggetid ved matpause, ikkje innkomst-rad", () => {
   );
   assert.equal(keepTimelineEvent(stay, events, 9 * 60 + 50), true);
   assert.equal(keepTimelineEvent(stay, events, 10 * 60 + 30), false);
-  setTestState({ stopFilter: "Leknes" });
+  setTestState({ fromFilter: "Leknes" });
   const leknes = buildEvents(legs, null);
   assert.ok(leknes.every((event) => event.kind !== "layover"));
   assert.ok(leknes.every((event) => event.kind !== "arr"));
-  setTestState({ stopFilter: "Sæbø" });
+  setTestState({ fromFilter: "Sæbø" });
   const saebo = buildEvents(legs, null);
   assert.equal(saebo.filter((event) => event.kind === "layover").length, 1);
 });
