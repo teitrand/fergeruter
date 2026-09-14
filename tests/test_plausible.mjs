@@ -3,15 +3,19 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
   FEEDBACK_MAIL,
+  PWA_FIRST_KEY,
   appMode,
   feedbackMailto,
+  highlightInstallHint,
+  installHint,
+  markPwaFirstOpen,
   plausibleContext,
   plausibleRoute,
   resetTestState,
   setTestState,
   track,
 } from "../assets/app.js";
-import { setLang } from "../assets/i18n.js?v=44";
+import { setLang } from "../assets/i18n.js?v=45";
 
 const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
 const app = readFileSync(new URL("../assets/app.js", import.meta.url), "utf8");
@@ -48,6 +52,23 @@ test("sida har tilbakemeldingsdialog", () => {
   assert.match(html, /teitrand\/fergeruter\/issues\/new/);
 });
 
+test("sida har install-knapp og rettleiing når nettlesaren ikkje har eiga installering", () => {
+  assert.match(html, /id="install-btn"/);
+  assert.match(html, /id="install-dialog"/);
+  assert.match(html, /data-install-hint="ios"/);
+  assert.match(html, /data-install-hint="android"/);
+  assert.match(html, /data-install-hint="desktop"/);
+  assert.match(html, /id="install-close"/);
+  assert.match(html, /SMS-om-trafikken/);
+  assert.match(app, /beforeinstallprompt/);
+  assert.match(app, /openInstallDialog/);
+  assert.match(app, /how: "help"/);
+  assert.match(app, /how: "native"/);
+  const css = readFileSync(new URL("../assets/styles.css", import.meta.url), "utf8");
+  assert.match(css, /\.install-dialog/);
+  assert.match(css, /\.install-steps\.is-likely/);
+});
+
 test("header har ikkje ferjegrafikk mellom kaiene", () => {
   assert.doesNotMatch(html, /fjord-track|fjord-ferry|ferje\.png|kai-venstre|kai-hogre/);
   assert.match(html, /id="lede-status"/);
@@ -56,9 +77,9 @@ test("header har ikkje ferjegrafikk mellom kaiene", () => {
 
 test("sida har den dekorative stiplede streken øverst", () => {
   assert.match(html, /class="skyline"/);
-  assert.match(html, /assets\/styles\.css\?v=44/);
-  assert.match(html, /assets\/app\.js\?v=44/);
-  assert.match(app, /from "\.\/i18n\.js\?v=44"/);
+  assert.match(html, /assets\/styles\.css\?v=45/);
+  assert.match(html, /assets\/app\.js\?v=45/);
+  assert.match(app, /from "\.\/i18n\.js\?v=45"/);
   const css = readFileSync(new URL("../assets/styles.css", import.meta.url), "utf8");
   assert.match(css, /\.skyline\s*\{[^}]*repeating-linear-gradient/s);
   assert.match(css, /safe-area-inset-top/);
@@ -67,7 +88,7 @@ test("sida har den dekorative stiplede streken øverst", () => {
   assert.doesNotMatch(css, /1\.05fr 0\.95fr/);
   assert.doesNotMatch(css, /@media \(min-width: 860px\)/);
   const sw = readFileSync(new URL("../sw.js", import.meta.url), "utf8");
-  assert.match(sw, /fergeruter-dev-v44/);
+  assert.match(sw, /fergeruter-dev-v45/);
   assert.match(sw, /function isTimetableJson/);
   assert.match(sw, /function isMessagesJson/);
   assert.match(sw, /staleWhileRevalidate\(request,\s*\{\s*notify: true/);
@@ -95,6 +116,7 @@ test("appen sender namngjevne brukshendingar til Plausible", () => {
     "Route ${next}",
     "Install app",
     "App installed",
+    "PWA first open",
     "Feedback yes",
     "Feedback no",
     "Feedback message",
@@ -168,6 +190,94 @@ test("track gjer ingenting utan plausible", () => {
 test("appMode er web utan display-mode standalone", () => {
   assert.equal(appMode(), "web");
 });
+
+test("installHint kjenner att iOS, Android og desktop", () => {
+  assert.equal(installHint({ userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)" }), "ios");
+  assert.equal(
+    installHint({ userAgent: "Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X)" }),
+    "ios"
+  );
+  assert.equal(
+    installHint({ userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0)", platform: "MacIntel", maxTouchPoints: 5 }),
+    "ios"
+  );
+  assert.equal(
+    installHint({ userAgent: "Mozilla/5.0 (Linux; Android 14; Pixel 8) Chrome/128.0.0.0" }),
+    "android"
+  );
+  assert.equal(
+    installHint({ userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/128.0.0.0" }),
+    "desktop"
+  );
+  assert.equal(installHint(null), "desktop");
+});
+
+test("markPwaFirstOpen tel berre fyrste gong i PWA", () => {
+  const storage = new MapStorage();
+  assert.equal(markPwaFirstOpen(storage, "web"), false);
+  assert.equal(storage.getItem(PWA_FIRST_KEY), null);
+  assert.equal(markPwaFirstOpen(storage, "pwa"), true);
+  assert.equal(storage.getItem(PWA_FIRST_KEY), "1");
+  assert.equal(markPwaFirstOpen(storage, "pwa"), false);
+});
+
+test("highlightInstallHint merkar truleg plattform", () => {
+  const previous = globalThis.document;
+  const nodes = [
+    { dataset: { installHint: "ios" }, classList: new FakeClassList(), attrs: {} },
+    { dataset: { installHint: "android" }, classList: new FakeClassList(), attrs: {} },
+    { dataset: { installHint: "desktop" }, classList: new FakeClassList(), attrs: {} },
+  ];
+  for (const node of nodes) {
+    node.setAttribute = (name, value) => {
+      node.attrs[name] = value;
+    };
+    node.removeAttribute = (name) => {
+      delete node.attrs[name];
+    };
+  }
+  globalThis.document = {
+    querySelectorAll(sel) {
+      assert.equal(sel, "[data-install-hint]");
+      return nodes;
+    },
+  };
+  try {
+    assert.equal(highlightInstallHint("android"), "android");
+    assert.equal(nodes[0].classList.has("is-likely"), false);
+    assert.equal(nodes[1].classList.has("is-likely"), true);
+    assert.equal(nodes[1].attrs["aria-current"], "true");
+    assert.equal(nodes[2].attrs["aria-current"], undefined);
+  } finally {
+    if (previous === undefined) delete globalThis.document;
+    else globalThis.document = previous;
+  }
+});
+
+class MapStorage {
+  constructor() {
+    this.map = new Map();
+  }
+  getItem(key) {
+    return this.map.has(key) ? this.map.get(key) : null;
+  }
+  setItem(key, value) {
+    this.map.set(key, String(value));
+  }
+}
+
+class FakeClassList {
+  constructor() {
+    this.set = new Set();
+  }
+  toggle(name, force) {
+    if (force) this.set.add(name);
+    else this.set.delete(name);
+  }
+  has(name) {
+    return this.set.has(name);
+  }
+}
 
 test("feedbackMailto kodar vurdering og kommentar", () => {
   setLang("nn");

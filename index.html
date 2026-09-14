@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,560;9..144,700&family=Outfit:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/styles.css?v=44">
+  <link rel="stylesheet" href="assets/styles.css?v=45">
   <!-- Privacy-friendly analytics by Plausible -->
   <script async src="https://plausible.io/js/pa-zLwKfsUV57HIZfM4j6wLS.js"></script>
   <script>
@@ -109,7 +109,7 @@
           <span class="lang-code">DE</span>
         </button>
       </div>
-      <button type="button" id="install-btn" class="install-btn" hidden data-i18n="install.app">Installer app</button>
+      <button type="button" id="install-btn" class="install-btn" hidden data-i18n="install.app" aria-haspopup="dialog" aria-controls="install-dialog">Installer app</button>
     </div>
     <svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true">
       <rect width="64" height="64" rx="14" fill="#073b4c"/>
@@ -195,6 +195,40 @@
     </p>
   </footer>
 
+  <dialog id="install-dialog" class="install-dialog" aria-labelledby="install-title">
+    <h2 id="install-title" data-i18n="install.title">Legg appen på heimeskjermen</h2>
+    <p data-i18n="install.lead">Då får du Fergeruter som eiga app utan adressefelt, og rutetabellen verkar òg utan nett.</p>
+    <section class="install-steps" data-install-hint="ios">
+      <h3 data-i18n="install.ios.title">iPhone og iPad (Safari)</h3>
+      <ol>
+        <li data-i18n="install.ios.1">Trykk på Del (firkanten med pila opp) nederst på skjermen.</li>
+        <li data-i18n="install.ios.2">Rull og vel «Legg til på heimeskjerm».</li>
+        <li data-i18n="install.ios.3">Trykk «Legg til» oppe til høgre.</li>
+      </ol>
+      <p class="install-aside" data-i18n="install.ios.note">Opna sida i Safari. Andre appar (t.d. Instagram eller Facebook) har ikkje denne menyen.</p>
+    </section>
+    <section class="install-steps" data-install-hint="android">
+      <h3 data-i18n="install.android.title">Android (Chrome)</h3>
+      <ol>
+        <li data-i18n="install.android.1">Trykk på dei tre prikkane øvst til høgre.</li>
+        <li data-i18n="install.android.2">Vel «Installer app» eller «Legg til på startskjerm».</li>
+      </ol>
+    </section>
+    <section class="install-steps" data-install-hint="desktop">
+      <h3 data-i18n="install.desktop.title">Datamaskin (Chrome eller Edge)</h3>
+      <ol>
+        <li data-i18n="install.desktop.1">Sjå etter install-ikonet i adresselinja, eller opne menyen og vel «Installer Fergeruter».</li>
+      </ol>
+    </section>
+    <p class="install-note">
+      <span data-i18n="install.notify">Appen sender ikkje eigne varsel enno. For trafikkmeldingar kan du få SMS frå Fjord1.</span>
+      <a href="https://www.fjord1.no/kundeservice/foer-du-reiser/SMS-om-trafikken" target="_blank" rel="noreferrer" data-i18n="messages.sms">Få SMS</a>
+    </p>
+    <div class="feedback-actions">
+      <button type="button" id="install-close" class="feedback-cancel" data-i18n="feedback.close">Lukk</button>
+    </div>
+  </dialog>
+
   <dialog id="feedback-dialog" class="feedback-dialog" aria-labelledby="feedback-title">
     <h2 id="feedback-title" data-i18n="feedback.title">Tilbakemelding</h2>
     <p id="feedback-lead" data-i18n="feedback.lead">Hjelper sida deg å finne ferja?</p>
@@ -220,6 +254,6 @@
   <noscript>
     <p>Slå på JavaScript for å sjå rutetabellen, eller opne <a href="https://www.fjord1.no/trafikkmeldingar">trafikkmeldingane hos Fjord1</a>.</p>
   </noscript>
-  <script src="assets/app.js?v=44" type="module"></script>
+  <script src="assets/app.js?v=45" type="module"></script>
 </body>
 </html>
