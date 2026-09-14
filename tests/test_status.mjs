@@ -15,6 +15,7 @@ import {
   liveFetchUrls,
   liveStatus,
   matchesLegPlaces,
+  matchesStop,
   minDeadheadMinutes,
   nextArrivalAt,
   excerptText,
@@ -298,6 +299,20 @@ test("frå Sæbø til Standal hoppar over Skår-vendinga", () => {
   assert.equal(events[0].leg.to, "Trandal");
   assert.equal(events[0].leg.departure, "09:20:00");
   assert.ok(events.every((event) => event.leg.from !== "Skår"));
+});
+
+test("frå-til-reise viser ikkje tabellskifte mellom ferjene", () => {
+  const legs = [
+    { ...leg("Skår", "Sæbø", "08:55:00", "09:15:00"), table: "1136" },
+    { ...leg("Leknes", "Sæbø", "09:00:00", "09:13:00"), table: "1135" },
+    { ...leg("Sæbø", "Trandal", "09:20:00", "09:45:00"), table: "1136" },
+    { ...leg("Trandal", "Standal", "09:45:00", "10:00:00"), table: "1136" },
+  ];
+  setTestState({ fromFilter: "Skår", toFilter: "Standal" });
+  const events = buildEvents(legs, null).filter((event) => matchesStop(event));
+  assert.ok(events.every((event) => event.kind === "dep"));
+  assert.ok(events.some((event) => event.leg.from === "Skår"));
+  assert.ok(events.some((event) => event.leg.to === "Standal"));
 });
 
 test("byte frå og til snur filteret", () => {

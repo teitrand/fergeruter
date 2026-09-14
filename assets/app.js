@@ -2303,7 +2303,7 @@ function matchesStop(event) {
     if (state.fromFilter && state.toFilter) return true;
     return matchesLegPlaces(event.leg);
   }
-  if (state.fromFilter && state.toFilter) return !event?.quays?.length;
+  if (state.fromFilter && state.toFilter) return false;
   if (!event?.quays || !event.quays.length) return true;
   if (state.fromFilter && event.quays.includes(state.fromFilter)) return true;
   if (state.toFilter && event.quays.includes(state.toFilter)) return true;
@@ -3634,6 +3634,7 @@ export {
   liveFetchUrls,
   liveStatus,
   matchesLegPlaces,
+  matchesStop,
   messageRouteScore,
   messageTimeLines,
   pastDepartureCount,
