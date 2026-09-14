@@ -7,7 +7,7 @@ import {
   setLang,
   t,
   weekdays,
-} from "./i18n.js?v=41";
+} from "./i18n.js?v=42";
 
 const MESSAGES_URL = "data/trafikkmeldinger.json";
 const ROUTES_URL = "data/ruter.json";
@@ -91,7 +91,8 @@ const DEFAULT_VESSELS = [
 
 const state = {
   messageFilter: "local",
-  stopFilter: null,
+  fromFilter: null,
+  toFilter: null,
   date: null,
   showPast: false,
   hideArrivals: false,
@@ -1960,7 +1961,12 @@ function sailingDoneAt(event) {
   if (event.kind === "arr") return event.at;
   if (event.kind !== "dep" || !event.leg) return event.at;
   const leg = event.leg;
-  if (state.stopFilter && state.stopFilter === leg.from && leg.from !== leg.to) {
+  if (
+    state.fromFilter &&
+    !state.toFilter &&
+    state.fromFilter === leg.from &&
+    leg.from !== leg.to
+  ) {
     return clockMinutes(leg.departure);
   }
   if (leg.arrival) return clockMinutes(leg.arrival);
@@ -2025,7 +2031,7 @@ function layoverRow(stay, past) {
   const row = el("div", `stop stop-layover${past ? " is-past" : ""}`);
   row.append(el("span", "stop-time", hhmm(stay.from)));
   const body = el("span", "stop-body");
-  const title = state.stopFilter
+  const title = state.fromFilter
     ? t("layover.title")
     : t("layover.atQuay", { quay: stay.quay });
   body.append(el("span", "stop-name", title));
@@ -2109,11 +2115,42 @@ function statusRow(status) {
   return row;
 }
 
+function matchesLegPlaces(leg) {
+  if (!leg) return false;
+  if (state.fromFilter && quayPlace(leg.from) !== state.fromFilter) return false;
+  if (state.toFilter && quayPlace(leg.to) !== state.toFilter) return false;
+  return true;
+}
+
+function matchesLayover(stay) {
+  if (!stay) return false;
+  if (state.toFilter) return false;
+  if (state.fromFilter) return stay.quay === state.fromFilter;
+  return true;
+}
+
+function swapPlaceFilters() {
+  const from = state.fromFilter;
+  state.fromFilter = state.toFilter;
+  state.toFilter = from;
+}
+
+function emptyPlaceMessage() {
+  if (state.fromFilter && state.toFilter) {
+    return t("empty.noFromTo", { from: state.fromFilter, to: state.toFilter });
+  }
+  if (state.fromFilter) return t("empty.noFrom", { from: state.fromFilter });
+  if (state.toFilter) return t("empty.noTo", { to: state.toFilter });
+  return t("empty.noTripsDay");
+}
+
 function matchesStop(event) {
-  if (!state.stopFilter) return true;
-  if (event?.kind === "dep" && event.leg) return event.leg.from === state.stopFilter;
+  if (!state.fromFilter && !state.toFilter) return true;
+  if (event?.kind === "dep" && event.leg) return matchesLegPlaces(event.leg);
   if (!event?.quays || !event.quays.length) return true;
-  return event.quays.includes(state.stopFilter);
+  if (state.fromFilter && event.quays.includes(state.fromFilter)) return true;
+  if (state.toFilter && event.quays.includes(state.toFilter)) return true;
+  return false;
 }
 
 const EVENT_SEQ = { arr: 0, split: 1, transfer: 2, layover: 3, dep: 4, status: 5 };
@@ -2159,7 +2196,7 @@ function buildEvents(legs, connections) {
     const depKey = `${leg.from}|${leg.departure}`;
     if (isVisibleDeparture(leg) && !seenDep.has(depKey)) {
       seenDep.add(depKey);
-      if (!state.stopFilter || leg.from === state.stopFilter) {
+      if (matchesLegPlaces(leg)) {
         events.push({
           at: clockMinutes(leg.departure),
           kind: "dep",
@@ -2171,7 +2208,7 @@ function buildEvents(legs, connections) {
     }
     const next = legs[index + 1];
     const stay = layoverAfter(leg, next);
-    if (stay && (!state.stopFilter || stay.quay === state.stopFilter)) {
+    if (stay && matchesLayover(stay)) {
       events.push({
         at: clockMinutes(stay.from),
         until: clockMinutes(stay.until),
@@ -2228,29 +2265,109 @@ function buildEvents(legs, connections) {
   return events;
 }
 
-function renderStopFilter(legs) {
-  const root = document.getElementById("stop-filter");
+function svgEl(name, attrs) {
+  const node = document.createElementNS("http://www.w3.org/2000/svg", name);
+  for (const [key, value] of Object.entries(attrs)) node.setAttribute(key, value);
+  return node;
+}
+
+function swapIcon() {
+  const svg = svgEl("svg", {
+    viewBox: "0 0 24 24",
+    "aria-hidden": "true",
+    focusable: "false",
+  });
+  svg.append(
+    svgEl("path", {
+      fill: "none",
+      stroke: "currentColor",
+      "stroke-width": "2",
+      "stroke-linecap": "round",
+      "stroke-linejoin": "round",
+      d: "M7 8h11M15 5l3 3-3 3M17 16H6M9 13l-3 3 3 3",
+    })
+  );
+  return svg;
+}
+
+function fillSelect(select, options, value) {
+  select.replaceChildren();
+  for (const option of options) {
+    const item = document.createElement("option");
+    item.value = option.value ?? "";
+    item.textContent = option.label;
+    select.append(item);
+  }
+  select.value = value ?? "";
+}
+
+function placeField(id, labelText, options, value, onChange) {
+  const field = el("label", "place-field");
+  field.append(el("span", "place-label", labelText));
+  const select = el("select", value ? "place-select has-value" : "place-select");
+  select.id = id;
+  fillSelect(select, options, value);
+  select.addEventListener("change", () => onChange(select.value || null));
+  field.append(select);
+  return field;
+}
+
+function renderPlaceFilter(legs) {
+  const root = document.getElementById("trip-filter");
+  if (!root) return;
   root.replaceChildren();
   const quays = quaysInDay(legs);
-  if (quays.length < 2) return;
-  if (state.stopFilter && !quays.includes(state.stopFilter)) state.stopFilter = null;
-  const options = [{ value: null, label: t("stops.all") }].concat(
-    quays.map((quay) => ({ value: quay, label: quay }))
-  );
-  for (const option of options) {
-    const btn = el("button", "chip", option.label);
-    btn.type = "button";
-    const active = state.stopFilter === option.value;
-    btn.setAttribute("aria-pressed", String(active));
-    if (active) btn.classList.add("is-active");
-    btn.addEventListener("click", () => {
-      if (state.stopFilter === option.value) return;
-      state.stopFilter = option.value;
-      track(`Stop ${option.value || "all"}`);
-      renderTimeline();
-    });
-    root.append(btn);
+  if (quays.length < 2) {
+    state.fromFilter = null;
+    state.toFilter = null;
+    return;
   }
+  if (state.fromFilter && !quays.includes(state.fromFilter)) state.fromFilter = null;
+  if (state.toFilter && !quays.includes(state.toFilter)) state.toFilter = null;
+
+  const any = { value: "", label: t("stops.all") };
+  const fromOptions = [any].concat(
+    quays
+      .filter((quay) => quay !== state.toFilter)
+      .map((quay) => ({ value: quay, label: quay }))
+  );
+  const toOptions = [any].concat(
+    quays
+      .filter((quay) => quay !== state.fromFilter)
+      .map((quay) => ({ value: quay, label: quay }))
+  );
+
+  root.append(
+    placeField("from-stop", t("place.from"), fromOptions, state.fromFilter, (value) => {
+      if (state.fromFilter === value) return;
+      state.fromFilter = value;
+      track(`From ${value || "all"}`);
+      renderTimeline();
+    })
+  );
+
+  const swap = el("button", "swap-dir");
+  swap.type = "button";
+  swap.setAttribute("aria-label", t("place.swap"));
+  swap.title = t("place.swap");
+  swap.disabled = !state.fromFilter && !state.toFilter;
+  swap.append(swapIcon());
+  swap.addEventListener("click", () => {
+    if (!state.fromFilter && !state.toFilter) return;
+    swapPlaceFilters();
+    track("Swap direction");
+    renderTimeline();
+  });
+  root.append(swap);
+
+  root.append(
+    placeField("to-stop", t("place.to"), toOptions, state.toFilter, (value) => {
+      if (state.toFilter === value) return;
+      state.toFilter = value;
+      track(`To ${value || "all"}`);
+      renderTimeline();
+    })
+  );
 }
 
 function selectRoute(choice) {
@@ -2259,7 +2376,8 @@ function selectRoute(choice) {
   state.routeChoice = next;
   writeRouteChoice(next);
   track(`Route ${next}`);
-  state.stopFilter = null;
+  state.fromFilter = null;
+  state.toFilter = null;
   state.live = null;
   state.liveFetchedAt = 0;
   renderRouteChrome();
@@ -2315,18 +2433,22 @@ function renderConnectionFilter() {
   if (state.connection && !visible.some((line) => line.id === state.connection)) {
     state.connection = null;
   }
-  for (const line of visible) {
-    const btn = el("button", "chip chip-small", line.label);
-    btn.type = "button";
-    const active = state.connection === line.id;
-    btn.setAttribute("aria-pressed", String(active));
-    if (active) btn.classList.add("is-active");
-    btn.addEventListener("click", () => {
-      const next = state.connection === line.id ? null : line.id;
+  if (visible.length) {
+    const field = el("label", "conn-field");
+    field.append(el("span", "conn-label", t("conn.label")));
+    const select = el("select", state.connection ? "conn-select has-value" : "conn-select");
+    select.setAttribute("aria-label", t("conn.label"));
+    const options = [{ value: "", label: t("conn.none") }].concat(
+      visible.map((line) => ({ value: line.id, label: line.label }))
+    );
+    fillSelect(select, options, state.connection);
+    select.addEventListener("change", () => {
+      const next = select.value || null;
       track(`Connection ${next || "none"}`);
       selectConnection(next);
     });
-    root.append(btn);
+    field.append(select);
+    root.append(field);
   }
   const dest = transferDestFromId(state.connection);
   if (dest) {
@@ -2493,7 +2615,8 @@ function liveStructureKey(events, now, status) {
     ]);
   return JSON.stringify({
     date: selectedDate(),
-    stop: state.stopFilter,
+    from: state.fromFilter,
+    to: state.toFilter,
     conn: state.connection,
     showPast: state.showPast,
     hideArr: state.hideArrivals,
@@ -2581,13 +2704,16 @@ function renderLive() {
     const past = timelineEventIsPast(event, events, now);
     root.append(event.build(past));
   }
+  if (!events.some((event) => event.kind === "dep") && (state.fromFilter || state.toFilter)) {
+    root.append(el("p", "empty", emptyPlaceMessage()));
+  }
 }
 
 /** Full oppbygging: brukast når data, dag eller filter endrar seg. */
 function renderTimeline() {
   lastLiveStructureKey = null;
   renderedDate = selectedDate();
-  renderStopFilter(legsForDate(renderedDate));
+  renderPlaceFilter(legsForDate(renderedDate));
   renderRouteFilter();
   renderViewFilter();
   renderConnectionFilter();
@@ -3273,7 +3399,8 @@ function setTestState(partial) {
 
 function resetTestState() {
   state.messageFilter = "local";
-  state.stopFilter = null;
+  state.fromFilter = null;
+  state.toFilter = null;
   state.date = null;
   state.showPast = false;
   state.hideArrivals = false;
@@ -3314,6 +3441,7 @@ export {
   currentStatus,
   dayType,
   delayMinutes,
+  emptyPlaceMessage,
   feedbackMailto,
   ferryStatus,
   headingDay,
@@ -3341,6 +3469,7 @@ export {
   liveBlockedUntil,
   liveFetchUrls,
   liveStatus,
+  matchesLegPlaces,
   messageRouteScore,
   messageTimeLines,
   pastDepartureCount,
@@ -3367,6 +3496,7 @@ export {
   routeOverride,
   switchFromText,
   switchOverride,
+  swapPlaceFilters,
   setTestState,
   shouldFetchLive,
   showArrivals,
