@@ -33,7 +33,7 @@ import {
   shouldFetchLive,
   serviceWindowMinutes,
 } from "../assets/app.js";
-import { setLang } from "../assets/i18n.js?v=45";
+import { setLang } from "../assets/i18n.js?v=46";
 
 beforeEach(() => {
   setLang("nn");
@@ -358,6 +358,29 @@ test("frå-til-reise viser ikkje tabellskifte mellom ferjene", () => {
   assert.ok(events.every((event) => event.kind === "dep"));
   assert.ok(events.some((event) => event.leg.from === "Skår"));
   assert.ok(events.some((event) => event.leg.to === "Standal"));
+});
+
+test("berre til-filter viser ikkje skifte-banner mellom 1135 og 1136", () => {
+  const legs = [
+    { ...leg("Sæbø", "Leknes", "06:30:00", "06:43:00"), table: "1135" },
+    { ...leg("Standal", "Trandal", "07:40:00", "07:55:00"), table: "1136" },
+    { ...leg("Sæbø", "Leknes", "08:30:00", "08:43:00"), table: "1135" },
+    { ...leg("Sæbø", "Trandal", "08:35:00", "08:55:00"), table: "1136" },
+    { ...leg("Skår", "Sæbø", "08:55:00", "09:15:00"), table: "1136" },
+  ];
+  setTestState({ toFilter: "Trandal" });
+  const built = buildEvents(legs, null);
+  assert.equal(
+    built.filter((event) => event.kind === "split").length,
+    0,
+    "1135 og 1136 skal ikkje skape tabellskifte når dei berre er fletta for filteret"
+  );
+  const events = built.filter((event) => matchesStop(event));
+  assert.ok(events.every((event) => event.kind !== "split"));
+  assert.deepEqual(
+    events.filter((event) => event.kind === "dep").map((event) => `${event.leg.from}→${event.leg.to}`),
+    ["Standal→Trandal", "Sæbø→Trandal"]
+  );
 });
 
 test("byte frå og til snur filteret", () => {

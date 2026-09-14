@@ -7,7 +7,7 @@ import {
   setLang,
   t,
   weekdays,
-} from "./i18n.js?v=45";
+} from "./i18n.js?v=46";
 
 const MESSAGES_URL = "data/trafikkmeldinger.json";
 const ROUTES_URL = "data/ruter.json";
@@ -2419,6 +2419,7 @@ function emptyPlaceMessage() {
 
 function matchesStop(event) {
   if (!state.fromFilter && !state.toFilter) return true;
+  if (event?.kind === "split") return false;
   if (event?.kind === "dep" && event.leg) {
     if (state.fromFilter && state.toFilter) return true;
     return matchesLegPlaces(event.leg);
@@ -2441,6 +2442,16 @@ function compareTimelineEvents(a, b) {
 function tableName(mode) {
   if (mode === "kombi" || mode === "1135" || mode === "1136") return mode;
   return "1136";
+}
+
+function isParallelFerrySplit(fromTable, toTable) {
+  const pair = new Set([fromTable, toTable]);
+  return pair.has("1135") && pair.has("1136");
+}
+
+function isPlannedFerrySwitch(routeSwitch) {
+  if (!routeSwitch) return false;
+  return isParallelFerrySplit(routeSwitch.before, routeSwitch.after);
 }
 
 /** Raud merkelapp ved fyrste avgang når kombiruta tek til eller sluttar heile dagen. */
@@ -2513,21 +2524,25 @@ function buildEvents(legs, connections) {
     }
     if (next && leg.table && next.table && leg.table !== next.table) {
       const routeSwitch = activePlan().switch;
-      const notice =
-        routeSwitch && clockMinutes(routeSwitch.time) === clockMinutes(next.departure)
-          ? routeSwitch.notice
-          : null;
-      events.push({
-        at: clockMinutes(next.departure),
-        kind: "split",
-        quays: [],
-        build: (past) =>
-          splitRow(
-            { time: next.departure, quay: next.from, before: leg.table, notice },
-            next.table,
-            past
-          ),
-      });
+      if (isParallelFerrySplit(leg.table, next.table) && !isPlannedFerrySwitch(routeSwitch)) {
+        // 1135 og 1136 i same tidslinje kjem frå frå/til-filteret, ikkje tabellskifte.
+      } else {
+        const notice =
+          routeSwitch && clockMinutes(routeSwitch.time) === clockMinutes(next.departure)
+            ? routeSwitch.notice
+            : null;
+        events.push({
+          at: clockMinutes(next.departure),
+          kind: "split",
+          quays: [],
+          build: (past) =>
+            splitRow(
+              { time: next.departure, quay: next.from, before: leg.table, notice },
+              next.table,
+              past
+            ),
+        });
+      }
     }
     if (
       !isCombinedTimetable() &&
@@ -3007,6 +3022,7 @@ function renderLive() {
 function renderTimeline() {
   lastLiveStructureKey = null;
   renderedDate = selectedDate();
+  renderRouteChrome();
   renderPlaceFilter(legsForDate(renderedDate));
   renderRouteFilter();
   renderViewFilter();
