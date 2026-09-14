@@ -33,7 +33,7 @@ import {
   shouldFetchLive,
   serviceWindowMinutes,
 } from "../assets/app.js";
-import { setLang } from "../assets/i18n.js?v=43";
+import { setLang } from "../assets/i18n.js?v=44";
 
 beforeEach(() => {
   setLang("nn");
@@ -299,6 +299,51 @@ test("frå Sæbø til Standal hoppar over Skår-vendinga", () => {
   assert.equal(events[0].leg.to, "Trandal");
   assert.equal(events[0].leg.departure, "09:20:00");
   assert.ok(events.every((event) => event.leg.from !== "Skår"));
+});
+
+test("Sæbø-pendel blir ventetid, ikkje eigne avgongar", () => {
+  const legs = [
+    leg("Standal", "Trandal", "15:50:00", "16:05:00"),
+    leg("Trandal", "Sæbø", "16:05:00", "16:25:00"),
+    leg("Sæbø", "Leknes", "16:30:00", "16:45:00"),
+    leg("Leknes", "Sæbø", "16:45:00", "17:00:00"),
+    leg("Sæbø", "Leknes", "17:00:00", "17:15:00"),
+    leg("Leknes", "Sæbø", "17:15:00", "17:30:00"),
+    leg("Sæbø", "Leknes", "17:30:00", "17:45:00"),
+    leg("Leknes", "Skår", "17:45:00", "18:00:00"),
+  ];
+  setTestState({ fromFilter: "Standal", toFilter: "Skår" });
+  const events = buildEvents(legs, null).filter((event) => matchesStop(event));
+  assert.deepEqual(
+    events.filter((event) => event.kind === "dep").map((event) => `${event.leg.from}→${event.leg.to}`),
+    ["Standal→Trandal", "Trandal→Sæbø", "Sæbø→Leknes", "Leknes→Skår"]
+  );
+  const wait = events.find((event) => event.kind === "wait");
+  assert.ok(wait);
+  assert.equal(wait.stay.quay, "Sæbø");
+  assert.equal(wait.stay.minutes, 65);
+  assert.equal(wait.stay.from, "16:25:00");
+  assert.equal(wait.stay.until, "17:30:00");
+  assert.ok(events.every((event) => event.leg?.from !== "Leknes" || event.leg.to === "Skår"));
+});
+
+test("ferjeskifte på Sæbø får ventetid mellom tabellane", () => {
+  const legs = [
+    { ...leg("Leknes", "Sæbø", "08:30:00", "08:43:00"), table: "1135" },
+    { ...leg("Sæbø", "Leknes", "08:50:00", "09:03:00"), table: "1135" },
+    { ...leg("Sæbø", "Trandal", "09:20:00", "09:45:00"), table: "1136" },
+    { ...leg("Trandal", "Standal", "09:45:00", "10:00:00"), table: "1136" },
+  ];
+  setTestState({ fromFilter: "Leknes", toFilter: "Standal" });
+  const events = buildEvents(legs, null).filter((event) => matchesStop(event));
+  assert.deepEqual(
+    events.filter((event) => event.kind === "dep").map((event) => `${event.leg.from}→${event.leg.to}`),
+    ["Leknes→Sæbø", "Sæbø→Trandal", "Trandal→Standal"]
+  );
+  const wait = events.find((event) => event.kind === "wait");
+  assert.ok(wait);
+  assert.equal(wait.stay.quay, "Sæbø");
+  assert.equal(wait.stay.minutes, 37);
 });
 
 test("frå-til-reise viser ikkje tabellskifte mellom ferjene", () => {

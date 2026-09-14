@@ -7,7 +7,7 @@ import {
   setLang,
   t,
   weekdays,
-} from "./i18n.js?v=43";
+} from "./i18n.js?v=44";
 
 const MESSAGES_URL = "data/trafikkmeldinger.json";
 const ROUTES_URL = "data/ruter.json";
@@ -1784,6 +1784,60 @@ function rideOnSailing(chain, from, to) {
   return rides.filter((ride) => ride.length === shortest);
 }
 
+function hubOnwardReaches(legs, start, hub, dest) {
+  for (let j = start; j < legs.length; j++) {
+    const arrived = quayPlace(legs[j].to);
+    if (arrived === dest) return true;
+    if (arrived === hub) return false;
+  }
+  return false;
+}
+
+function firstHubOnwardIndex(legs, hub, dest) {
+  for (let i = 0; i < legs.length; i++) {
+    if (quayPlace(legs[i].from) !== hub) continue;
+    if (hubOnwardReaches(legs, i, hub, dest)) return i;
+  }
+  return -1;
+}
+
+/** Hopp over Sæbø–Leknes-pendel; passasjeren ventar på knutepunktet. */
+function collapseHubWait(legs, hub = SAEBØ) {
+  if (!legs.length) return { legs, wait: null };
+  const dest = quayPlace(legs[legs.length - 1].to);
+  if (dest === hub) return { legs, wait: null };
+  const firstArr = legs.findIndex((leg) => quayPlace(leg.to) === hub);
+  const onward = firstHubOnwardIndex(legs, hub, dest);
+  if (firstArr < 0 || onward < 0 || onward <= firstArr) return { legs, wait: null };
+  const arrive = legs[firstArr];
+  const depart = legs[onward];
+  const minutes = clockMinutes(depart.departure) - clockMinutes(arrive.arrival);
+  const dropped = onward > firstArr + 1;
+  if (minutes < 1) return { legs, wait: null };
+  if (!dropped && minutes < LAYOVER_MIN_MINUTES) return { legs, wait: null };
+  return {
+    legs: [...legs.slice(0, firstArr + 1), ...legs.slice(onward)],
+    wait: {
+      quay: hub,
+      minutes,
+      from: arrive.arrival,
+      until: depart.departure,
+      afterKey: legKey(arrive),
+    },
+  };
+}
+
+function asPassengerJourney(parts, extra = {}) {
+  const collapsed = collapseHubWait(parts);
+  return {
+    transfer: Boolean(extra.transfer),
+    hub: extra.hub,
+    onwardAt: extra.onwardAt,
+    legs: collapsed.legs,
+    wait: collapsed.wait,
+  };
+}
+
 function sameTableJourneys(legs, from, to) {
   if (!from || !to || from === to) return [];
   return collectSailings(legs).flatMap((chain) => rideOnSailing(chain, from, to));
@@ -1824,7 +1878,7 @@ function passengerJourneysFrom(legs, from, to) {
   }
   const tables = [...groups.values()];
   const same = tables.flatMap((group) => sameTableJourneys(group, from, to));
-  if (same.length) return same.map((parts) => ({ legs: parts, transfer: false }));
+  if (same.length) return same.map((parts) => asPassengerJourney(parts));
   if (tables.length < 2) return [];
   const transfers = [];
   for (let i = 0; i < tables.length; i++) {
@@ -1833,7 +1887,7 @@ function passengerJourneysFrom(legs, from, to) {
       transfers.push(...hubTransfers(tables[i], tables[j], from, to, SAEBØ));
     }
   }
-  return transfers;
+  return transfers.map((journey) => asPassengerJourney(journey.legs, journey));
 }
 
 function journeyForLeg(journeys, leg) {
@@ -2103,7 +2157,7 @@ function signalNote(leg, live) {
 }
 
 function sailingDoneAt(event) {
-  if (event.kind === "layover" && event.until != null) return event.until;
+  if ((event.kind === "layover" || event.kind === "wait") && event.until != null) return event.until;
   if (event.kind === "arr") return event.at;
   if (event.kind !== "dep" || !event.leg) return event.at;
   const leg = event.leg;
@@ -2190,6 +2244,23 @@ function layoverRow(stay, past) {
       t("layover.until", { duration: durationText(stay.minutes), time: hhmm(stay.until) })
     )
   );
+  row.append(body);
+  row.append(el("span", "stop-state", ""));
+  return row;
+}
+
+function waitRow(stay, past) {
+  const row = el("div", `stop stop-layover stop-wait${past ? " is-past" : ""}`);
+  row.append(el("span", "stop-time", hhmm(stay.from)));
+  const body = el("span", "stop-body");
+  body.append(
+    el(
+      "span",
+      "stop-name",
+      t("place.waitAt", { quay: stay.quay, duration: durationText(stay.minutes) })
+    )
+  );
+  body.append(el("span", "stop-note", t("place.waitUntil", { time: hhmm(stay.until) })));
   row.append(body);
   row.append(el("span", "stop-state", ""));
   return row;
@@ -2303,6 +2374,7 @@ function matchesStop(event) {
     if (state.fromFilter && state.toFilter) return true;
     return matchesLegPlaces(event.leg);
   }
+  if (event?.kind === "wait") return Boolean(state.fromFilter && state.toFilter);
   if (state.fromFilter && state.toFilter) return false;
   if (!event?.quays || !event.quays.length) return true;
   if (state.fromFilter && event.quays.includes(state.fromFilter)) return true;
@@ -2310,7 +2382,7 @@ function matchesStop(event) {
   return false;
 }
 
-const EVENT_SEQ = { arr: 0, split: 1, transfer: 2, layover: 3, dep: 4, status: 5 };
+const EVENT_SEQ = { arr: 0, split: 1, transfer: 2, layover: 3, wait: 3, dep: 4, status: 5 };
 
 function compareTimelineEvents(a, b) {
   const seq = (event) => EVENT_SEQ[event.kind] ?? 0;
@@ -2366,6 +2438,16 @@ function buildEvents(legs, connections) {
           leg,
           build: (past) => departureRow(leg, past, connections, journey),
         });
+        if (journey?.wait && journey.wait.afterKey === legKey(leg)) {
+          events.push({
+            at: clockMinutes(journey.wait.from),
+            until: clockMinutes(journey.wait.until),
+            kind: "wait",
+            quays: [journey.wait.quay],
+            stay: journey.wait,
+            build: (past) => waitRow(journey.wait, past),
+          });
+        }
       }
     }
     const next = legs[index + 1];
