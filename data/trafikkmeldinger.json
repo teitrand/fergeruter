@@ -1,6 +1,6 @@
 {
   "source": "https://www.fjord1.no/trafikkmeldingar",
-  "fetchedAt": "2026-09-14T18:10:22.624603+00:00",
+  "fetchedAt": "2026-09-14T23:59:44.587271+00:00",
   "messages": [
     {
       "id": "RG9tYWluQ29udGVudDoyMTc2MDkxMg==",
@@ -99,26 +99,6 @@
       "routeMode": "1136",
       "routeWindow": null,
       "activateAt": "10:20:00",
-      "vessel": null,
-      "routeSwitch": null
-    },
-    {
-      "id": "RG9tYWluQ29udGVudDoyMTczNDY0OA==",
-      "heading": "Oldeide-Måløy",
-      "text": "Rute 1039 Måløy - Oldeide: Grunnet planlagt ombygging av MF Hornelen blir det et fartøybytte på søndag 13.9.26 fra og med avgang kl 12.10 fra Måløy. MF Nordfjord vil trafikkere dette sambandet frem til midt oktober. Mvh Fjord1 på vegner av Skyss.",
-      "publishedAt": "2026-09-11T13:32:07+02:00",
-      "validFrom": "2026-09-11T11:32:00+00:00",
-      "validTo": "2026-09-14T21:59:00+00:00",
-      "countyNumber": 14,
-      "connectionNumber": 669,
-      "important": false,
-      "severity": "info",
-      "isRoute1136": false,
-      "isLocal": false,
-      "isRouteControl": false,
-      "routeMode": "1136",
-      "routeWindow": null,
-      "activateAt": null,
       "vessel": null,
       "routeSwitch": null
     },
