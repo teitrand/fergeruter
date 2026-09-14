@@ -11,7 +11,7 @@ import {
   setTestState,
   track,
 } from "../assets/app.js";
-import { setLang } from "../assets/i18n.js?v=41";
+import { setLang } from "../assets/i18n.js?v=42";
 
 const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
 const app = readFileSync(new URL("../assets/app.js", import.meta.url), "utf8");
@@ -51,13 +51,14 @@ test("sida har tilbakemeldingsdialog", () => {
 test("header har ikkje ferjegrafikk mellom kaiene", () => {
   assert.doesNotMatch(html, /fjord-track|fjord-ferry|ferje\.png|kai-venstre|kai-hogre/);
   assert.match(html, /id="lede-status"/);
+  assert.match(html, /id="trip-filter"/);
 });
 
 test("sida har den dekorative stiplede streken øverst", () => {
   assert.match(html, /class="skyline"/);
-  assert.match(html, /assets\/styles\.css\?v=41/);
-  assert.match(html, /assets\/app\.js\?v=41/);
-  assert.match(app, /from "\.\/i18n\.js\?v=41"/);
+  assert.match(html, /assets\/styles\.css\?v=42/);
+  assert.match(html, /assets\/app\.js\?v=42/);
+  assert.match(app, /from "\.\/i18n\.js\?v=42"/);
   const css = readFileSync(new URL("../assets/styles.css", import.meta.url), "utf8");
   assert.match(css, /\.skyline\s*\{[^}]*repeating-linear-gradient/s);
   assert.match(css, /safe-area-inset-top/);
@@ -66,7 +67,7 @@ test("sida har den dekorative stiplede streken øverst", () => {
   assert.doesNotMatch(css, /1\.05fr 0\.95fr/);
   assert.doesNotMatch(css, /@media \(min-width: 860px\)/);
   const sw = readFileSync(new URL("../sw.js", import.meta.url), "utf8");
-  assert.match(sw, /fergeruter-dev-v41/);
+  assert.match(sw, /fergeruter-dev-v42/);
   assert.match(sw, /function isTimetableJson/);
   assert.match(sw, /function isMessagesJson/);
   assert.match(sw, /staleWhileRevalidate\(request,\s*\{\s*notify: true/);
@@ -82,7 +83,9 @@ test("appen sender namngjevne brukshendingar til Plausible", () => {
     "Day prev",
     "Day next",
     "Day today",
-    "Stop ${option.value || \"all\"}",
+    "From ${value || \"all\"}",
+    "To ${value || \"all\"}",
+    "Swap direction",
     "Connection ${next || \"none\"}",
     "Messages ${btn.dataset.filter}",
     "Show past",
