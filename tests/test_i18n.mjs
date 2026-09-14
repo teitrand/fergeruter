@@ -10,7 +10,7 @@ import {
   stringKeys,
   stringsFor,
   t,
-} from "../assets/i18n.js?v=42";
+} from "../assets/i18n.js?v=43";
 
 function leg(from, to, departure, arrival, dates = ["2026-08-26"]) {
   return { from, to, departure, arrival, activeDates: dates };
@@ -47,6 +47,7 @@ test("seglingstekst har destinasjon i alle språk", () => {
   assert.equal(t("place.from"), "Frå");
   assert.equal(t("place.to"), "Til");
   assert.equal(t("place.swap"), "Byt frå og til");
+  assert.equal(t("place.via", { via: "Sæbø, Trandal", time: "10:00" }), "Via Sæbø, Trandal, framme 10:00");
   assert.equal(t("empty.noTo", { to: "Trandal" }), "Ingen turar til Trandal denne dagen.");
   assert.equal(t("route.badgeKombi"), "Kombirute");
   assert.equal(

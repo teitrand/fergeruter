@@ -32,7 +32,7 @@ import {
   shouldFetchLive,
   serviceWindowMinutes,
 } from "../assets/app.js";
-import { setLang } from "../assets/i18n.js?v=42";
+import { setLang } from "../assets/i18n.js?v=43";
 
 beforeEach(() => {
   setLang("nn");
@@ -268,6 +268,36 @@ test("frå og til saman viser berre den strekninga", () => {
   const events = buildEvents(wednesday, null).filter((event) => event.kind === "dep");
   assert.ok(events.length >= 1);
   assert.ok(events.every((event) => event.leg.from === "Standal" && event.leg.to === "Trandal"));
+});
+
+test("frå og til følgjer mellomstopp på same ferje", () => {
+  const legs = [
+    leg("Sæbø", "Skår", "08:35:00", "08:55:00"),
+    leg("Skår", "Sæbø", "08:55:00", "09:15:00"),
+    leg("Sæbø", "Trandal", "09:20:00", "09:45:00"),
+    leg("Trandal", "Standal", "09:45:00", "10:00:00"),
+  ];
+  setTestState({ fromFilter: "Skår", toFilter: "Standal" });
+  const events = buildEvents(legs, null).filter((event) => event.kind === "dep");
+  assert.deepEqual(
+    events.map((event) => `${event.leg.from}→${event.leg.to}`),
+    ["Skår→Sæbø", "Sæbø→Trandal", "Trandal→Standal"]
+  );
+});
+
+test("frå Sæbø til Standal hoppar over Skår-vendinga", () => {
+  const legs = [
+    leg("Sæbø", "Skår", "08:35:00", "08:55:00"),
+    leg("Skår", "Sæbø", "08:55:00", "09:15:00"),
+    leg("Sæbø", "Trandal", "09:20:00", "09:45:00"),
+    leg("Trandal", "Standal", "09:45:00", "10:00:00"),
+  ];
+  setTestState({ fromFilter: "Sæbø", toFilter: "Standal" });
+  const events = buildEvents(legs, null).filter((event) => event.kind === "dep");
+  assert.equal(events[0].leg.from, "Sæbø");
+  assert.equal(events[0].leg.to, "Trandal");
+  assert.equal(events[0].leg.departure, "09:20:00");
+  assert.ok(events.every((event) => event.leg.from !== "Skår"));
 });
 
 test("byte frå og til snur filteret", () => {

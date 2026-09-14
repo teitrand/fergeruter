@@ -7,7 +7,7 @@ import {
   setLang,
   t,
   weekdays,
-} from "./i18n.js?v=42";
+} from "./i18n.js?v=43";
 
 const MESSAGES_URL = "data/trafikkmeldinger.json";
 const ROUTES_URL = "data/ruter.json";
@@ -1737,6 +1737,152 @@ function cameFromDest(legs, arrival, dest) {
   return Boolean(boardingFromDest(legs, arrival, dest));
 }
 
+function tableGroup(leg) {
+  return leg.table || "same";
+}
+
+function collectSailings(legs) {
+  const used = new Set();
+  const sailings = [];
+  for (const leg of legs) {
+    const key = legKey(leg);
+    if (used.has(key)) continue;
+    if (prevSameSailing(legs, leg, new Set())) continue;
+    const chain = [leg];
+    used.add(key);
+    let current = leg;
+    for (let i = 0; i < 24; i++) {
+      const next = nextSameSailing(legs, current, used);
+      if (!next) break;
+      used.add(legKey(next));
+      chain.push(next);
+      current = next;
+    }
+    sailings.push(chain);
+  }
+  return sailings;
+}
+
+function rideOnSailing(chain, from, to) {
+  const rides = [];
+  for (let i = 0; i < chain.length; i++) {
+    if (quayPlace(chain[i].from) !== from) continue;
+    const slice = [];
+    for (let j = i; j < chain.length; j++) {
+      slice.push(chain[j]);
+      const arrived = quayPlace(chain[j].to);
+      if (arrived === to) {
+        rides.push(slice.slice());
+        break;
+      }
+      if (arrived === from) break;
+    }
+  }
+  if (!rides.length) return [];
+  rides.sort((a, b) => a.length - b.length || clockMinutes(a[0].departure) - clockMinutes(b[0].departure));
+  const shortest = rides[0].length;
+  return rides.filter((ride) => ride.length === shortest);
+}
+
+function sameTableJourneys(legs, from, to) {
+  if (!from || !to || from === to) return [];
+  return collectSailings(legs).flatMap((chain) => rideOnSailing(chain, from, to));
+}
+
+function hubTransfers(feederLegs, onwardLegs, from, to, hub) {
+  const feeders = sameTableJourneys(feederLegs, from, hub);
+  const onwards = sameTableJourneys(onwardLegs, hub, to);
+  const journeys = [];
+  for (const onward of onwards) {
+    const departHub = clockMinutes(onward[0].departure);
+    const latest = departHub - TRANSFER_MARGIN_MIN;
+    const candidates = feeders.filter(
+      (feeder) => clockMinutes(feeder[feeder.length - 1].arrival) <= latest
+    );
+    if (!candidates.length) continue;
+    candidates.sort(
+      (a, b) =>
+        clockMinutes(b[b.length - 1].arrival) - clockMinutes(a[a.length - 1].arrival)
+    );
+    journeys.push({
+      legs: [...candidates[0], ...onward],
+      transfer: true,
+      hub,
+      onwardAt: onward[0].departure,
+    });
+  }
+  return journeys;
+}
+
+function passengerJourneysFrom(legs, from, to) {
+  if (!from || !to || from === to) return [];
+  const groups = new Map();
+  for (const leg of legs) {
+    const key = tableGroup(leg);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(leg);
+  }
+  const tables = [...groups.values()];
+  const same = tables.flatMap((group) => sameTableJourneys(group, from, to));
+  if (same.length) return same.map((parts) => ({ legs: parts, transfer: false }));
+  if (tables.length < 2) return [];
+  const transfers = [];
+  for (let i = 0; i < tables.length; i++) {
+    for (let j = 0; j < tables.length; j++) {
+      if (i === j) continue;
+      transfers.push(...hubTransfers(tables[i], tables[j], from, to, SAEBØ));
+    }
+  }
+  return transfers;
+}
+
+function journeyForLeg(journeys, leg) {
+  if (!journeys || !leg) return null;
+  const key = legKey(leg);
+  return journeys.find((journey) => journey.legs.some((part) => legKey(part) === key)) || null;
+}
+
+function journeyNote(leg, journey) {
+  if (!journey || journey.legs.length < 2) return null;
+  if (legKey(journey.legs[0]) !== legKey(leg)) return null;
+  const last = journey.legs[journey.legs.length - 1];
+  const via = journey.legs.slice(0, -1).map((part) => quayPlace(part.to));
+  if (journey.transfer) {
+    return t("place.transferVia", {
+      hub: journey.hub || SAEBØ,
+      to: quayPlace(last.to),
+      time: hhmm(journey.onwardAt),
+      arrival: hhmm(last.arrival),
+    });
+  }
+  return t("place.via", { via: via.join(", "), time: hhmm(last.arrival) });
+}
+
+function otherFerryLegs(date) {
+  const other = otherFerryMode();
+  if (!other) return [];
+  return legsForMode(other, date);
+}
+
+function placeFilterQuays(legs, date) {
+  const seen = quaysInDay(legs);
+  for (const quay of quaysInDay(otherFerryLegs(date))) {
+    if (!seen.includes(quay)) seen.push(quay);
+  }
+  return seen;
+}
+
+function legsForPlaceFilter(date, current = legsForDate(date)) {
+  if (!state.fromFilter && !state.toFilter) return current;
+  const extra = otherFerryLegs(date);
+  if (!extra.length) return current;
+  if (state.fromFilter && state.toFilter) return sortDayLegs([...current, ...extra]);
+  const quays = quaysInDay(current);
+  const selected = [state.fromFilter, state.toFilter].filter(Boolean);
+  if (selected.some((quay) => !quays.includes(quay))) return sortDayLegs([...current, ...extra]);
+  return current;
+}
+
 function transferDestinationsFor(date) {
   const legs = legsForMode("1136", date);
   return TRANSFER_DESTINATIONS.filter((dest) =>
@@ -1973,7 +2119,7 @@ function sailingDoneAt(event) {
   return event.at;
 }
 
-function departureRow(leg, past, connections) {
+function departureRow(leg, past, connections, journey = null) {
   const cancelled = isCancelledDeparture(leg);
   const row = el(
     "div",
@@ -1992,6 +2138,8 @@ function departureRow(leg, past, connections) {
     );
   }
   if (!cancelled) {
+    const via = journeyNote(leg, journey);
+    if (via) body.append(el("span", "stop-note stop-conn", via));
     const note = signalNote(leg, isToday());
     if (note) body.append(note);
     const depConn = connectionNote(connections, "dep", leg);
@@ -2115,8 +2263,12 @@ function statusRow(status) {
   return row;
 }
 
-function matchesLegPlaces(leg) {
+function matchesLegPlaces(leg, journeys = null) {
   if (!leg) return false;
+  if (state.fromFilter && state.toFilter) {
+    if (journeys) return Boolean(journeyForLeg(journeys, leg));
+    return quayPlace(leg.from) === state.fromFilter && quayPlace(leg.to) === state.toFilter;
+  }
   if (state.fromFilter && quayPlace(leg.from) !== state.fromFilter) return false;
   if (state.toFilter && quayPlace(leg.to) !== state.toFilter) return false;
   return true;
@@ -2124,6 +2276,7 @@ function matchesLegPlaces(leg) {
 
 function matchesLayover(stay) {
   if (!stay) return false;
+  if (state.fromFilter && state.toFilter) return false;
   if (state.toFilter) return false;
   if (state.fromFilter) return stay.quay === state.fromFilter;
   return true;
@@ -2146,7 +2299,11 @@ function emptyPlaceMessage() {
 
 function matchesStop(event) {
   if (!state.fromFilter && !state.toFilter) return true;
-  if (event?.kind === "dep" && event.leg) return matchesLegPlaces(event.leg);
+  if (event?.kind === "dep" && event.leg) {
+    if (state.fromFilter && state.toFilter) return true;
+    return matchesLegPlaces(event.leg);
+  }
+  if (state.fromFilter && state.toFilter) return !event?.quays?.length;
   if (!event?.quays || !event.quays.length) return true;
   if (state.fromFilter && event.quays.includes(state.fromFilter)) return true;
   if (state.toFilter && event.quays.includes(state.toFilter)) return true;
@@ -2192,17 +2349,22 @@ function dayStartSplit(legs) {
 function buildEvents(legs, connections) {
   const events = [];
   const seenDep = new Set();
+  const journeys =
+    state.fromFilter && state.toFilter
+      ? passengerJourneysFrom(legs, state.fromFilter, state.toFilter)
+      : null;
   legs.forEach((leg, index) => {
     const depKey = `${leg.from}|${leg.departure}`;
     if (isVisibleDeparture(leg) && !seenDep.has(depKey)) {
       seenDep.add(depKey);
-      if (matchesLegPlaces(leg)) {
+      if (matchesLegPlaces(leg, journeys)) {
+        const journey = journeyForLeg(journeys, leg);
         events.push({
           at: clockMinutes(leg.departure),
           kind: "dep",
           quays: [leg.from, leg.to],
           leg,
-          build: (past) => departureRow(leg, past, connections),
+          build: (past) => departureRow(leg, past, connections, journey),
         });
       }
     }
@@ -2316,7 +2478,7 @@ function renderPlaceFilter(legs) {
   const root = document.getElementById("trip-filter");
   if (!root) return;
   root.replaceChildren();
-  const quays = quaysInDay(legs);
+  const quays = placeFilterQuays(legs, selectedDate());
   if (quays.length < 2) {
     state.fromFilter = null;
     state.toFilter = null;
@@ -2662,10 +2824,10 @@ function renderLive() {
     root.append(el("p", "empty", t("empty.noTimetable")));
     return;
   }
-  const legs = legsForDate(selectedDate());
+  const dayLegs = legsForDate(selectedDate());
   renderDayNav();
 
-  if (!legs.length) {
+  if (!dayLegs.length) {
     lastLiveStructureKey = null;
     renderReveal(0);
     root.replaceChildren();
@@ -2673,10 +2835,11 @@ function renderLive() {
     return;
   }
 
+  const legs = legsForPlaceFilter(selectedDate(), dayLegs);
   const events = buildEvents(legs, connectionIndex(selectedDate())).filter((event) =>
     matchesStop(event)
   );
-  const status = isToday() ? currentStatus(legs) : null;
+  const status = isToday() ? currentStatus(dayLegs) : null;
   if (status) {
     events.push({
       at: status.at,
@@ -3466,6 +3629,7 @@ export {
   excerptText,
   layoverAfter,
   legsForDate,
+  legsForPlaceFilter,
   liveBlockedUntil,
   liveFetchUrls,
   liveStatus,
@@ -3473,6 +3637,7 @@ export {
   messageRouteScore,
   messageTimeLines,
   pastDepartureCount,
+  passengerJourneysFrom,
   plausibleContext,
   plausibleRoute,
   sortMessagesForRoute,

@@ -7,6 +7,8 @@ import {
   ferryStatus,
   isPreview,
   legsForDate,
+  legsForPlaceFilter,
+  passengerJourneysFrom,
   modeFromText,
   nextArrivalAt,
   quayPlace,
@@ -423,6 +425,48 @@ test("1136-modus har ikkje Leknes-bein", () => {
   const legs = legsForDate(WEEKDAY);
   assert.ok(legs.length > 0);
   assert.ok(legs.every((leg) => leg.from !== "Leknes" && leg.to !== "Leknes"));
+});
+
+test("Skår til Standal visest som reise med mellomstopp", () => {
+  setTestState({
+    routes: ruter,
+    kombirute: kombi,
+    date: WEEKDAY,
+    routeChoice: "1136",
+    messages: { messages: [] },
+    fromFilter: "Skår",
+    toFilter: "Standal",
+  });
+  const events = buildEvents(legsForDate(WEEKDAY), null).filter((event) => event.kind === "dep");
+  assert.ok(events.length >= 3);
+  assert.equal(events[0].leg.from, "Skår");
+  assert.equal(events[events.length - 1].leg.to, "Standal");
+  assert.ok(events.some((event) => event.leg.from === "Sæbø"));
+  assert.ok(events.some((event) => event.leg.from === "Trandal"));
+});
+
+test("Leknes til Standal byter ferje på Sæbø i normal rute", () => {
+  setTestState({
+    routes: ruter,
+    kombirute: kombi,
+    date: WEEKDAY,
+    routeChoice: "1136",
+    messages: { messages: [] },
+    fromFilter: "Leknes",
+    toFilter: "Standal",
+  });
+  const legs = legsForPlaceFilter(WEEKDAY);
+  assert.ok(legs.some((leg) => leg.from === "Leknes"));
+  const journeys = passengerJourneysFrom(legs, "Leknes", "Standal");
+  assert.ok(journeys.length >= 1);
+  assert.ok(journeys.every((journey) => journey.transfer));
+  const first = journeys[0].legs;
+  assert.equal(first[0].from, "Leknes");
+  assert.equal(first[first.length - 1].to, "Standal");
+  assert.ok(first.some((leg) => leg.to === "Sæbø"));
+  const events = buildEvents(legs, null).filter((event) => event.kind === "dep");
+  assert.ok(events.some((event) => event.leg.from === "Leknes"));
+  assert.ok(events.some((event) => event.leg.to === "Standal"));
 });
 
 test("Øye-korrespondanse visest ikkje, destinasjonar på Sæbø visest når båe ferjene køyrer", () => {
