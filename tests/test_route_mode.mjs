@@ -469,6 +469,21 @@ test("Leknes til Standal byter ferje på Sæbø i normal rute", () => {
   assert.ok(events.some((event) => event.leg.to === "Standal"));
 });
 
+test("kombirute Standal til Skår ventar på Sæbø utan Leknes-pendel", () => {
+  useKombi();
+  setTestState({ date: WEEKDAY, fromFilter: "Standal", toFilter: "Skår" });
+  const journeys = passengerJourneysFrom(legsForDate(WEEKDAY), "Standal", "Skår");
+  const afternoon = journeys.find((journey) => journey.legs[0].departure === "15:50:00");
+  assert.ok(afternoon);
+  assert.ok(afternoon.wait);
+  assert.equal(afternoon.wait.quay, "Sæbø");
+  assert.equal(afternoon.wait.minutes, 65);
+  assert.deepEqual(
+    afternoon.legs.map((part) => `${part.from}→${part.to}`),
+    ["Standal→Trandal", "Trandal→Sæbø", "Sæbø→Leknes", "Leknes→Skår"]
+  );
+});
+
 test("Øye-korrespondanse visest ikkje, destinasjonar på Sæbø visest når båe ferjene køyrer", () => {
   const connections = {
     hub: "Festøya",
