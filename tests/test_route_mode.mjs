@@ -335,7 +335,7 @@ test("innstilte kveldsavgangar skøyt ikkje til 1135, men merkar turane", () => 
           isRouteControl: true,
           routeMode: "1135",
           publishedAt: "2026-09-13T17:50:00+02:00",
-          validTo: "2026-09-14T21:59:00Z",
+          validTo: "2099-01-01T00:00:00Z",
         },
       ],
     },
