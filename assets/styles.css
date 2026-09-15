@@ -151,6 +151,73 @@ html[lang="de"] .lang-btn[data-lang="de"],
   .install-btn { display: none !important; }
 }
 
+.install-dialog {
+  border: 0;
+  border-radius: 22px;
+  padding: 1.3rem 1.2rem 1.1rem;
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: var(--shadow);
+  width: min(32rem, calc(100vw - 2rem));
+  max-height: min(90vh, 42rem);
+  overflow: auto;
+}
+
+.install-dialog::backdrop {
+  background: rgba(4, 28, 36, 0.48);
+}
+
+.install-dialog h2 {
+  margin-bottom: 0.35rem;
+}
+
+.install-dialog p {
+  margin: 0.35rem 0;
+}
+
+.install-steps {
+  margin: 0.75rem 0;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+}
+
+.install-steps.is-likely {
+  border-color: var(--water);
+  box-shadow: 0 0 0 1px rgba(26, 107, 138, 0.22);
+}
+
+.install-steps h3 {
+  font-family: Outfit, "Segoe UI", sans-serif;
+  font-size: 0.92rem;
+  font-weight: 600;
+  margin: 0 0 0.35rem;
+}
+
+.install-steps ol {
+  margin: 0;
+  padding-left: 1.2rem;
+}
+
+.install-steps li + li {
+  margin-top: 0.22rem;
+}
+
+.install-aside,
+.install-note {
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.install-aside {
+  margin: 0.5rem 0 0;
+}
+
+.install-note a {
+  color: var(--water);
+}
+
 .brand-mark {
   grid-area: mark;
   width: 56px;
