@@ -8,6 +8,7 @@ import {
   isPreview,
   legsForDate,
   legsForPlaceFilter,
+  matchesStop,
   passengerJourneysFrom,
   modeFromText,
   nextArrivalAt,
@@ -334,7 +335,7 @@ test("innstilte kveldsavgangar skøyt ikkje til 1135, men merkar turane", () => 
           isRouteControl: true,
           routeMode: "1135",
           publishedAt: "2026-09-13T17:50:00+02:00",
-          validTo: "2026-09-14T21:59:00Z",
+          validTo: "2099-01-01T00:00:00Z",
         },
       ],
     },
@@ -1157,6 +1158,19 @@ test("heildags kombirute får raud merking fyrste morgon, ikkje midt i perioden"
   const saturdaySplits = buildEvents(saturday, null).filter((event) => event.kind === "split");
   assert.equal(saturdaySplits.length, 1);
   assert.equal(saturdaySplits[0].at, clockMin(saturday[0].departure));
+
+  setTestState({ date: "2026-09-19", routeChoice: "1135", toFilter: "Trandal" });
+  assert.equal(activeMode(), "1135");
+  const mixed = legsForPlaceFilter("2026-09-19", legsForDate("2026-09-19"));
+  assert.ok(mixed.some((leg) => leg.table === "1135"));
+  assert.ok(mixed.some((leg) => leg.table === "1136"));
+  const filtered = buildEvents(mixed, null).filter((event) => matchesStop(event));
+  assert.equal(
+    filtered.filter((event) => event.kind === "split").length,
+    0,
+    "til-filter skal ikkje fylle laurdag med 1135/1136-skiftebanner"
+  );
+  assert.ok(filtered.some((event) => event.kind === "dep" && event.leg.to === "Trandal"));
 });
 
 test("tabellen merkar både start og slutt når ruta skifter to gonger", () => {
