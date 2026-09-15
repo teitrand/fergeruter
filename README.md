@@ -48,7 +48,9 @@ Stadnamn og trafikkmeldingane frå Fjord1 står på originalspråket.
 
 ## Installerbar app (PWA)
 
-Sida kan installerast på telefonen frå nettlesaren (Chrome: **Installer app**, Safari på iOS: Del → **Legg til på heimeskjerm**). Då opnast ho som ei eiga app utan adressefelt, og rutetabellen verkar òg utan nett.
+Sida kan installerast på telefonen frå nettlesaren. Knappen **Installer app** visest alltid i toppmenyen (ikkje når sida allereie køyrer som app). I Chrome og Edge kan han opne den innebygde installeringa. På iPhone/iPad og i andre nettlesarar som ikkje har den dialogen, opnar knappen ei rettleiing: Safari → **Del** → **Legg til på heimeskjerm**, Android → meny → **Installer app**. Då opnast ho som ei eiga app utan adressefelt, og rutetabellen verkar òg utan nett.
+
+**Varslingar:** Appen kan **ikkje** sende eigne push-varsel enno. Det krev ein eigen tenar (GitHub Pages er berre statiske filer) og løyve frå brukaren. iOS støttar Web Push berre for appar som allereie ligg på heimeskjermen (16.4+). Innstillingar og avvik: bruk [SMS frå Fjord1](https://www.fjord1.no/kundeservice/foer-du-reiser/SMS-om-trafikken).
 
 Rutetabellen (~400 KB) blir lagra i nettlesaren. Ved oppdatering av sida visest den lagra tabellen med ein gong; i bakgrunnen sjekkar sida om FRAM har gjeve ut ny rute. **Trafikkmeldingar** blir sjekka kvart 3. minutt (og når fana blir synleg). **Sanntidsposisjon** frå Entur blir henta om lag kvart minutt berre medan sida er synleg og det er rutetid.
 
@@ -102,7 +104,8 @@ I Plausible-panelet ser du:
 | Hending | Når |
 | --- | --- |
 | `Visit nn` / `Visit en` / `Visit de` | Sidan lastar (anonymt, tel ikkje mot bounce) |
-| `Visit pwa` | Sidan er open som installert app |
+| `Visit pwa` | Sidan er open som installert app. I Plausible: filter **Property → app = pwa** for å sjå bruken av den installerte appen |
+| `PWA first open` | Fyrste gong denne nettlesaren opnar den installerte appen (fangar òg iOS, der `appinstalled` ikkje finst). Beste talet på installasjonar saman med `App installed` |
 | `Language nn` / `en` / `de` | Nokon byter språk |
 | `Day prev` / `Day next` / `Day today` | Blad i rutetabellen |
 | `From all` / `From Standal` / … | Filter på frå-stad |
@@ -112,7 +115,7 @@ I Plausible-panelet ser du:
 | `Route 1136` / `Route 1135` | Byte fergestrekning (klikk). Sjå òg `route` på alle vitjingar |
 | `Messages local` / `route` / `issues` | Filter på trafikkmeldingar |
 | `Show past` / `Hide past` | Vis eller skjul tidlegare anløp |
-| `Install app` / `App installed` | Installer-knappen, og når appen faktisk er lagt til |
+| `Install app` / `App installed` | Installer-knappen (`how`: `native` eller `help`), og når Chrome/Edge faktisk har lagt til appen |
 | `Feedback yes` / `Feedback no` | Tommel opp/ned i tilbakemeldingsruta |
 | `Feedback message` | Nokon sender ei skriftleg melding |
 

@@ -7,7 +7,7 @@ import {
   setLang,
   t,
   weekdays,
-} from "./i18n.js?v=44";
+} from "./i18n.js?v=46";
 
 const MESSAGES_URL = "data/trafikkmeldinger.json";
 const ROUTES_URL = "data/ruter.json";
@@ -74,6 +74,7 @@ const HIDE_ARRIVALS_KEY = "fergeruter-hide-arrivals";
 /** Opphald på kai som er langt nok til å visast som liggetid, t.d. matpause. */
 const LAYOVER_MIN_MINUTES = 20;
 const ROUTE_CHOICE_KEY = "fergeruter-route-choice";
+const PWA_FIRST_KEY = "fergeruter-pwa-first-open";
 const TIMETABLE_CACHE_KEY = "fergeruter-timetable-v1";
 const MESSAGES_POLL_MS = 3 * 60 * 1000;
 /** GitHub-kopien er «gammal» når Actions ikkje har køyrd; då sjekkar sida Fjord1. */
@@ -160,6 +161,54 @@ function appMode() {
     // matchMedia kan mangle
   }
   return "web";
+}
+
+/** Kva install-rettleiing som passar best. iOS har ikkje beforeinstallprompt. */
+function installHint(nav = typeof navigator !== "undefined" ? navigator : null) {
+  if (!nav) return "desktop";
+  const ua = nav.userAgent || "";
+  const platform = nav.platform || "";
+  const ios =
+    /iPad|iPhone|iPod/.test(ua) ||
+    (platform === "MacIntel" && (nav.maxTouchPoints || 0) > 1);
+  if (ios) return "ios";
+  if (/Android/i.test(ua)) return "android";
+  return "desktop";
+}
+
+/** Fyrste gong sida er open som installert app, per nettlesar. */
+function markPwaFirstOpen(
+  storage,
+  mode = appMode()
+) {
+  if (mode !== "pwa") return false;
+  try {
+    const store =
+      storage ?? (typeof localStorage !== "undefined" ? localStorage : null);
+    if (!store || store.getItem(PWA_FIRST_KEY)) return false;
+    store.setItem(PWA_FIRST_KEY, "1");
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function highlightInstallHint(hint = installHint()) {
+  if (typeof document === "undefined") return hint;
+  document.querySelectorAll("[data-install-hint]").forEach((node) => {
+    const likely = node.dataset.installHint === hint;
+    node.classList.toggle("is-likely", likely);
+    if (likely) node.setAttribute("aria-current", "true");
+    else node.removeAttribute("aria-current");
+  });
+  return hint;
+}
+
+function openInstallDialog(dialog) {
+  if (!dialog) return;
+  highlightInstallHint();
+  if (typeof dialog.showModal === "function") dialog.showModal();
+  else dialog.setAttribute("open", "");
 }
 
 function feedbackMailto(rating, comment) {
@@ -2370,6 +2419,7 @@ function emptyPlaceMessage() {
 
 function matchesStop(event) {
   if (!state.fromFilter && !state.toFilter) return true;
+  if (event?.kind === "split") return false;
   if (event?.kind === "dep" && event.leg) {
     if (state.fromFilter && state.toFilter) return true;
     return matchesLegPlaces(event.leg);
@@ -2392,6 +2442,16 @@ function compareTimelineEvents(a, b) {
 function tableName(mode) {
   if (mode === "kombi" || mode === "1135" || mode === "1136") return mode;
   return "1136";
+}
+
+function isParallelFerrySplit(fromTable, toTable) {
+  const pair = new Set([fromTable, toTable]);
+  return pair.has("1135") && pair.has("1136");
+}
+
+function isPlannedFerrySwitch(routeSwitch) {
+  if (!routeSwitch) return false;
+  return isParallelFerrySplit(routeSwitch.before, routeSwitch.after);
 }
 
 /** Raud merkelapp ved fyrste avgang når kombiruta tek til eller sluttar heile dagen. */
@@ -2464,21 +2524,25 @@ function buildEvents(legs, connections) {
     }
     if (next && leg.table && next.table && leg.table !== next.table) {
       const routeSwitch = activePlan().switch;
-      const notice =
-        routeSwitch && clockMinutes(routeSwitch.time) === clockMinutes(next.departure)
-          ? routeSwitch.notice
-          : null;
-      events.push({
-        at: clockMinutes(next.departure),
-        kind: "split",
-        quays: [],
-        build: (past) =>
-          splitRow(
-            { time: next.departure, quay: next.from, before: leg.table, notice },
-            next.table,
-            past
-          ),
-      });
+      if (isParallelFerrySplit(leg.table, next.table) && !isPlannedFerrySwitch(routeSwitch)) {
+        // 1135 og 1136 i same tidslinje kjem frå frå/til-filteret, ikkje tabellskifte.
+      } else {
+        const notice =
+          routeSwitch && clockMinutes(routeSwitch.time) === clockMinutes(next.departure)
+            ? routeSwitch.notice
+            : null;
+        events.push({
+          at: clockMinutes(next.departure),
+          kind: "split",
+          quays: [],
+          build: (past) =>
+            splitRow(
+              { time: next.departure, quay: next.from, before: leg.table, notice },
+              next.table,
+              past
+            ),
+        });
+      }
     }
     if (
       !isCombinedTimetable() &&
@@ -2958,6 +3022,7 @@ function renderLive() {
 function renderTimeline() {
   lastLiveStructureKey = null;
   renderedDate = selectedDate();
+  renderRouteChrome();
   renderPlaceFilter(legsForDate(renderedDate));
   renderRouteFilter();
   renderViewFilter();
@@ -3483,7 +3548,18 @@ function syncLangButtons() {
 
 function bindInstallPrompt() {
   const btn = document.getElementById("install-btn");
+  const dialog = document.getElementById("install-dialog");
+  const closeBtn = document.getElementById("install-close");
   if (!btn) return;
+
+  if (appMode() === "pwa") {
+    btn.hidden = true;
+    return;
+  }
+
+  btn.hidden = false;
+  highlightInstallHint();
+
   let deferred = null;
   window.addEventListener("beforeinstallprompt", (event) => {
     event.preventDefault();
@@ -3491,17 +3567,30 @@ function bindInstallPrompt() {
     btn.hidden = false;
   });
   window.addEventListener("appinstalled", () => {
-    track("App installed");
+    track("App installed", { how: "native" });
     deferred = null;
     btn.hidden = true;
+    try {
+      if (dialog?.open) dialog.close();
+    } catch {
+      // dialog kan vere stengt
+    }
   });
   btn.addEventListener("click", async () => {
-    if (!deferred) return;
-    track("Install app");
-    deferred.prompt();
-    await deferred.userChoice;
-    deferred = null;
-    btn.hidden = true;
+    if (deferred) {
+      track("Install app", { how: "native" });
+      deferred.prompt();
+      const choice = await deferred.userChoice;
+      deferred = null;
+      if (choice?.outcome === "accepted") btn.hidden = true;
+      return;
+    }
+    track("Install app", { how: "help" });
+    openInstallDialog(dialog);
+  });
+  closeBtn?.addEventListener("click", () => dialog?.close());
+  dialog?.addEventListener("click", (event) => {
+    if (event.target === dialog) dialog.close();
   });
 }
 
@@ -3673,6 +3762,7 @@ export {
   MESSAGES_STALE_MS,
   TIMETABLE_CACHE_KEY,
   ROUTE_CHOICE_KEY,
+  PWA_FIRST_KEY,
   WAKE_DEBOUNCE_MS,
   activateAtFromText,
   activeMode,
@@ -3693,6 +3783,8 @@ export {
   statusProgress,
   firstKnownQuay,
   homeQuay,
+  highlightInstallHint,
+  installHint,
   isCancelledDeparture,
   cancelledSailingsFromText,
   classifyMessage,
@@ -3715,6 +3807,7 @@ export {
   liveBlockedUntil,
   liveFetchUrls,
   liveStatus,
+  markPwaFirstOpen,
   matchesLegPlaces,
   matchesStop,
   messageRouteScore,
@@ -3775,5 +3868,8 @@ if (typeof document !== "undefined") {
   scheduleTick();
   scheduleMessagesPoll();
   track(`Visit ${getLang()}`, null, { interactive: false });
-  if (appMode() === "pwa") track("Visit pwa", null, { interactive: false });
+  if (appMode() === "pwa") {
+    track("Visit pwa", null, { interactive: false });
+    if (markPwaFirstOpen()) track("PWA first open", null, { interactive: false });
+  }
 }

@@ -57,6 +57,23 @@ const STRINGS = {
     "footnote.kombiPdf": "FRAM-PDF",
     "lang.label": "Språk",
     "install.app": "Installer app",
+    "install.title": "Legg appen på heimeskjermen",
+    "install.lead":
+      "Då får du Fergeruter som eiga app utan adressefelt, og rutetabellen verkar òg utan nett.",
+    "install.ios.title": "iPhone og iPad (Safari)",
+    "install.ios.1": "Trykk på Del (firkanten med pila opp) nederst på skjermen.",
+    "install.ios.2": "Rull og vel «Legg til på heimeskjerm».",
+    "install.ios.3": "Trykk «Legg til» oppe til høgre.",
+    "install.ios.note":
+      "Opna sida i Safari. Andre appar (t.d. Instagram eller Facebook) har ikkje denne menyen.",
+    "install.android.title": "Android (Chrome)",
+    "install.android.1": "Trykk på dei tre prikkane øvst til høgre.",
+    "install.android.2": "Vel «Installer app» eller «Legg til på startskjerm».",
+    "install.desktop.title": "Datamaskin (Chrome eller Edge)",
+    "install.desktop.1":
+      "Sjå etter install-ikonet i adresselinja, eller opne menyen og vel «Installer Fergeruter».",
+    "install.notify":
+      "Appen sender ikkje eigne varsel enno. For trafikkmeldingar kan du få SMS frå Fjord1.",
     "messages.title": "Trafikkmeldingar",
     "messages.loading": "Hentar frå Fjord1…",
     "messages.filterAria": "Filtrer meldingar",
@@ -234,6 +251,23 @@ const STRINGS = {
     "footnote.kombiPdf": "FRAM PDF",
     "lang.label": "Language",
     "install.app": "Install app",
+    "install.title": "Add the app to your home screen",
+    "install.lead":
+      "You get Fergeruter as its own app without an address bar, and the timetable also works offline.",
+    "install.ios.title": "iPhone and iPad (Safari)",
+    "install.ios.1": "Tap Share (the square with the arrow pointing up) at the bottom of the screen.",
+    "install.ios.2": "Scroll and choose “Add to Home Screen”.",
+    "install.ios.3": "Tap “Add” in the top right.",
+    "install.ios.note":
+      "Open the site in Safari. Other apps (for example Instagram or Facebook) do not have this menu.",
+    "install.android.title": "Android (Chrome)",
+    "install.android.1": "Tap the three dots at the top right.",
+    "install.android.2": "Choose “Install app” or “Add to Home screen”.",
+    "install.desktop.title": "Computer (Chrome or Edge)",
+    "install.desktop.1":
+      "Look for the install icon in the address bar, or open the menu and choose “Install Fergeruter”.",
+    "install.notify":
+      "The app does not send its own notifications yet. For traffic notices you can get SMS from Fjord1.",
     "messages.title": "Traffic notices",
     "messages.loading": "Fetching from Fjord1…",
     "messages.filterAria": "Filter notices",
@@ -411,6 +445,23 @@ const STRINGS = {
     "footnote.kombiPdf": "FRAM-PDF",
     "lang.label": "Sprache",
     "install.app": "App installieren",
+    "install.title": "App auf den Startbildschirm legen",
+    "install.lead":
+      "Dann öffnet sich Fergeruter als eigene App ohne Adressleiste, und der Fahrplan funktioniert auch ohne Netz.",
+    "install.ios.title": "iPhone und iPad (Safari)",
+    "install.ios.1": "Tippen Sie unten auf Teilen (Quadrat mit Pfeil nach oben).",
+    "install.ios.2": "Scrollen Sie und wählen Sie „Zum Home-Bildschirm“.",
+    "install.ios.3": "Tippen Sie oben rechts auf „Hinzufügen“.",
+    "install.ios.note":
+      "Öffnen Sie die Seite in Safari. Andere Apps (z. B. Instagram oder Facebook) haben dieses Menü nicht.",
+    "install.android.title": "Android (Chrome)",
+    "install.android.1": "Tippen Sie oben rechts auf die drei Punkte.",
+    "install.android.2": "Wählen Sie „App installieren“ oder „Zum Startbildschirm hinzufügen“.",
+    "install.desktop.title": "Computer (Chrome oder Edge)",
+    "install.desktop.1":
+      "Suchen Sie das Installationssymbol in der Adressleiste, oder öffnen Sie das Menü und wählen Sie „Fergeruter installieren“.",
+    "install.notify":
+      "Die App sendet noch keine eigenen Benachrichtigungen. Für Verkehrsmeldungen können Sie SMS von Fjord1 erhalten.",
     "messages.title": "Verkehrsmeldungen",
     "messages.loading": "Wird von Fjord1 geladen…",
     "messages.filterAria": "Meldungen filtern",
