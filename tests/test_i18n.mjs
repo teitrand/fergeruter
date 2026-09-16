@@ -10,7 +10,7 @@ import {
   stringKeys,
   stringsFor,
   t,
-} from "../assets/i18n.js?v=46";
+} from "../assets/i18n.js?v=47";
 
 function leg(from, to, departure, arrival, dates = ["2026-08-26"]) {
   return { from, to, departure, arrival, activeDates: dates };
@@ -199,6 +199,16 @@ test("melding utan publishedAt brukar validFrom", () => {
   assert.equal(lines.length, 2);
   assert.match(lines[0].text, /21:38/);
   assert.match(lines[1].text, /21:37/);
+});
+
+test("meldingsfilter vis rutenummer", () => {
+  setLang("nn");
+  assert.equal(t("messages.filterRoute", { n: "1135" }), "Rute 1135");
+  setLang("en");
+  assert.equal(t("messages.filterRoute", { n: "1136" }), "Route 1136");
+  setLang("de");
+  assert.equal(t("messages.filterRoute", { n: "1135" }), "Linie 1135");
+  setLang("nn");
 });
 
 class MapStorage {
