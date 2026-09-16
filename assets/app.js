@@ -7,7 +7,7 @@ import {
   setLang,
   t,
   weekdays,
-} from "./i18n.js?v=46";
+} from "./i18n.js?v=47";
 
 const MESSAGES_URL = "data/trafikkmeldinger.json";
 const ROUTES_URL = "data/ruter.json";
@@ -76,6 +76,9 @@ const LAYOVER_MIN_MINUTES = 20;
 const ROUTE_CHOICE_KEY = "fergeruter-route-choice";
 const PWA_FIRST_KEY = "fergeruter-pwa-first-open";
 const TIMETABLE_CACHE_KEY = "fergeruter-timetable-v1";
+const MESSAGES_CACHE_KEY = "fergeruter-messages-v1";
+const LAST_MODE_KEY = "fergeruter-last-mode";
+const ISSUE_SEVERITIES = new Set(["cancelled", "delay", "capacity"]);
 const MESSAGES_POLL_MS = 3 * 60 * 1000;
 /** GitHub-kopien er «gammal» når Actions ikkje har køyrd; då sjekkar sida Fjord1. */
 const MESSAGES_STALE_MS = 8 * 60 * 1000;
@@ -118,6 +121,8 @@ let messagesInflight = null;
 let fjord1GraphqlBlocked = false;
 let wakeTimer = null;
 let bootedAt = 0;
+let messagesHydrated = false;
+let messagesHydrateWaiters = [];
 
 function el(tag, className, text) {
   const node = document.createElement(tag);
@@ -1657,6 +1662,79 @@ function writeCachedTimetable({ routes, kombirute, connections }, storage) {
   }
 }
 
+function readCachedMessages(storage) {
+  try {
+    const store =
+      storage ?? (typeof localStorage !== "undefined" ? localStorage : null);
+    if (!store) return null;
+    const raw = store.getItem(MESSAGES_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || !Array.isArray(parsed.messages)) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writeCachedMessages(payload, storage) {
+  try {
+    const store =
+      storage ?? (typeof localStorage !== "undefined" ? localStorage : null);
+    if (!store || !payload || !Array.isArray(payload.messages)) return;
+    store.setItem(MESSAGES_CACHE_KEY, JSON.stringify(payload));
+  } catch {
+    // kvote / privat modus
+  }
+}
+
+function readLastMode(storage) {
+  try {
+    const store =
+      storage ?? (typeof localStorage !== "undefined" ? localStorage : null);
+    if (!store) return null;
+    const parsed = JSON.parse(store.getItem(LAST_MODE_KEY) || "null");
+    if (!parsed || !ALLOWED_MODES.has(parsed.mode)) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writeLastMode(mode = activeMode(), date = todayIso(), storage) {
+  try {
+    const store =
+      storage ?? (typeof localStorage !== "undefined" ? localStorage : null);
+    if (!store || !ALLOWED_MODES.has(mode)) return;
+    store.setItem(LAST_MODE_KEY, JSON.stringify({ date, mode }));
+  } catch {
+    // kvote / privat modus
+  }
+}
+
+function hydrateCachedMessages(storage) {
+  if (state.messages) return state.messages;
+  const cached = readCachedMessages(storage);
+  if (cached) state.messages = cached;
+  return cached;
+}
+
+function markMessagesHydrated() {
+  messagesHydrated = true;
+  for (const resolve of messagesHydrateWaiters) resolve();
+  messagesHydrateWaiters = [];
+}
+
+function whenMessagesHydrated() {
+  if (messagesHydrated || state.messages) {
+    messagesHydrated = true;
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => {
+    messagesHydrateWaiters.push(resolve);
+  });
+}
+
 function showArrivals() {
   return !state.hideArrivals;
 }
@@ -3037,24 +3115,82 @@ function validMessages(messages, now = Date.now()) {
   });
 }
 
-function applyMessageFilter(messages) {
+function routeNameFlags(msg) {
+  const blob = messageBlob(msg);
+  const heading = String(msg?.heading || "");
+  const conn = Number(msg?.connectionNumber);
+  return {
+    named1136:
+      conn === CONN_1136 ||
+      /\b1136\b/.test(blob) ||
+      /standal|trandal|valderøy|store kalvøy/i.test(heading),
+    named1135: conn === CONN_1135 || /\b1135\b/.test(blob) || /lekne/i.test(heading),
+  };
+}
+
+function matchesChosenRouteNotice(msg, route = chosenRoute()) {
+  const flags = routeNameFlags(msg);
+  if (route === "1135") return flags.named1135;
+  return flags.named1136;
+}
+
+function isDisruptionNotice(msg) {
+  return ISSUE_SEVERITIES.has(msg?.severity);
+}
+
+function messagesForFilter(messages, filter = state.messageFilter, route = chosenRoute()) {
   const local = messages.filter((msg) => msg.isLocal);
-  if (state.messageFilter === "route") {
-    return sortMessagesForRoute(messages.filter((msg) => msg.isRoute1136));
+  if (filter === "route") {
+    return sortMessagesForRoute(
+      messages.filter((msg) => matchesChosenRouteNotice(msg, route)),
+      route
+    );
   }
-  if (state.messageFilter === "issues") {
-    return sortMessagesForRoute(local.filter((msg) => msg.severity !== "normal"));
+  if (filter === "issues") {
+    return sortMessagesForRoute(local.filter(isDisruptionNotice), route);
   }
-  return sortMessagesForRoute(local);
+  return sortMessagesForRoute(local, route);
+}
+
+function applyMessageFilter(messages) {
+  return messagesForFilter(messages, state.messageFilter);
+}
+
+function filterMessageKey(messages) {
+  return messages.map((msg) => msg.id || messageMergeKey(msg)).join("\n");
+}
+
+function usefulMessageFilters(messages, route = chosenRoute()) {
+  const local = filterMessageKey(messagesForFilter(messages, "local", route));
+  const routeIds = filterMessageKey(messagesForFilter(messages, "route", route));
+  const issues = filterMessageKey(messagesForFilter(messages, "issues", route));
+  const chips = [];
+  if (routeIds !== local) chips.push("route");
+  if (issues !== local) chips.push("issues");
+  if (!chips.length) return [];
+  return ["local", ...chips];
+}
+
+function syncMessageFilters(all) {
+  const useful = new Set(usefulMessageFilters(all));
+  const group = document.querySelector("#messages-details .filters");
+  if (group) group.hidden = useful.size === 0;
+  if (!useful.has(state.messageFilter)) {
+    state.messageFilter = "local";
+  }
+  document.querySelectorAll("#messages-details [data-filter]").forEach((btn) => {
+    const key = btn.dataset.filter;
+    btn.hidden = useful.size > 0 && !useful.has(key);
+    const active = key === state.messageFilter;
+    btn.classList.toggle("is-active", active);
+    btn.setAttribute("aria-pressed", String(active));
+    if (key === "route") btn.textContent = t("messages.filterRoute", { n: chosenRoute() });
+  });
 }
 
 function messageRouteScore(msg, route = chosenRoute()) {
   const blob = messageBlob(msg);
-  const heading = String(msg?.heading || "");
-  const conn = Number(msg?.connectionNumber);
-  const named1136 =
-    conn === CONN_1136 || /\b1136\b/.test(blob) || /standal|trandal|valderøy|store kalvøy/i.test(heading);
-  const named1135 = conn === CONN_1135 || /\b1135\b/.test(blob) || /lekne/i.test(heading);
+  const { named1136, named1135 } = routeNameFlags(msg);
   const kombi = msg?.routeMode === "kombi" || /kombinasjon|kombirute|kombinert rute/i.test(blob);
   if (route === "1136") {
     if (named1136 && !named1135) return 0;
@@ -3084,6 +3220,7 @@ function renderMessages() {
   const meta = document.getElementById("messages-meta");
   const panel = document.getElementById("messages-panel");
   const layout = document.getElementById("layout");
+  if (!root || !panel || !layout) return;
   root.replaceChildren();
   if (!state.messages) {
     panel.hidden = true;
@@ -3096,6 +3233,7 @@ function renderMessages() {
   panel.hidden = !hasLocal;
   layout.classList.toggle("is-single", !hasLocal);
   if (!hasLocal) return;
+  syncMessageFilters(all);
   const filtered = applyMessageFilter(all);
   meta.textContent = t(
     state.messages.fetchedLive ? "messages.fetchedLive" : "messages.fetched",
@@ -3147,19 +3285,21 @@ function renderMessageSummary(filtered) {
   bar.setAttribute("aria-expanded", String(Boolean(state.messagesExpanded)));
   const head = el("span", "messages-bar-head");
   const body = el("span", "messages-bar-body");
+  head.append(el("span", "messages-bar-title", t("messages.title")));
   if (!filtered.length) {
     bar.classList.add("is-info");
-    head.append(
-      el(
-        "span",
-        "messages-bar-title",
-        state.messageFilter === "issues" ? t("empty.noIssues") : t("empty.noMessages")
-      )
-    );
+    if (!state.messagesExpanded) {
+      body.append(
+        el(
+          "span",
+          "messages-bar-excerpt",
+          state.messageFilter === "issues" ? t("empty.noIssues") : t("empty.noMessages")
+        )
+      );
+    }
   } else {
     const top = filtered[0];
     bar.classList.add(`is-${top.severity}`);
-    head.append(el("span", "messages-bar-title", top.heading || t("messages.title")));
     const count = el("span", "messages-count");
     count.textContent = String(filtered.length);
     count.setAttribute("aria-label", t("messages.countAria", { n: filtered.length }));
@@ -3189,6 +3329,10 @@ function renderMessageSummary(filtered) {
   root.append(bar);
 }
 
+function revealRouteChrome() {
+  document.querySelector(".site-header")?.classList.remove("is-pending-route");
+}
+
 function renderRouteChrome() {
   const mode = activeMode();
   const title = document.getElementById("route-title");
@@ -3200,6 +3344,8 @@ function renderRouteChrome() {
           ? t("route.title1135")
           : t("route.title1136");
   }
+  revealRouteChrome();
+  writeLastMode(mode);
   const badge = document.getElementById("route-badge");
   if (badge) {
     const kombi = mode === "kombi";
@@ -3259,9 +3405,14 @@ async function loadMessagesOnce() {
   let json = null;
   let error = null;
   try {
-    json = await fetchMessagesJson();
-  } catch (err) {
-    error = err;
+    try {
+      json = await fetchMessagesJson();
+    } catch (err) {
+      error = err;
+    }
+    if (json) applyIncomingMessages(json);
+  } finally {
+    markMessagesHydrated();
   }
   let live = null;
   if (!json || messagesAreStale(json)) {
@@ -3270,29 +3421,35 @@ async function loadMessagesOnce() {
     } catch (err) {
       error = error || err;
     }
+    const payload = mergeMessagePayloads(json, live) || live;
+    if (payload) applyIncomingMessages(payload);
   }
-  const payload = mergeMessagePayloads(json, live) || json || live;
-  if (!payload) {
-    if (!state.messages) {
-      if (meta) meta.textContent = t("messages.fetchError");
-      document.getElementById("messages")?.replaceChildren(
-        el("p", "empty", t("messages.seeFjord1"))
-      );
-    }
+  if (!state.messages) {
+    if (meta) meta.textContent = t("messages.fetchError");
+    document.getElementById("messages")?.replaceChildren(
+      el("p", "empty", t("messages.seeFjord1"))
+    );
     if (error) console.error(error);
-    return;
   }
+}
+
+function applyIncomingMessages(payload) {
+  if (!payload) return false;
   const same =
-    state.messages &&
-    messagesFingerprint(state.messages) === messagesFingerprint(payload);
+    state.messages && messagesFingerprint(state.messages) === messagesFingerprint(payload);
   state.messages = payload;
-  if (same) return;
+  writeCachedMessages(payload);
+  if (same) {
+    writeLastMode();
+    return false;
+  }
   renderMessages();
+  renderRouteChrome();
   if (hasTimetable()) {
-    renderRouteChrome();
     renderTimeline();
     renderLedeStatus();
   }
+  return true;
 }
 
 function scheduleMessagesPoll() {
@@ -3435,6 +3592,7 @@ async function fetchTimetableFiles() {
 }
 
 async function loadRoutes({ useCache = true } = {}) {
+  await whenMessagesHydrated();
   const label = document.getElementById("day-label");
   const cached = useCache ? readCachedTimetable() : null;
   if (cached?.routes && !hasTimetable()) {
@@ -3684,12 +3842,12 @@ function bindFeedback() {
 }
 
 function bindControls() {
-  document.querySelectorAll("[data-filter]").forEach((btn) => {
+  document.querySelectorAll("#messages-details [data-filter]").forEach((btn) => {
     btn.addEventListener("click", () => {
       if (state.messageFilter === btn.dataset.filter) return;
       state.messageFilter = btn.dataset.filter;
       track(`Messages ${btn.dataset.filter}`);
-      document.querySelectorAll("[data-filter]").forEach((other) => {
+      document.querySelectorAll("#messages-details [data-filter]").forEach((other) => {
         const active = other === btn;
         other.classList.toggle("is-active", active);
         other.setAttribute("aria-pressed", String(active));
@@ -3751,6 +3909,8 @@ function resetTestState() {
   state.liveBlockedUntil = 0;
   lastLiveStructureKey = null;
   fjord1GraphqlBlocked = false;
+  messagesHydrated = false;
+  messagesHydrateWaiters = [];
 }
 
 export {
@@ -3761,6 +3921,8 @@ export {
   MESSAGES_POLL_MS,
   MESSAGES_STALE_MS,
   TIMETABLE_CACHE_KEY,
+  MESSAGES_CACHE_KEY,
+  LAST_MODE_KEY,
   ROUTE_CHOICE_KEY,
   PWA_FIRST_KEY,
   WAKE_DEBOUNCE_MS,
@@ -3811,6 +3973,10 @@ export {
   matchesLegPlaces,
   matchesStop,
   messageRouteScore,
+  matchesChosenRouteNotice,
+  applyMessageFilter,
+  usefulMessageFilters,
+  isDisruptionNotice,
   messageTimeLines,
   pastDepartureCount,
   passengerJourneysFrom,
@@ -3829,6 +3995,8 @@ export {
   quayPlace,
   quaysInDay,
   readCachedTimetable,
+  readCachedMessages,
+  readLastMode,
   readHideArrivals,
   readRouteChoice,
   resetTestState,
@@ -3849,6 +4017,11 @@ export {
   windowFromText,
   visibleConnectionLines,
   writeCachedTimetable,
+  writeCachedMessages,
+  writeLastMode,
+  hydrateCachedMessages,
+  markMessagesHydrated,
+  whenMessagesHydrated,
   writeHideArrivals,
   writeRouteChoice,
 };
@@ -3860,8 +4033,14 @@ if (typeof document !== "undefined") {
   syncLangButtons();
   state.hideArrivals = readHideArrivals();
   state.routeChoice = readRouteChoice();
+  hydrateCachedMessages();
   bindControls();
   renderRouteFilter();
+  if (state.messages) {
+    markMessagesHydrated();
+    renderMessages();
+    renderRouteChrome();
+  }
   registerServiceWorker();
   loadMessages();
   loadRoutes();
