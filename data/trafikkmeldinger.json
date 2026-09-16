@@ -1,6 +1,6 @@
 {
   "source": "https://www.fjord1.no/trafikkmeldingar",
-  "fetchedAt": "2026-09-16T18:51:34.230793+00:00",
+  "fetchedAt": "2026-09-16T21:45:33.013251+00:00",
   "messages": [
     {
       "id": "RG9tYWluQ29udGVudDoyMTc3Mzc0OA==",
@@ -91,26 +91,6 @@
       "validTo": "2026-09-17T07:55:24+00:00",
       "countyNumber": 14,
       "connectionNumber": 1045,
-      "important": false,
-      "severity": "capacity",
-      "isRoute1136": false,
-      "isLocal": false,
-      "isRouteControl": false,
-      "routeMode": "1136",
-      "routeWindow": null,
-      "activateAt": null,
-      "vessel": null,
-      "routeSwitch": null
-    },
-    {
-      "id": "RG9tYWluQ29udGVudDoyMTc2NDQ1NA==",
-      "heading": "Aukra - Hollingsholmen",
-      "text": "Rute 1059 Aukra - Hollingsholmen: Grunna transport av farleg last vert det redusert kapasitet (maks. 12 passasjerar) på avgang frå Hollingsholmen kl. 05:30. 16.09.26",
-      "publishedAt": "2026-09-15T21:28:13+02:00",
-      "validFrom": "2026-09-15T19:28:13+00:00",
-      "validTo": "2026-09-16T19:27:18+00:00",
-      "countyNumber": 15,
-      "connectionNumber": 342,
       "important": false,
       "severity": "capacity",
       "isRoute1136": false,
