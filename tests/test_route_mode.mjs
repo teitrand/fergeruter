@@ -36,9 +36,20 @@ import {
   operationalMode,
   activeMode,
   TIMETABLE_CACHE_KEY,
+  MESSAGES_CACHE_KEY,
+  LAST_MODE_KEY,
   readCachedTimetable,
+  readCachedMessages,
+  readLastMode,
   timetableFingerprint,
   writeCachedTimetable,
+  writeCachedMessages,
+  writeLastMode,
+  hydrateCachedMessages,
+  applyMessageFilter,
+  usefulMessageFilters,
+  matchesChosenRouteNotice,
+  isDisruptionNotice,
   messagesFingerprint,
   messagesUrl,
   isRouteControl,
@@ -932,6 +943,13 @@ test("sida har val for å byte fergestrekning", () => {
   assert.match(html, /class="extras-row"/);
   assert.match(html, /id="messages-summary"/);
   assert.match(html, /id="messages-details"/);
+  assert.match(html, /class="site-header is-pending-route"/);
+  assert.match(html, /fergeruter-last-mode/);
+  assert.match(html, /class="visually-hidden"/);
+  assert.match(app, /whenMessagesHydrated/);
+  assert.match(app, /hydrateCachedMessages/);
+  assert.match(app, /t\("messages.title"\)/);
+  assert.match(app, /usefulMessageFilters/);
   assert.match(html, /id="day-today"[\s\S]*?id="day-prev"[\s\S]*?id="day-label"[\s\S]*?id="day-next"/);
   assert.doesNotMatch(html, /id="day-today"[^>]*\bhidden\b/);
   assert.match(app, /todayBtn\.disabled = isToday\(\)/);
@@ -1297,5 +1315,78 @@ test("live Fjord1-meldingar blir fletta inn i gammal GitHub-kopi", () => {
   assert.equal(routeModeFromMessages(merged.messages, Date.parse("2026-09-13T16:10:00Z"), "2026-09-13"), "1136");
   assert.equal(isCancelledDeparture({ from: "Standal", departure: "20:00:00" }), true);
   assert.equal(isCancelledDeparture({ from: "Standal", departure: "19:20:00" }), false);
+});
+
+const KOMBI_1136 = {
+  id: "msg-1136",
+  heading: "Standal-Trandal-Valderøya-Store Kalvøy",
+  text: "Rute 1136 Standal-Trandal: På grunn av planlagt verkstedopphald blir det utført kombinert rute frå måndag 14.09 til og med fredag 18.09.",
+  isLocal: true,
+  isRoute1136: true,
+  isRouteControl: true,
+  routeMode: "kombi",
+  connectionNumber: 132,
+  severity: "info",
+  validTo: "2026-09-18T21:55:00+00:00",
+};
+const KOMBI_1135 = {
+  id: "msg-1135",
+  heading: "Leknes-Sæbø",
+  text: "Rute 1135 Lekneset - Sæbø: På grunn av planlagt verkstedopphald blir det utført kombinert rute frå måndag 14.09 til og med fredag 18.09.",
+  isLocal: true,
+  isRoute1136: true,
+  isRouteControl: true,
+  routeMode: "kombi",
+  connectionNumber: 134,
+  severity: "info",
+  validTo: "2026-09-18T21:55:00+00:00",
+};
+
+test("sambandsfilter skil 1135 og 1136, og infomelding tel ikkje som avvik", () => {
+  setTestState({ routeChoice: "1136", messageFilter: "local" });
+  assert.equal(matchesChosenRouteNotice(KOMBI_1136, "1136"), true);
+  assert.equal(matchesChosenRouteNotice(KOMBI_1135, "1136"), false);
+  assert.equal(matchesChosenRouteNotice(KOMBI_1135, "1135"), true);
+  assert.equal(matchesChosenRouteNotice(KOMBI_1136, "1135"), false);
+  assert.equal(isDisruptionNotice(KOMBI_1136), false);
+  assert.equal(isDisruptionNotice({ severity: "cancelled" }), true);
+
+  const all = [KOMBI_1136, KOMBI_1135];
+  setTestState({ routeChoice: "1136", messageFilter: "route" });
+  assert.deepEqual(
+    applyMessageFilter(all).map((msg) => msg.id),
+    ["msg-1136"]
+  );
+  setTestState({ routeChoice: "1135", messageFilter: "route" });
+  assert.deepEqual(
+    applyMessageFilter(all).map((msg) => msg.id),
+    ["msg-1135"]
+  );
+  setTestState({ routeChoice: "1136", messageFilter: "issues" });
+  assert.deepEqual(applyMessageFilter(all).map((msg) => msg.id), []);
+  assert.deepEqual(usefulMessageFilters(all, "1136"), ["local", "route", "issues"]);
+  assert.deepEqual(usefulMessageFilters([KOMBI_1136], "1136"), ["local", "issues"]);
+  assert.deepEqual(
+    usefulMessageFilters([{ ...KOMBI_1136, severity: "cancelled" }], "1136"),
+    []
+  );
+});
+
+test("lagra meldingar gjev kombirute med ein gong, utan å vente på nett", () => {
+  const store = new Map();
+  const storage = {
+    getItem: (key) => (store.has(key) ? store.get(key) : null),
+    setItem: (key, value) => store.set(key, String(value)),
+    removeItem: (key) => store.delete(key),
+  };
+  const payload = { fetchedAt: "2026-09-16T06:00:00Z", messages: [KOMBI_1136, KOMBI_1135] };
+  writeCachedMessages(payload, storage);
+  assert.equal(store.has(MESSAGES_CACHE_KEY), true);
+  assert.equal(readCachedMessages(storage).messages[0].id, "msg-1136");
+  hydrateCachedMessages(storage);
+  setTestState({ date: "2026-09-16" });
+  assert.equal(operationalMode("2026-09-16"), "kombi");
+  writeLastMode("kombi", "2026-09-16", storage);
+  assert.deepEqual(readLastMode(storage), { date: "2026-09-16", mode: "kombi" });
 });
 
