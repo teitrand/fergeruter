@@ -1,6 +1,6 @@
 {
   "source": "https://www.fjord1.no/trafikkmeldingar",
-  "fetchedAt": "2026-09-15T20:28:37.772828+00:00",
+  "fetchedAt": "2026-09-16T05:58:05.571691+00:00",
   "messages": [
     {
       "id": "RG9tYWluQ29udGVudDoyMTc2NDQ1NA==",
@@ -239,26 +239,6 @@
       "routeMode": "1136",
       "routeWindow": null,
       "activateAt": "09:00:00",
-      "vessel": null,
-      "routeSwitch": null
-    },
-    {
-      "id": "RG9tYWluQ29udGVudDoyMTc2MTYxMg==",
-      "heading": "Edøya-Sandvika",
-      "text": "Rute 1064 Edøya - Sandvika: Grunna arbeid på ferjekai så blir følgende avganger i dag 15.September innstilt : Sandvika : 11:15 og 11:45 og Edøya : 11:45 og 12:15",
-      "publishedAt": "2026-09-15T07:34:29+02:00",
-      "validFrom": "2026-09-15T05:34:29+00:00",
-      "validTo": "2026-09-16T05:33:16+00:00",
-      "countyNumber": 15,
-      "connectionNumber": 502,
-      "important": false,
-      "severity": "cancelled",
-      "isRoute1136": false,
-      "isLocal": false,
-      "isRouteControl": false,
-      "routeMode": "1136",
-      "routeWindow": null,
-      "activateAt": null,
       "vessel": null,
       "routeSwitch": null
     },
