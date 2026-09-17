@@ -1,6 +1,6 @@
 {
   "source": "https://www.fjord1.no/trafikkmeldingar",
-  "fetchedAt": "2026-09-17T19:53:10.846610+00:00",
+  "fetchedAt": "2026-09-17T22:27:34.849424+00:00",
   "messages": [
     {
       "id": "RG9tYWluQ29udGVudDoyMTc4Nzg1NQ==",
@@ -246,26 +246,6 @@
       },
       "activateAt": null,
       "vessel": "Geiranger",
-      "routeSwitch": null
-    },
-    {
-      "id": "RG9tYWluQ29udGVudDoyMTcyNDA1OQ==",
-      "heading": "Oldeide-Måløy",
-      "text": "Rute 1039 Måløy - Oldeide: Grunnet arbeid på Måløy ferjekai vert det kansellerte avganger den 15.9.26 og 17.9.26. 15.9.26: Avgang frå Oldeide kl 21.15, Måløy kl 21.45 og kl 22.20 frå Oldeide vert kansellert. 17.9.26: Avgang frå Oldeide kl 10.25 og kl 11.05 frå Måløy vert kansellert. Mvh Fjord1 på vegner av Skyss.",
-      "publishedAt": "2026-09-10T11:54:36+02:00",
-      "validFrom": "2026-09-10T09:54:00+00:00",
-      "validTo": "2026-09-17T21:59:00+00:00",
-      "countyNumber": 14,
-      "connectionNumber": 669,
-      "important": false,
-      "severity": "info",
-      "isRoute1136": false,
-      "isLocal": false,
-      "isRouteControl": false,
-      "routeMode": "1136",
-      "routeWindow": null,
-      "activateAt": null,
-      "vessel": null,
       "routeSwitch": null
     }
   ]
