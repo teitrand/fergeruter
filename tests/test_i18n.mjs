@@ -10,7 +10,7 @@ import {
   stringKeys,
   stringsFor,
   t,
-} from "../assets/i18n.js?v=47";
+} from "../assets/i18n.js?v=48";
 
 function leg(from, to, departure, arrival, dates = ["2026-08-26"]) {
   return { from, to, departure, arrival, activeDates: dates };
@@ -67,10 +67,16 @@ test("seglingstekst har destinasjon i alle språk", () => {
   assert.equal(t("conn.transferNote", { dest: "Skår", margin: 5 }), "Bytte på Sæbø mot Skår. Rekna med 5 min til å gå over.");
   assert.equal(t("install.app"), "Installer app");
   assert.equal(t("install.ios.2"), "Rull og vel «Legg til på heimeskjerm».");
+  assert.equal(t("install.lead"), "Då får du Fergeorakelet som eiga app utan adressefelt, og rutetabellen verkar òg utan nett.");
+  assert.equal(t("meta.title"), "Fergeorakelet 1136 · Standal–Trandal");
   setLang("en");
   assert.equal(t("install.title"), "Add the app to your home screen");
+  assert.equal(t("meta.title"), "Fergeorakelet 1136 · Standal–Trandal");
+  assert.equal(t("install.lead"), "You get Fergeorakelet as its own app without an address bar, and the timetable also works offline.");
   setLang("de");
   assert.equal(t("install.android.2"), "Wählen Sie „App installieren“ oder „Zum Startbildschirm hinzufügen“.");
+  assert.equal(t("meta.title"), "Fergeorakelet 1136 · Standal–Trandal");
+  assert.equal(t("install.lead"), "Dann öffnet sich Fergeorakelet als eigene App ohne Adressleiste, und der Fahrplan funktioniert auch ohne Netz.");
   setLang("nn");
 });
 
