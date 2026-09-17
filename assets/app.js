@@ -7,7 +7,7 @@ import {
   setLang,
   t,
   weekdays,
-} from "./i18n.js?v=50";
+} from "./i18n.js?v=51";
 
 const MESSAGES_URL = "data/trafikkmeldinger.json";
 const ROUTES_URL = "data/ruter.json";
@@ -1120,15 +1120,39 @@ async function fetchMessagesJson() {
 }
 
 function latestLocalMessage(now = Date.now()) {
-  const plan = resolveRoutePlan(state.messages?.messages, now, selectedDate());
-  if (plan.message) return plan.message;
-  return validMessages(state.messages?.messages || [], now).find((msg) => msg.isLocal) || null;
+  return resolveRoutePlan(state.messages?.messages, now, selectedDate()).message || null;
+}
+
+function messageVessel(msg) {
+  if (!msg) return null;
+  return msg.vessel || vesselFromText(`${msg.heading || ""} ${msg.text || ""}`) || null;
+}
+
+function defaultVesselName(table) {
+  if (table === "1135") return "Geiranger";
+  if (table === "1136") return "Kvernes";
+  return null;
+}
+
+/** Ferja som køyrer denne tabellen denne dagen, ikkje ei utgått kombirute-melding. */
+function vesselNameForTable(table, date = selectedDate()) {
+  const plan = resolveRoutePlan(state.messages?.messages, Date.now(), date);
+  const fromMsg = messageVessel(plan.message);
+  const after = plan.switch?.after || plan.mode;
+  const before = plan.switch?.before;
+  if (fromMsg) {
+    if (plan.switch) {
+      if (table === after) return fromMsg;
+      if (table === before) return defaultVesselName(before);
+    } else if (messageMode(plan.message) === table || plan.mode === table) {
+      return fromMsg;
+    }
+  }
+  return defaultVesselName(table);
 }
 
 function activeVessel() {
-  const latest = latestLocalMessage();
-  if (!latest) return null;
-  return latest.vessel || vesselFromText(`${latest.heading || ""} ${latest.text || ""}`);
+  return vesselNameForTable(activeMode());
 }
 
 function vesselInfo(name) {
@@ -1161,9 +1185,10 @@ function defaultSignalPhone(leg) {
   return vesselInfo("Kvernes")?.phone || "916 69 340";
 }
 
-/** Telefon til ferja som faktisk køyrer, elles nummeret frå rutetabellen. */
+/** Telefon til ferja som faktisk køyrer denne turen, elles nummeret frå rutetabellen. */
 function signalPhone(leg) {
-  const running = vesselInfo(activeVessel());
+  const table = leg?.table || activeMode();
+  const running = vesselInfo(vesselNameForTable(table));
   if (running?.phone) return running.phone;
   if (leg?.signal?.phone) return leg.signal.phone;
   return defaultSignalPhone(leg);
@@ -4095,6 +4120,7 @@ export {
   showArrivals,
   signalPhone,
   telHref,
+  vesselNameForTable,
   serviceWindowMinutes,
   timetableFingerprint,
   todayIso,
