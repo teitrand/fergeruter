@@ -1,7 +1,27 @@
 {
   "source": "https://www.fjord1.no/trafikkmeldingar",
-  "fetchedAt": "2026-09-17T12:04:46.636579+00:00",
+  "fetchedAt": "2026-09-17T12:37:24.026501+00:00",
   "messages": [
+    {
+      "id": "RG9tYWluQ29udGVudDoyMTc4NzM2Mw==",
+      "heading": "Stavanger - Byøyene - Hommersåk",
+      "text": "Rute 800 Stavanger - Byøyene - Hommersåk: Grunna driftsproblem vert følgjande avgangar innstilt: Frå Fiskepiren til Byøyene 14:15. Mvh Fjord1 på vegne av Kolumbus.",
+      "publishedAt": "2026-09-17T14:05:56+02:00",
+      "validFrom": "2026-09-17T12:05:56+00:00",
+      "validTo": "2026-09-18T12:05:12+00:00",
+      "countyNumber": 11,
+      "connectionNumber": 800,
+      "important": false,
+      "severity": "cancelled",
+      "isRoute1136": false,
+      "isLocal": false,
+      "isRouteControl": false,
+      "routeMode": "1136",
+      "routeWindow": null,
+      "activateAt": null,
+      "vessel": null,
+      "routeSwitch": null
+    },
     {
       "id": "RG9tYWluQ29udGVudDoyMTc4NjI3Mg==",
       "heading": "Brekstad-Valset",
