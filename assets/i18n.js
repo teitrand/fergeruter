@@ -132,7 +132,7 @@ const STRINGS = {
     "position.planned":
       "Posisjonen er rekna ut frå rutetabellen når Entur ikkje sender køyretøyposisjon.",
     "position.live": "Posisjonen kjem frå Entur i sanntid no.",
-    "footnote.signal": "Signalturar må tingast på telefon innan fristen.",
+    "footnote.signal": "Signalturar må tingast på telefon. Trykk På signal for å ringe ferja innan fristen.",
     "footnote.timetable": "Rutetabellen blir berre lasta ned att når han er endra.",
     "footnote.pdf": "Papir-ruteplan",
     "footnote.nais": "M/F Kvernes på NAIS",
@@ -174,6 +174,7 @@ const STRINGS = {
     "sailing.cancelled": "Innstilt",
     "signal.onRequest": "På signal",
     "signal.callBy": "Ring innan {time}",
+    "signal.callAria": "Ring ferja {phone}",
     "signal.leftToBook": "{duration} igjen å tinge",
     "signal.expired": "fristen er ute",
     gone: "Gått",
@@ -326,7 +327,7 @@ const STRINGS = {
     "position.planned":
       "Position is calculated from the timetable when Entur is not sending a vehicle position.",
     "position.live": "Position is from Entur live data now.",
-    "footnote.signal": "On-request sailings must be booked by phone before the deadline.",
+    "footnote.signal": "On-request sailings must be booked by phone. Tap On request to call the ferry before the deadline.",
     "footnote.timetable": "The timetable is only downloaded again when it has changed.",
     "footnote.pdf": "Printed timetable",
     "footnote.nais": "M/F Kvernes on NAIS",
@@ -368,6 +369,7 @@ const STRINGS = {
     "sailing.cancelled": "Cancelled",
     "signal.onRequest": "On request",
     "signal.callBy": "Call by {time}",
+    "signal.callAria": "Call the ferry {phone}",
     "signal.leftToBook": "{duration} left to book",
     "signal.expired": "booking closed",
     gone: "Departed",
@@ -521,7 +523,7 @@ const STRINGS = {
       "Die Position wird aus dem Fahrplan berechnet, wenn Entur keine Fahrzeugposition sendet.",
     "position.live": "Die Position kommt jetzt aus Entur-Echtzeit.",
     "footnote.signal":
-      "Signalfahrten müssen telefonisch innerhalb der Frist angemeldet werden.",
+      "Signalfahrten müssen telefonisch angemeldet werden. Tippen Sie auf Auf Signal, um die Fähre vor der Frist anzurufen.",
     "footnote.timetable":
       "Der Fahrplan wird nur erneut heruntergeladen, wenn er sich geändert hat.",
     "footnote.pdf": "Fahrplan als PDF",
@@ -565,6 +567,7 @@ const STRINGS = {
     "sailing.cancelled": "Ausgefallen",
     "signal.onRequest": "Auf Signal",
     "signal.callBy": "Anrufen bis {time}",
+    "signal.callAria": "Fähre anrufen {phone}",
     "signal.leftToBook": "noch {duration} zum Anmelden",
     "signal.expired": "Frist abgelaufen",
     gone: "Abgefahren",

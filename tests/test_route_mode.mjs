@@ -30,6 +30,8 @@ import {
   readHideArrivals,
   readRouteChoice,
   showArrivals,
+  signalPhone,
+  telHref,
   writeHideArrivals,
   writeRouteChoice,
   chosenRoute,
@@ -1117,6 +1119,36 @@ test("kombirute merkar berre fotnote-celler som signal", () => {
       0
     );
   }
+});
+
+test("signaltur ringjer rett ferje, tel:+47", () => {
+  setTestState({ routes: ruter, kombirute: kombi, messages: { messages: [] } });
+  const friday = legsForDate("2026-08-28");
+  const saebo0835 = friday.find((leg) => leg.from === "Sæbø" && leg.departure === "08:35:00");
+  assert.equal(telHref("91 66 93 40"), "tel:+4791669340");
+  assert.equal(telHref("91669321"), "tel:+4791669321");
+  assert.equal(telHref("+47 916 69 340"), "tel:+4791669340");
+  assert.equal(telHref(signalPhone(saebo0835)), "tel:+4791669340");
+
+  useKombi();
+  const kombiLeg = legsForDate("2026-09-17").find((leg) => leg.signal);
+  assert.ok(kombiLeg);
+  assert.equal(telHref(signalPhone(kombiLeg)), "tel:+4791669340");
+
+  setTestState({
+    messages: {
+      messages: [
+        {
+          isLocal: true,
+          vessel: "Geiranger",
+          text: "Det blir MF Geiranger i rute (91669321).",
+          routeMode: "kombi",
+          validTo: "2099-01-01T00:00:00Z",
+        },
+      ],
+    },
+  });
+  assert.equal(telHref(signalPhone(kombiLeg)), "tel:+4791669321");
 });
 
 test("kombirute er éi samanhengande rute utan tomflytting", () => {
