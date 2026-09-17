@@ -7,7 +7,7 @@ import {
   setLang,
   t,
   weekdays,
-} from "./i18n.js?v=49";
+} from "./i18n.js?v=50";
 
 const MESSAGES_URL = "data/trafikkmeldinger.json";
 const ROUTES_URL = "data/ruter.json";
@@ -1142,6 +1142,83 @@ function vesselInfo(name) {
   );
 }
 
+function phoneDigits(phone) {
+  const digits = String(phone || "").replace(/\D+/g, "");
+  if (!digits) return "";
+  if (digits.startsWith("47") && digits.length >= 10) return digits.slice(-8);
+  return digits;
+}
+
+function telHref(phone) {
+  const digits = phoneDigits(phone);
+  return digits ? `tel:+47${digits}` : "";
+}
+
+function defaultSignalPhone(leg) {
+  const table = leg?.table || activeMode();
+  if (table === "1135") return vesselInfo("Geiranger")?.phone || "916 69 321";
+  if (table === "kombi") return "";
+  return vesselInfo("Kvernes")?.phone || "916 69 340";
+}
+
+/** Telefon til ferja som faktisk køyrer, elles nummeret frå rutetabellen. */
+function signalPhone(leg) {
+  const running = vesselInfo(activeVessel());
+  if (running?.phone) return running.phone;
+  if (leg?.signal?.phone) return leg.signal.phone;
+  return defaultSignalPhone(leg);
+}
+
+function bindTelLink(link, phone, how) {
+  const href = telHref(phone);
+  if (!href) return link;
+  link.href = href;
+  link.addEventListener("click", () => track("Call ferry", { how }));
+  return link;
+}
+
+function phoneIcon() {
+  const svg = svgEl("svg", {
+    viewBox: "0 0 24 24",
+    class: "stop-phone-icon",
+    "aria-hidden": "true",
+    focusable: "false",
+  });
+  svg.append(
+    svgEl("path", {
+      fill: "currentColor",
+      d: "M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z",
+    })
+  );
+  return svg;
+}
+
+function signalTag(leg, { call = true } = {}) {
+  const phone = call ? signalPhone(leg) : "";
+  if (!telHref(phone)) return el("span", "stop-tag", t("signal.onRequest"));
+  const link = el("a", "stop-tag stop-tag-call");
+  link.append(document.createTextNode(t("signal.onRequest")));
+  link.append(phoneIcon());
+  link.setAttribute("aria-label", t("signal.callAria", { phone }));
+  link.title = t("signal.callAria", { phone });
+  return bindTelLink(link, phone, "tag");
+}
+
+function linkifyPhone(node, text, phone, how) {
+  if (!phone || !text.includes(phone)) {
+    node.textContent = text;
+    return;
+  }
+  const at = text.indexOf(phone);
+  node.replaceChildren();
+  if (at > 0) node.append(document.createTextNode(text.slice(0, at)));
+  const link = el("a", "footer-phone", phone);
+  link.setAttribute("aria-label", t("signal.callAria", { phone }));
+  node.append(bindTelLink(link, phone, how));
+  const after = text.slice(at + phone.length);
+  if (after) node.append(document.createTextNode(after));
+}
+
 function activeMode() {
   return routeOverride() || activePlan().mode || "1136";
 }
@@ -2208,7 +2285,7 @@ function outboundConnection(index, arrival) {
 
 function connectionSignalText(trip, route) {
   if (!trip?.signal || !route) return "";
-  const phone = trip.signal.phone;
+  const phone = signalPhone(trip);
   return phone
     ? t("conn.signalCallPhone", { route, phone })
     : t("conn.signalCall", { route });
@@ -2257,12 +2334,11 @@ function signalNote(leg, live) {
   const deadline = bookingDeadline(leg);
   if (deadline == null) return null;
   const note = el("span", "stop-note");
-  const phone = leg.signal.phone;
+  const phone = signalPhone(leg);
   const label = t("signal.callBy", { time: minutesToClock(deadline) });
-  if (phone) {
+  if (telHref(phone)) {
     const link = el("a", "stop-phone", `${label} · ${phone}`);
-    link.href = `tel:+47${phone.replace(/\s+/g, "")}`;
-    note.append(link);
+    note.append(bindTelLink(link, phone, "note"));
   } else {
     note.append(document.createTextNode(label));
   }
@@ -2311,7 +2387,7 @@ function departureRow(leg, past, connections, journey = null) {
   const head = el("span", "stop-head");
   head.append(el("span", "stop-name", t("sailing.route", { from: leg.from, to: leg.to })));
   if (cancelled) head.append(el("span", "stop-tag stop-tag-stop", t("sailing.cancelled")));
-  if (leg.signal) head.append(el("span", "stop-tag", t("signal.onRequest")));
+  if (leg.signal) head.append(signalTag(leg, { call: !cancelled }));
   body.append(head);
   if (showArrivals()) {
     body.append(
@@ -3380,9 +3456,17 @@ function renderRouteChrome() {
         : null;
   const operator = document.getElementById("footer-operator");
   if (operator) {
-    operator.textContent = vessel
-      ? t("footer.operatorVessel", { name: vessel.name, phone: vessel.phone || "" })
-      : t("footer.operator");
+    if (vessel) {
+      linkifyPhone(
+        operator,
+        t("footer.operatorVessel", { name: vessel.name, phone: vessel.phone || "" }),
+        vessel.phone,
+        "footer"
+      );
+    } else {
+      const phone = vesselInfo("Kvernes")?.phone || "916 69 340";
+      linkifyPhone(operator, t("footer.operator"), phone, "footer");
+    }
   }
   const nais = document.getElementById("footnote-nais");
   if (nais) {
@@ -4009,6 +4093,8 @@ export {
   setTestState,
   shouldFetchLive,
   showArrivals,
+  signalPhone,
+  telHref,
   serviceWindowMinutes,
   timetableFingerprint,
   todayIso,

@@ -10,7 +10,7 @@ import {
   stringKeys,
   stringsFor,
   t,
-} from "../assets/i18n.js?v=49";
+} from "../assets/i18n.js?v=50";
 
 function leg(from, to, departure, arrival, dates = ["2026-08-26"]) {
   return { from, to, departure, arrival, activeDates: dates };
@@ -65,7 +65,13 @@ test("seglingstekst har destinasjon i alle språk", () => {
     "Signaltur, ring 1136 (91 66 93 40)"
   );
   assert.equal(t("conn.transferNote", { dest: "Skår", margin: 5 }), "Bytte på Sæbø mot Skår. Rekna med 5 min til å gå over.");
-  assert.equal(t("install.app"), "Installer app");
+  assert.equal(t("signal.onRequest"), "På signal");
+  assert.equal(t("signal.callAria", { phone: "916 69 340" }), "Ring ferja 916 69 340");
+  setLang("en");
+  assert.equal(t("signal.callAria", { phone: "916 69 340" }), "Call the ferry 916 69 340");
+  setLang("de");
+  assert.equal(t("signal.callAria", { phone: "916 69 340" }), "Fähre anrufen 916 69 340");
+  setLang("nn");
   assert.equal(t("install.ios.2"), "Rull og vel «Legg til på heimeskjerm».");
   assert.equal(t("install.lead"), "Då får du Fergeorakelet som eiga app utan adressefelt, og rutetabellen verkar òg utan nett.");
   assert.equal(t("meta.title"), "Fergeorakelet 1136 · Standal–Trandal");

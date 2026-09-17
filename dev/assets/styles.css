@@ -777,7 +777,7 @@ h2.day-label {
 
 .stop-head {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   flex-wrap: wrap;
   gap: 0.35rem;
 }
@@ -790,7 +790,7 @@ h2.day-label {
   gap: 0.4rem;
 }
 
-.stop-phone { color: var(--water); }
+.stop-phone { color: var(--water); text-underline-offset: 0.12em; }
 
 .stop-left { color: var(--delay); font-weight: 600; }
 .stop-expired { color: var(--stop); font-weight: 600; }
@@ -941,13 +941,36 @@ h2.day-label {
 }
 
 .stop-tag {
-  margin-left: 0.4rem;
+  margin-left: 0;
   font-size: 0.75rem;
   color: var(--delay);
   border: 1px solid #f0d6b4;
   border-radius: 999px;
   padding: 0.02rem 0.4rem;
   white-space: nowrap;
+}
+
+.stop-tag-call {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.22rem;
+  padding: 0.12rem 0.48rem 0.12rem 0.42rem;
+  color: var(--delay);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.stop-tag-call:hover,
+.stop-tag-call:focus-visible {
+  background: #f8ead6;
+  border-color: var(--delay);
+  outline: none;
+}
+
+.stop-phone-icon {
+  width: 0.78rem;
+  height: 0.78rem;
+  flex: none;
 }
 
 .stop-tag-stop {
