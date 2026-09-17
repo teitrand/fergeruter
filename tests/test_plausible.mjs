@@ -15,7 +15,7 @@ import {
   setTestState,
   track,
 } from "../assets/app.js";
-import { setLang } from "../assets/i18n.js?v=47";
+import { setLang } from "../assets/i18n.js?v=51";
 
 const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
 const app = readFileSync(new URL("../assets/app.js", import.meta.url), "utf8");
@@ -34,6 +34,15 @@ test("index.html lastar Plausible utan informasjonskapslar", () => {
   assert.match(html, /saebo-leknes/);
   assert.match(html, /\/dev\//);
   assert.doesNotMatch(html, /google-analytics|gtag\(|googletagmanager/i);
+});
+
+test("appen heiter Fergeorakelet i tittel, heimeskjerm og manifest", () => {
+  assert.match(html, /apple-mobile-web-app-title" content="Fergeorakelet"/);
+  assert.match(html, /<title>Fergeorakelet 1136 · Standal–Trandal<\/title>/);
+  assert.match(html, /Installer Fergeorakelet/);
+  const manifest = readFileSync(new URL("../manifest.webmanifest", import.meta.url), "utf8");
+  assert.match(manifest, /"name": "Fergeorakelet"/);
+  assert.match(manifest, /"short_name": "Fergeorakelet"/);
 });
 
 test("papirruta peikar på Fjord1 si PDF-fane, ikkje lokal fil", () => {
@@ -77,9 +86,9 @@ test("header har ikkje ferjegrafikk mellom kaiene", () => {
 
 test("sida har den dekorative stiplede streken øverst", () => {
   assert.match(html, /class="skyline"/);
-  assert.match(html, /assets\/styles\.css\?v=47/);
-  assert.match(html, /assets\/app\.js\?v=47/);
-  assert.match(app, /from "\.\/i18n\.js\?v=47"/);
+  assert.match(html, /assets\/styles\.css\?v=51/);
+  assert.match(html, /assets\/app\.js\?v=51/);
+  assert.match(app, /from "\.\/i18n\.js\?v=51"/);
   assert.match(app, /renderRouteChrome\(\);\s*renderPlaceFilter/);
   const css = readFileSync(new URL("../assets/styles.css", import.meta.url), "utf8");
   assert.match(css, /\.skyline\s*\{[^}]*repeating-linear-gradient/s);
@@ -88,11 +97,13 @@ test("sida har den dekorative stiplede streken øverst", () => {
   assert.match(css, /\.messages-bar-body\s*\{[^}]*width:\s*100%/s);
   assert.match(css, /\.site-header\.is-pending-route/);
   assert.match(css, /\.messages-details:not\(\[hidden\]\)/);
-  assert.match(css, /\.visually-hidden/);
+  assert.match(css, /\.stop-tag-call/);
+  assert.match(app, /stop-tag-call/);
+  assert.match(app, /tel:\+47/);
   assert.doesNotMatch(css, /1\.05fr 0\.95fr/);
   assert.doesNotMatch(css, /@media \(min-width: 860px\)/);
   const sw = readFileSync(new URL("../sw.js", import.meta.url), "utf8");
-  assert.match(sw, /fergeruter-dev-v47/);
+  assert.match(sw, /fergeruter-dev-v51/);
   assert.match(sw, /function isTimetableJson/);
   assert.match(sw, /function isMessagesJson/);
   assert.match(sw, /staleWhileRevalidate\(request,\s*\{\s*notify: true/);
@@ -124,6 +135,7 @@ test("appen sender namngjevne brukshendingar til Plausible", () => {
     "Feedback yes",
     "Feedback no",
     "Feedback message",
+    "Call ferry",
   ];
   for (const event of events) {
     assert.match(app, new RegExp(event.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
@@ -288,7 +300,7 @@ test("feedbackMailto kodar vurdering og kommentar", () => {
   const url = feedbackMailto("yes", "Meir korrespondanse");
   assert.ok(url.startsWith(`mailto:${FEEDBACK_MAIL}?`));
   const decoded = decodeURIComponent(url);
-  assert.match(decoded, /Tilbakemelding på Fergeruter 1136/);
+  assert.match(decoded, /Tilbakemelding på Fergeorakelet/);
   assert.match(decoded, /Ja, nyttig/);
   assert.match(decoded, /Meir korrespondanse/);
   assert.doesNotMatch(url, /Meir korrespondanse/);

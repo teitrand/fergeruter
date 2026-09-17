@@ -30,9 +30,9 @@ const MONTHS_SHORT = {
 
 const STRINGS = {
   nn: {
-    "meta.title": "Fergeruter 1136 · Standal–Trandal",
-    "meta.title1135": "Fergeruter 1135 · Sæbø–Leknes",
-    "meta.titleKombi": "Fergeruter · Kombinasjonsrute",
+    "meta.title": "Fergeorakelet 1136 · Standal–Trandal",
+    "meta.title1135": "Fergeorakelet 1135 · Sæbø–Leknes",
+    "meta.titleKombi": "Fergeorakelet · Kombinasjonsrute",
     "meta.description":
       "Trafikkmeldingar frå Fjord1 og seglingsplan for ferjesamband 1136 Standal–Trandal–Sæbø–Skår. Alle anløp i rekkjefølgje, med status for kvar ferja er akkurat no.",
     skip: "Hopp til innhald",
@@ -59,7 +59,7 @@ const STRINGS = {
     "install.app": "Installer app",
     "install.title": "Legg appen på heimeskjermen",
     "install.lead":
-      "Då får du Fergeruter som eiga app utan adressefelt, og rutetabellen verkar òg utan nett.",
+      "Då får du Fergeorakelet som eiga app utan adressefelt, og rutetabellen verkar òg utan nett.",
     "install.ios.title": "iPhone og iPad (Safari)",
     "install.ios.1": "Trykk på Del (firkanten med pila opp) nederst på skjermen.",
     "install.ios.2": "Rull og vel «Legg til på heimeskjerm».",
@@ -71,7 +71,7 @@ const STRINGS = {
     "install.android.2": "Vel «Installer app» eller «Legg til på startskjerm».",
     "install.desktop.title": "Datamaskin (Chrome eller Edge)",
     "install.desktop.1":
-      "Sjå etter install-ikonet i adresselinja, eller opne menyen og vel «Installer Fergeruter».",
+      "Sjå etter install-ikonet i adresselinja, eller opne menyen og vel «Installer Fergeorakelet».",
     "install.notify":
       "Appen sender ikkje eigne varsel enno. For trafikkmeldingar kan du få SMS frå Fjord1.",
     "messages.title": "Trafikkmeldingar",
@@ -132,7 +132,7 @@ const STRINGS = {
     "position.planned":
       "Posisjonen er rekna ut frå rutetabellen når Entur ikkje sender køyretøyposisjon.",
     "position.live": "Posisjonen kjem frå Entur i sanntid no.",
-    "footnote.signal": "Signalturar må tingast på telefon innan fristen.",
+    "footnote.signal": "Signalturar må tingast på telefon. Trykk På signal for å ringe ferja innan fristen.",
     "footnote.timetable": "Rutetabellen blir berre lasta ned att når han er endra.",
     "footnote.pdf": "Papir-ruteplan",
     "footnote.nais": "M/F Kvernes på NAIS",
@@ -174,6 +174,7 @@ const STRINGS = {
     "sailing.cancelled": "Innstilt",
     "signal.onRequest": "På signal",
     "signal.callBy": "Ring innan {time}",
+    "signal.callAria": "Ring ferja {phone}",
     "signal.leftToBook": "{duration} igjen å tinge",
     "signal.expired": "fristen er ute",
     gone: "Gått",
@@ -219,14 +220,14 @@ const STRINGS = {
     "feedback.privacy":
       "Ja/nei blir talde anonymt, utan namn eller e-post. Ei skriftleg melding opnar e-posten din og blir ikkje lagra i statistikken.",
     "feedback.github": "Eller meld ein feil på GitHub",
-    "feedback.mailSubject": "Tilbakemelding på Fergeruter 1136",
+    "feedback.mailSubject": "Tilbakemelding på Fergeorakelet",
     "feedback.mailBody": "Vurdering: {rating}\n\n{comment}",
     "feedback.mailNoComment": "(inga melding)",
   },
   en: {
-    "meta.title": "Ferry times 1136 · Standal–Trandal",
-    "meta.title1135": "Ferry times 1135 · Sæbø–Leknes",
-    "meta.titleKombi": "Ferry times · Combined timetable",
+    "meta.title": "The Ferry Oracle 1136 · Standal–Trandal",
+    "meta.title1135": "The Ferry Oracle 1135 · Sæbø–Leknes",
+    "meta.titleKombi": "The Ferry Oracle · Combined timetable",
     "meta.description":
       "Traffic notices from Fjord1 and the sailing schedule for ferry route 1136 Standal–Trandal–Sæbø–Skår. Every call in order, with where the ferry is right now.",
     skip: "Skip to content",
@@ -253,7 +254,7 @@ const STRINGS = {
     "install.app": "Install app",
     "install.title": "Add the app to your home screen",
     "install.lead":
-      "You get Fergeruter as its own app without an address bar, and the timetable also works offline.",
+      "You get The Ferry Oracle as its own app without an address bar, and the timetable also works offline.",
     "install.ios.title": "iPhone and iPad (Safari)",
     "install.ios.1": "Tap Share (the square with the arrow pointing up) at the bottom of the screen.",
     "install.ios.2": "Scroll and choose “Add to Home Screen”.",
@@ -265,7 +266,7 @@ const STRINGS = {
     "install.android.2": "Choose “Install app” or “Add to Home screen”.",
     "install.desktop.title": "Computer (Chrome or Edge)",
     "install.desktop.1":
-      "Look for the install icon in the address bar, or open the menu and choose “Install Fergeruter”.",
+      "Look for the install icon in the address bar, or open the menu and choose “Install The Ferry Oracle”.",
     "install.notify":
       "The app does not send its own notifications yet. For traffic notices you can get SMS from Fjord1.",
     "messages.title": "Traffic notices",
@@ -326,7 +327,7 @@ const STRINGS = {
     "position.planned":
       "Position is calculated from the timetable when Entur is not sending a vehicle position.",
     "position.live": "Position is from Entur live data now.",
-    "footnote.signal": "On-request sailings must be booked by phone before the deadline.",
+    "footnote.signal": "On-request sailings must be booked by phone. Tap On request to call the ferry before the deadline.",
     "footnote.timetable": "The timetable is only downloaded again when it has changed.",
     "footnote.pdf": "Printed timetable",
     "footnote.nais": "M/F Kvernes on NAIS",
@@ -368,6 +369,7 @@ const STRINGS = {
     "sailing.cancelled": "Cancelled",
     "signal.onRequest": "On request",
     "signal.callBy": "Call by {time}",
+    "signal.callAria": "Call the ferry {phone}",
     "signal.leftToBook": "{duration} left to book",
     "signal.expired": "booking closed",
     gone: "Departed",
@@ -413,14 +415,14 @@ const STRINGS = {
     "feedback.privacy":
       "Yes/no is counted anonymously, without your name or email. A written message opens your email app and is not stored in the statistics.",
     "feedback.github": "Or report a bug on GitHub",
-    "feedback.mailSubject": "Feedback on Ferry times 1136",
+    "feedback.mailSubject": "Feedback on The Ferry Oracle",
     "feedback.mailBody": "Rating: {rating}\n\n{comment}",
     "feedback.mailNoComment": "(no message)",
   },
   de: {
-    "meta.title": "Fährzeiten 1136 · Standal–Trandal",
-    "meta.title1135": "Fährzeiten 1135 · Sæbø–Leknes",
-    "meta.titleKombi": "Fährzeiten · Kombinationsfahrplan",
+    "meta.title": "Das Fährorakel 1136 · Standal–Trandal",
+    "meta.title1135": "Das Fährorakel 1135 · Sæbø–Leknes",
+    "meta.titleKombi": "Das Fährorakel · Kombinationsfahrplan",
     "meta.description":
       "Verkehrsmeldungen von Fjord1 und Fahrplan für die Fährlinie 1136 Standal–Trandal–Sæbø–Skår. Alle Anläufe der Reihe nach, mit Status wo die Fähre gerade ist.",
     skip: "Zum Inhalt springen",
@@ -447,7 +449,7 @@ const STRINGS = {
     "install.app": "App installieren",
     "install.title": "App auf den Startbildschirm legen",
     "install.lead":
-      "Dann öffnet sich Fergeruter als eigene App ohne Adressleiste, und der Fahrplan funktioniert auch ohne Netz.",
+      "Dann öffnet sich das Fährorakel als eigene App ohne Adressleiste, und der Fahrplan funktioniert auch ohne Netz.",
     "install.ios.title": "iPhone und iPad (Safari)",
     "install.ios.1": "Tippen Sie unten auf Teilen (Quadrat mit Pfeil nach oben).",
     "install.ios.2": "Scrollen Sie und wählen Sie „Zum Home-Bildschirm“.",
@@ -459,7 +461,7 @@ const STRINGS = {
     "install.android.2": "Wählen Sie „App installieren“ oder „Zum Startbildschirm hinzufügen“.",
     "install.desktop.title": "Computer (Chrome oder Edge)",
     "install.desktop.1":
-      "Suchen Sie das Installationssymbol in der Adressleiste, oder öffnen Sie das Menü und wählen Sie „Fergeruter installieren“.",
+      "Suchen Sie das Installationssymbol in der Adressleiste, oder öffnen Sie das Menü und wählen Sie „Das Fährorakel installieren“.",
     "install.notify":
       "Die App sendet noch keine eigenen Benachrichtigungen. Für Verkehrsmeldungen können Sie SMS von Fjord1 erhalten.",
     "messages.title": "Verkehrsmeldungen",
@@ -521,7 +523,7 @@ const STRINGS = {
       "Die Position wird aus dem Fahrplan berechnet, wenn Entur keine Fahrzeugposition sendet.",
     "position.live": "Die Position kommt jetzt aus Entur-Echtzeit.",
     "footnote.signal":
-      "Signalfahrten müssen telefonisch innerhalb der Frist angemeldet werden.",
+      "Signalfahrten müssen telefonisch angemeldet werden. Tippen Sie auf Auf Signal, um die Fähre vor der Frist anzurufen.",
     "footnote.timetable":
       "Der Fahrplan wird nur erneut heruntergeladen, wenn er sich geändert hat.",
     "footnote.pdf": "Fahrplan als PDF",
@@ -565,6 +567,7 @@ const STRINGS = {
     "sailing.cancelled": "Ausgefallen",
     "signal.onRequest": "Auf Signal",
     "signal.callBy": "Anrufen bis {time}",
+    "signal.callAria": "Fähre anrufen {phone}",
     "signal.leftToBook": "noch {duration} zum Anmelden",
     "signal.expired": "Frist abgelaufen",
     gone: "Abgefahren",
@@ -611,7 +614,7 @@ const STRINGS = {
     "feedback.privacy":
       "Ja/nein wird anonym gezählt, ohne Namen oder E-Mail. Eine schriftliche Nachricht öffnet Ihr E-Mail-Programm und wird nicht in der Statistik gespeichert.",
     "feedback.github": "Oder einen Fehler auf GitHub melden",
-    "feedback.mailSubject": "Feedback zu Fährzeiten 1136",
+    "feedback.mailSubject": "Feedback zum Fährorakel",
     "feedback.mailBody": "Bewertung: {rating}\n\n{comment}",
     "feedback.mailNoComment": "(keine Nachricht)",
   },
