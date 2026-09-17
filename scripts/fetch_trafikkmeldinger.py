@@ -358,7 +358,7 @@ def fetch_messages(timeout: int = 30) -> list[dict]:
         headers={
             "Content-Type": "application/json",
             "Accept": "application/json",
-            "User-Agent": "Fergeruter/1.0 (+https://github.com/teitrand/fergeruter)",
+            "User-Agent": "Fergeorakelet/1.0 (+https://github.com/teitrand/fergeruter)",
         },
         method="POST",
     )

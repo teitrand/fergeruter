@@ -30,6 +30,9 @@ import {
   readHideArrivals,
   readRouteChoice,
   showArrivals,
+  signalPhone,
+  telHref,
+  vesselNameForTable,
   writeHideArrivals,
   writeRouteChoice,
   chosenRoute,
@@ -571,12 +574,12 @@ test("byte mot Skår merkar signaltur når ein kjem frå Leknes", () => {
   const fromLeknes = { from: "Leknes", to: "Sæbø", departure: "07:30:00", arrival: "07:43:00" };
   assert.equal(
     connectionNote(toSkar, "arr", fromLeknes),
-    "Vidare 08:35 frå Sæbø mot Skår. Signaltur, ring 1136 (91 66 93 40)"
+    "Vidare 08:35 frå Sæbø mot Skår. Signaltur, ring 1136 (916 69 340)"
   );
   const laterLeknes = { from: "Leknes", to: "Sæbø", departure: "08:30:00", arrival: "08:43:00" };
   assert.equal(
     connectionNote(toSkar, "arr", laterLeknes),
-    "Vidare 16:50 frå Sæbø mot Skår. Signaltur, ring 1136 (91 66 93 40)"
+    "Vidare 16:50 frå Sæbø mot Skår. Signaltur, ring 1136 (916 69 340)"
   );
 });
 
@@ -594,14 +597,14 @@ test("byte mot Standal følgjer same segling via Trandal og merkar signaltur", (
   const fromLeknes = { from: "Leknes", to: "Sæbø", departure: "08:30:00", arrival: "08:43:00" };
   assert.equal(
     connectionNote(index, "arr", fromLeknes),
-    "Vidare 09:20 frå Sæbø mot Standal. Signaltur, ring 1136 (91 66 93 40)"
+    "Vidare 09:20 frå Sæbø mot Standal. Signaltur, ring 1136 (916 69 340)"
   );
 
   setTestState({ connection: "saebo-trandal" });
   const toTrandal = connectionIndex(WEEKDAY);
   assert.equal(
     connectionNote(toTrandal, "arr", fromLeknes),
-    "Vidare 09:20 frå Sæbø mot Trandal. Signaltur, ring 1136 (91 66 93 40)"
+    "Vidare 09:20 frå Sæbø mot Trandal. Signaltur, ring 1136 (916 69 340)"
   );
 
   setTestState({ routeChoice: "1136", connection: "saebo-standal" });
@@ -1117,6 +1120,50 @@ test("kombirute merkar berre fotnote-celler som signal", () => {
       0
     );
   }
+});
+
+test("signaltur ringjer rett ferje, tel:+47", () => {
+  setTestState({ routes: ruter, kombirute: kombi, messages: { messages: [] } });
+  const friday = legsForDate("2026-08-28");
+  const saebo0835 = friday.find((leg) => leg.from === "Sæbø" && leg.departure === "08:35:00");
+  assert.equal(telHref("91 66 93 40"), "tel:+4791669340");
+  assert.equal(telHref("91669321"), "tel:+4791669321");
+  assert.equal(telHref("+47 916 69 340"), "tel:+4791669340");
+  assert.equal(telHref(signalPhone(saebo0835)), "tel:+4791669340");
+
+  useKombi();
+  const kombiLeg = legsForDate("2026-09-17").find((leg) => leg.signal);
+  assert.ok(kombiLeg);
+  assert.equal(telHref(signalPhone(kombiLeg)), "tel:+4791669340");
+
+  const verksted = {
+    isLocal: true,
+    isRouteControl: true,
+    heading: "Standal-Trandal",
+    text: "På grunn av planlagt verkstedopphald blir det utført kombinert rute i sambandet frå måndag 14.09 til og med fredag 18.09. Det blir MF Geiranger i rute (91669321).",
+    vessel: "Geiranger",
+    routeMode: "kombi",
+    routeWindow: { from: "2026-09-14", to: "2026-09-18" },
+    publishedAt: "2026-09-11T10:45:19+02:00",
+    validTo: "2026-09-25T21:55:00+00:00",
+  };
+  setTestState({
+    date: "2026-09-17",
+    messages: { messages: [verksted] },
+  });
+  const during = legsForDate("2026-09-17").find((leg) => leg.signal);
+  assert.ok(during);
+  assert.equal(vesselNameForTable("kombi"), "Geiranger");
+  assert.equal(telHref(signalPhone(during)), "tel:+4791669321");
+
+  setTestState({ date: "2026-09-19" });
+  assert.equal(operationalMode("2026-09-19"), "1136");
+  assert.equal(vesselNameForTable("1136"), "Kvernes");
+  assert.equal(vesselNameForTable("kombi"), null);
+  const after = legsForDate("2026-09-19").find((leg) => leg.signal);
+  assert.ok(after);
+  assert.equal(after.table, "1136");
+  assert.equal(telHref(signalPhone(after)), "tel:+4791669340");
 });
 
 test("kombirute er éi samanhengande rute utan tomflytting", () => {
