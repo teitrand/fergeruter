@@ -10,7 +10,7 @@ import {
   stringKeys,
   stringsFor,
   t,
-} from "../assets/i18n.js?v=48";
+} from "../assets/i18n.js?v=49";
 
 function leg(from, to, departure, arrival, dates = ["2026-08-26"]) {
   return { from, to, departure, arrival, activeDates: dates };
@@ -71,12 +71,16 @@ test("seglingstekst har destinasjon i alle språk", () => {
   assert.equal(t("meta.title"), "Fergeorakelet 1136 · Standal–Trandal");
   setLang("en");
   assert.equal(t("install.title"), "Add the app to your home screen");
-  assert.equal(t("meta.title"), "Fergeorakelet 1136 · Standal–Trandal");
-  assert.equal(t("install.lead"), "You get Fergeorakelet as its own app without an address bar, and the timetable also works offline.");
+  assert.equal(t("meta.title"), "The Ferry Oracle 1136 · Standal–Trandal");
+  assert.equal(t("install.lead"), "You get The Ferry Oracle as its own app without an address bar, and the timetable also works offline.");
+  assert.equal(t("install.desktop.1"), "Look for the install icon in the address bar, or open the menu and choose “Install The Ferry Oracle”.");
+  assert.equal(t("feedback.mailSubject"), "Feedback on The Ferry Oracle");
   setLang("de");
   assert.equal(t("install.android.2"), "Wählen Sie „App installieren“ oder „Zum Startbildschirm hinzufügen“.");
-  assert.equal(t("meta.title"), "Fergeorakelet 1136 · Standal–Trandal");
-  assert.equal(t("install.lead"), "Dann öffnet sich Fergeorakelet als eigene App ohne Adressleiste, und der Fahrplan funktioniert auch ohne Netz.");
+  assert.equal(t("meta.title"), "Das Fährorakel 1136 · Standal–Trandal");
+  assert.equal(t("install.lead"), "Dann öffnet sich das Fährorakel als eigene App ohne Adressleiste, und der Fahrplan funktioniert auch ohne Netz.");
+  assert.equal(t("install.desktop.1"), "Suchen Sie das Installationssymbol in der Adressleiste, oder öffnen Sie das Menü und wählen Sie „Das Fährorakel installieren“.");
+  assert.equal(t("feedback.mailSubject"), "Feedback zum Fährorakel");
   setLang("nn");
 });
 

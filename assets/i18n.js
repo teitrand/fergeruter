@@ -224,9 +224,9 @@ const STRINGS = {
     "feedback.mailNoComment": "(inga melding)",
   },
   en: {
-    "meta.title": "Fergeorakelet 1136 · Standal–Trandal",
-    "meta.title1135": "Fergeorakelet 1135 · Sæbø–Leknes",
-    "meta.titleKombi": "Fergeorakelet · Combined timetable",
+    "meta.title": "The Ferry Oracle 1136 · Standal–Trandal",
+    "meta.title1135": "The Ferry Oracle 1135 · Sæbø–Leknes",
+    "meta.titleKombi": "The Ferry Oracle · Combined timetable",
     "meta.description":
       "Traffic notices from Fjord1 and the sailing schedule for ferry route 1136 Standal–Trandal–Sæbø–Skår. Every call in order, with where the ferry is right now.",
     skip: "Skip to content",
@@ -253,7 +253,7 @@ const STRINGS = {
     "install.app": "Install app",
     "install.title": "Add the app to your home screen",
     "install.lead":
-      "You get Fergeorakelet as its own app without an address bar, and the timetable also works offline.",
+      "You get The Ferry Oracle as its own app without an address bar, and the timetable also works offline.",
     "install.ios.title": "iPhone and iPad (Safari)",
     "install.ios.1": "Tap Share (the square with the arrow pointing up) at the bottom of the screen.",
     "install.ios.2": "Scroll and choose “Add to Home Screen”.",
@@ -265,7 +265,7 @@ const STRINGS = {
     "install.android.2": "Choose “Install app” or “Add to Home screen”.",
     "install.desktop.title": "Computer (Chrome or Edge)",
     "install.desktop.1":
-      "Look for the install icon in the address bar, or open the menu and choose “Install Fergeorakelet”.",
+      "Look for the install icon in the address bar, or open the menu and choose “Install The Ferry Oracle”.",
     "install.notify":
       "The app does not send its own notifications yet. For traffic notices you can get SMS from Fjord1.",
     "messages.title": "Traffic notices",
@@ -413,14 +413,14 @@ const STRINGS = {
     "feedback.privacy":
       "Yes/no is counted anonymously, without your name or email. A written message opens your email app and is not stored in the statistics.",
     "feedback.github": "Or report a bug on GitHub",
-    "feedback.mailSubject": "Feedback on Fergeorakelet",
+    "feedback.mailSubject": "Feedback on The Ferry Oracle",
     "feedback.mailBody": "Rating: {rating}\n\n{comment}",
     "feedback.mailNoComment": "(no message)",
   },
   de: {
-    "meta.title": "Fergeorakelet 1136 · Standal–Trandal",
-    "meta.title1135": "Fergeorakelet 1135 · Sæbø–Leknes",
-    "meta.titleKombi": "Fergeorakelet · Kombinationsfahrplan",
+    "meta.title": "Das Fährorakel 1136 · Standal–Trandal",
+    "meta.title1135": "Das Fährorakel 1135 · Sæbø–Leknes",
+    "meta.titleKombi": "Das Fährorakel · Kombinationsfahrplan",
     "meta.description":
       "Verkehrsmeldungen von Fjord1 und Fahrplan für die Fährlinie 1136 Standal–Trandal–Sæbø–Skår. Alle Anläufe der Reihe nach, mit Status wo die Fähre gerade ist.",
     skip: "Zum Inhalt springen",
@@ -447,7 +447,7 @@ const STRINGS = {
     "install.app": "App installieren",
     "install.title": "App auf den Startbildschirm legen",
     "install.lead":
-      "Dann öffnet sich Fergeorakelet als eigene App ohne Adressleiste, und der Fahrplan funktioniert auch ohne Netz.",
+      "Dann öffnet sich das Fährorakel als eigene App ohne Adressleiste, und der Fahrplan funktioniert auch ohne Netz.",
     "install.ios.title": "iPhone und iPad (Safari)",
     "install.ios.1": "Tippen Sie unten auf Teilen (Quadrat mit Pfeil nach oben).",
     "install.ios.2": "Scrollen Sie und wählen Sie „Zum Home-Bildschirm“.",
@@ -459,7 +459,7 @@ const STRINGS = {
     "install.android.2": "Wählen Sie „App installieren“ oder „Zum Startbildschirm hinzufügen“.",
     "install.desktop.title": "Computer (Chrome oder Edge)",
     "install.desktop.1":
-      "Suchen Sie das Installationssymbol in der Adressleiste, oder öffnen Sie das Menü und wählen Sie „Fergeorakelet installieren“.",
+      "Suchen Sie das Installationssymbol in der Adressleiste, oder öffnen Sie das Menü und wählen Sie „Das Fährorakel installieren“.",
     "install.notify":
       "Die App sendet noch keine eigenen Benachrichtigungen. Für Verkehrsmeldungen können Sie SMS von Fjord1 erhalten.",
     "messages.title": "Verkehrsmeldungen",
@@ -611,7 +611,7 @@ const STRINGS = {
     "feedback.privacy":
       "Ja/nein wird anonym gezählt, ohne Namen oder E-Mail. Eine schriftliche Nachricht öffnet Ihr E-Mail-Programm und wird nicht in der Statistik gespeichert.",
     "feedback.github": "Oder einen Fehler auf GitHub melden",
-    "feedback.mailSubject": "Feedback zu Fergeorakelet",
+    "feedback.mailSubject": "Feedback zum Fährorakel",
     "feedback.mailBody": "Bewertung: {rating}\n\n{comment}",
     "feedback.mailNoComment": "(keine Nachricht)",
   },
