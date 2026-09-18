@@ -52,7 +52,6 @@ import {
   applyMessageFilter,
   usefulMessageFilters,
   matchesChosenRouteNotice,
-  isDisruptionNotice,
   messagesFingerprint,
   messagesUrl,
   isRouteControl,
@@ -995,8 +994,10 @@ test("sida har val for å byte fergestrekning", () => {
   assert.match(html, /class="filters route-switch"/);
   assert.match(html, /id="route-badge"/);
   assert.match(html, /class="extras-row"/);
-  assert.match(html, /id="messages-summary"/);
-  assert.match(html, /id="messages-details"/);
+  assert.match(html, /data-filter="local"/);
+  assert.match(html, /data-filter="route"/);
+  assert.doesNotMatch(html, /data-filter="issues"/);
+  assert.doesNotMatch(html, /Berre avvik/);
   assert.match(html, /class="site-header is-pending-route"/);
   assert.match(html, /fergeruter-last-mode/);
   assert.match(html, /class="visually-hidden"/);
@@ -1440,14 +1441,12 @@ const KOMBI_1135 = {
   validTo: "2026-09-18T21:55:00+00:00",
 };
 
-test("sambandsfilter skil 1135 og 1136, og infomelding tel ikkje som avvik", () => {
+test("sambandsfilter skil 1135 og 1136", () => {
   setTestState({ routeChoice: "1136", messageFilter: "local" });
   assert.equal(matchesChosenRouteNotice(KOMBI_1136, "1136"), true);
   assert.equal(matchesChosenRouteNotice(KOMBI_1135, "1136"), false);
   assert.equal(matchesChosenRouteNotice(KOMBI_1135, "1135"), true);
   assert.equal(matchesChosenRouteNotice(KOMBI_1136, "1135"), false);
-  assert.equal(isDisruptionNotice(KOMBI_1136), false);
-  assert.equal(isDisruptionNotice({ severity: "cancelled" }), true);
 
   const all = [KOMBI_1136, KOMBI_1135];
   setTestState({ routeChoice: "1136", messageFilter: "route" });
@@ -1460,14 +1459,8 @@ test("sambandsfilter skil 1135 og 1136, og infomelding tel ikkje som avvik", () 
     applyMessageFilter(all).map((msg) => msg.id),
     ["msg-1135"]
   );
-  setTestState({ routeChoice: "1136", messageFilter: "issues" });
-  assert.deepEqual(applyMessageFilter(all).map((msg) => msg.id), []);
-  assert.deepEqual(usefulMessageFilters(all, "1136"), ["local", "route", "issues"]);
-  assert.deepEqual(usefulMessageFilters([KOMBI_1136], "1136"), ["local", "issues"]);
-  assert.deepEqual(
-    usefulMessageFilters([{ ...KOMBI_1136, severity: "cancelled" }], "1136"),
-    []
-  );
+  assert.deepEqual(usefulMessageFilters(all, "1136"), ["local", "route"]);
+  assert.deepEqual(usefulMessageFilters([KOMBI_1136], "1136"), []);
 });
 
 test("lagra meldingar gjev kombirute med ein gong, utan å vente på nett", () => {
