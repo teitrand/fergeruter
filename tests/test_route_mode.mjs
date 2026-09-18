@@ -160,6 +160,57 @@ test("nynorsk måndag i datoperioden startar ikkje kombiruta for tidleg", () => 
   );
 });
 
+test("Fjord1 «også på laurdag» held kombiruta etter CMS-gyldigheita", () => {
+  const extraText =
+    "Rute 1136 Standal-Trandal-Valderøya-Store Kalvøy: Grunna utvida verkstedopphald blir det kombinert rute også på laurdag 19.09. MF Geiranger (tlf. 91669321) i rute. For rutetider sjå frammr.no.";
+  assert.deepEqual(windowFromText(extraText, "2026-09-18T07:59:22+02:00"), {
+    from: null,
+    to: "2026-09-19",
+  });
+  const extra = normalizeFjord1Node({
+    heading: "Standal-Trandal-Valderøya-Store Kalvøy",
+    content: extraText,
+    date: "18.09.2026 07:59:22",
+    countyNumber: 15,
+    connectionNumber: 132,
+    validFrom: { timestamp: 1789711162 },
+    validTo: { timestamp: 1789797550 },
+  });
+  assert.equal(extra.routeMode, "kombi");
+  assert.equal(extra.vessel, "Geiranger");
+  assert.deepEqual(extra.routeWindow, { from: null, to: "2026-09-19" });
+
+  const planned = normalizeFjord1Node({
+    heading: "Standal-Trandal-Valderøya-Store Kalvøy",
+    content:
+      "Rute 1136 Standal-Trandal-Valderøya-Store Kalvøy: På grunn av planlagt verkstedopphald blir det utført kombinert rute i sambandet frå måndag 14.09 til og med fredag 18.09. Det blir MF Geiranger i rute (91669321). Rutetabell finn du på frammr.no",
+    date: "11.09.2026 09:57:53",
+    countyNumber: 15,
+    connectionNumber: 132,
+    validFrom: { timestamp: 1789113420 },
+    validTo: { timestamp: 1789768500 },
+  });
+  const messages = [extra, planned];
+  const saturdayAfternoon = Date.parse("2026-09-19T12:00:00+02:00");
+  assert.equal(routeModeFromMessages(messages, saturdayAfternoon, "2026-09-18"), "kombi");
+  assert.equal(routeModeFromMessages(messages, saturdayAfternoon, "2026-09-19"), "kombi");
+  assert.equal(routeModeFromMessages(messages, saturdayAfternoon, "2026-09-20"), "1136");
+
+  setTestState({
+    routes: ruter,
+    kombirute: kombi,
+    date: "2026-09-19",
+    routeChoice: "1136",
+    messages: { messages },
+  });
+  assert.equal(operationalMode("2026-09-19"), "kombi");
+  const saturday = legsForDate("2026-09-19");
+  assert.ok(saturday.every((leg) => leg.table === "kombi"));
+  assert.equal(saturday[0].from, "Sæbø");
+  assert.equal(saturday[0].departure, "06:30:00");
+  assert.equal(vesselNameForTable("kombi"), "Geiranger");
+});
+
 test("normal drift frå rutestart byter ikkje tabell dagen før", () => {
   const messages = [
     {
