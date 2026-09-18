@@ -72,6 +72,10 @@ WINDOW_UNTIL_RE = re.compile(
     rf"til\s+og\s+med\s+(?:{WEEKDAY_RE})?{NUMDATE_RE}",
     re.I,
 )
+WINDOW_ALSO_RE = re.compile(
+    rf"(?:også|òg)\s+(?:på\s+)?(?:{WEEKDAY_RE})?{NUMDATE_RE}",
+    re.I,
+)
 QUERY = """
 {
   content {
@@ -207,7 +211,7 @@ def _parse_numdate(day: str, month: str, year: str | None, ref: date):
 
 
 def window_from_text(text: str, published: str | None = None) -> dict | None:
-    """Les «frå 14.06 til 18.06» og «frå rutestart fredag 05.06»."""
+    """Les «frå 14.06 til 18.06», «frå rutestart fredag 05.06» og «også på laurdag 19.09»."""
     blob = text or ""
     ref = _ref_date(published)
     match = WINDOW_RANGE_RE.search(blob)
@@ -236,6 +240,13 @@ def window_from_text(text: str, published: str | None = None) -> dict | None:
             "from": start.isoformat() if start else None,
             "to": end.isoformat() if end else None,
         }
+    also_match = WINDOW_ALSO_RE.search(blob)
+    if also_match:
+        extra = _parse_numdate(
+            also_match.group(1), also_match.group(2), also_match.group(3), ref
+        )
+        if extra:
+            return {"from": None, "to": extra.isoformat()}
     return None
 
 
