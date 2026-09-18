@@ -7,7 +7,7 @@ import {
   setLang,
   t,
   weekdays,
-} from "./i18n.js?v=52";
+} from "./i18n.js?v=53";
 
 const MESSAGES_URL = "data/trafikkmeldinger.json";
 const ROUTES_URL = "data/ruter.json";
@@ -78,7 +78,6 @@ const PWA_FIRST_KEY = "fergeruter-pwa-first-open";
 const TIMETABLE_CACHE_KEY = "fergeruter-timetable-v1";
 const MESSAGES_CACHE_KEY = "fergeruter-messages-v1";
 const LAST_MODE_KEY = "fergeruter-last-mode";
-const ISSUE_SEVERITIES = new Set(["cancelled", "delay", "capacity"]);
 const MESSAGES_POLL_MS = 3 * 60 * 1000;
 /** GitHub-kopien er «gammal» når Actions ikkje har køyrd; då sjekkar sida Fjord1. */
 const MESSAGES_STALE_MS = 8 * 60 * 1000;
@@ -3261,10 +3260,6 @@ function matchesChosenRouteNotice(msg, route = chosenRoute()) {
   return flags.named1136;
 }
 
-function isDisruptionNotice(msg) {
-  return ISSUE_SEVERITIES.has(msg?.severity);
-}
-
 function messagesForFilter(messages, filter = state.messageFilter, route = chosenRoute()) {
   const local = messages.filter((msg) => msg.isLocal);
   if (filter === "route") {
@@ -3272,9 +3267,6 @@ function messagesForFilter(messages, filter = state.messageFilter, route = chose
       messages.filter((msg) => matchesChosenRouteNotice(msg, route)),
       route
     );
-  }
-  if (filter === "issues") {
-    return sortMessagesForRoute(local.filter(isDisruptionNotice), route);
   }
   return sortMessagesForRoute(local, route);
 }
@@ -3290,12 +3282,8 @@ function filterMessageKey(messages) {
 function usefulMessageFilters(messages, route = chosenRoute()) {
   const local = filterMessageKey(messagesForFilter(messages, "local", route));
   const routeIds = filterMessageKey(messagesForFilter(messages, "route", route));
-  const issues = filterMessageKey(messagesForFilter(messages, "issues", route));
-  const chips = [];
-  if (routeIds !== local) chips.push("route");
-  if (issues !== local) chips.push("issues");
-  if (!chips.length) return [];
-  return ["local", ...chips];
+  if (routeIds === local) return [];
+  return ["local", "route"];
 }
 
 function syncMessageFilters(all) {
@@ -3374,7 +3362,7 @@ function renderMessages() {
       el(
         "p",
         "empty",
-        state.messageFilter === "issues" ? t("empty.noIssues") : t("empty.noMessages")
+        t("empty.noMessages")
       )
     );
     return;
@@ -3420,7 +3408,7 @@ function renderMessageSummary(filtered) {
         el(
           "span",
           "messages-bar-excerpt",
-          state.messageFilter === "issues" ? t("empty.noIssues") : t("empty.noMessages")
+          t("empty.noMessages")
         )
       );
     }
@@ -4111,7 +4099,6 @@ export {
   matchesChosenRouteNotice,
   applyMessageFilter,
   usefulMessageFilters,
-  isDisruptionNotice,
   messageTimeLines,
   pastDepartureCount,
   passengerJourneysFrom,
