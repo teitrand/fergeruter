@@ -215,6 +215,32 @@ class RouteModeTests(unittest.TestCase):
             {"from": "2026-09-14", "to": "2026-09-18"},
         )
 
+    def test_also_on_saturday_extends_window(self):
+        text = (
+            "Rute 1136 Standal-Trandal-Valderøya-Store Kalvøy: Grunna utvida "
+            "verkstedopphald blir det kombinert rute også på laurdag 19.09. "
+            "MF Geiranger (tlf. 91669321) i rute. For rutetider sjå frammr.no."
+        )
+        self.assertEqual(
+            mod.window_from_text(text, "2026-09-18T07:59:22+02:00"),
+            {"from": None, "to": "2026-09-19"},
+        )
+        node = {
+            "id": "sat",
+            "heading": "Standal-Trandal-Valderøya-Store Kalvøy",
+            "countyNumber": 15,
+            "connectionNumber": 132,
+            "date": "18.09.2026 07:59:22",
+            "content": text,
+            "importantMessage": False,
+            "validFrom": {"timestamp": 1789711162},
+            "validTo": {"timestamp": 1789797550},
+        }
+        msg = mod.normalize_node(node)
+        self.assertEqual(msg["routeMode"], "kombi")
+        self.assertEqual(msg["vessel"], "Geiranger")
+        self.assertEqual(msg["routeWindow"], {"from": None, "to": "2026-09-19"})
+
     def test_rutestart_date_is_read(self):
         text = "Det vert normal drift i sambandet frå rutestart fredag 05.06."
         self.assertEqual(
