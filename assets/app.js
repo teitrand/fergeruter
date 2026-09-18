@@ -7,7 +7,7 @@ import {
   setLang,
   t,
   weekdays,
-} from "./i18n.js?v=51";
+} from "./i18n.js?v=52";
 
 const MESSAGES_URL = "data/trafikkmeldinger.json";
 const ROUTES_URL = "data/ruter.json";
@@ -564,6 +564,13 @@ function windowFromText(text, published) {
     ? parseNumDate(untilMatch[1], untilMatch[2], untilMatch[3], ref)
     : null;
   if (start || end) return { from: start, to: end };
+  const alsoMatch = blob.match(
+    new RegExp(`(?:også|òg)\\s+(?:på\\s+)?(?:${WEEKDAY_TOKEN})?${NUMDATE_TOKEN}`, "i")
+  );
+  if (alsoMatch) {
+    const extra = parseNumDate(alsoMatch[1], alsoMatch[2], alsoMatch[3], ref);
+    if (extra) return { from: null, to: extra };
+  }
   return null;
 }
 
@@ -699,9 +706,21 @@ function publishedMs(msg) {
   return Number.isFinite(ms) ? ms : 0;
 }
 
+function textRouteWindow(msg) {
+  if (!msg) return null;
+  return (
+    msg.routeWindow ||
+    windowFromText(messageBlob(msg), msg.publishedAt || msg.validFrom)
+  );
+}
+
+function textWindowCoversToday(msg, now = Date.now()) {
+  const win = textRouteWindow(msg);
+  return Boolean(win?.to && osloIsoFromMs(now) <= win.to);
+}
+
 function messageWindow(msg) {
-  const textWin =
-    msg.routeWindow || windowFromText(messageBlob(msg), msg.publishedAt || msg.validFrom);
+  const textWin = textRouteWindow(msg);
   const fromDate =
     textWin?.from || osloIsoFromInstant(msg.validFrom) || osloIsoFromInstant(msg.publishedAt);
   const toDate = textWin?.to || osloIsoFromInstant(msg.validTo);
@@ -713,7 +732,12 @@ function messageAppliesToDate(msg, date, now = Date.now()) {
   const today = osloIsoFromMs(now);
   if (msg.validTo) {
     const until = new Date(msg.validTo).getTime();
-    if (Number.isFinite(until) && now > until + 60 * 60 * 1000 && date >= today) {
+    if (
+      Number.isFinite(until) &&
+      now > until + 60 * 60 * 1000 &&
+      date >= today &&
+      !textWindowCoversToday(msg, now)
+    ) {
       return false;
     }
   }
@@ -3212,7 +3236,9 @@ function renderTimeline() {
 function validMessages(messages, now = Date.now()) {
   return (messages || []).filter((msg) => {
     if (!msg.validTo) return true;
-    return new Date(msg.validTo).getTime() >= now - 60 * 60 * 1000;
+    const until = new Date(msg.validTo).getTime();
+    if (Number.isFinite(until) && until >= now - 60 * 60 * 1000) return true;
+    return textWindowCoversToday(msg, now);
   });
 }
 
