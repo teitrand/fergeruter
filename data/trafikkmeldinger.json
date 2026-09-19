@@ -1,7 +1,27 @@
 {
   "source": "https://www.fjord1.no/trafikkmeldingar",
-  "fetchedAt": "2026-09-19T17:19:54.797862+00:00",
+  "fetchedAt": "2026-09-19T19:21:56.730643+00:00",
   "messages": [
+    {
+      "id": "RG9tYWluQ29udGVudDoyMTgwOTA4OQ==",
+      "heading": "Leknes-Sæbø",
+      "text": "Rute 1135 Lekneset - Sæbø: Det vert normal drift i sambandet frå rutestart søndag 20 september",
+      "publishedAt": "2026-09-19T19:45:37+02:00",
+      "validFrom": "2026-09-19T17:45:37+00:00",
+      "validTo": "2026-09-20T17:44:14+00:00",
+      "countyNumber": 15,
+      "connectionNumber": 134,
+      "important": false,
+      "severity": "normal",
+      "isRoute1136": true,
+      "isLocal": true,
+      "isRouteControl": true,
+      "routeMode": "1136",
+      "routeWindow": null,
+      "activateAt": null,
+      "vessel": null,
+      "routeSwitch": null
+    },
     {
       "id": "RG9tYWluQ29udGVudDoyMTgwODYxNg==",
       "heading": "Langevåg - Buavåg",
