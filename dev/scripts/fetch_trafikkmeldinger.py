@@ -8,7 +8,7 @@ import re
 import sys
 import urllib.error
 import urllib.request
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -387,6 +387,110 @@ def fetch_messages(timeout: int = 30) -> list[dict]:
     return [normalize_node(edge["node"]) for edge in edges if edge.get("node")]
 
 
+def compact_message_text(value: str | None) -> str:
+    return re.sub(r"\s+", " ", value or "").strip()
+
+
+def message_merge_key(msg: dict) -> str:
+    return f"{compact_message_text(msg.get('heading'))}|{compact_message_text(msg.get('text'))}"
+
+
+def parse_iso(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed
+
+
+def message_is_held(msg: dict, now: datetime | None = None) -> bool:
+    """Hald meldinga ut CMS-dagen (Oslo), éin time etter validTo, eller ut tekstvindauget."""
+    now = now or datetime.now(timezone.utc)
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=timezone.utc)
+    valid_to = parse_iso(msg.get("validTo"))
+    if valid_to is None:
+        return True
+    if valid_to >= now - timedelta(hours=1):
+        return True
+    if now.astimezone(OSLO).date() <= valid_to.astimezone(OSLO).date():
+        return True
+    win = msg.get("routeWindow")
+    if not isinstance(win, dict):
+        win = window_from_text(
+            f"{msg.get('heading') or ''} {msg.get('text') or ''}",
+            msg.get("publishedAt"),
+        )
+    to_s = (win or {}).get("to")
+    if to_s:
+        try:
+            return now.astimezone(OSLO).date() <= date.fromisoformat(to_s)
+        except ValueError:
+            return False
+    return False
+
+
+def message_should_be_retained(msg: dict, now: datetime | None = None) -> bool:
+    """Behald berre når vi veit at meldinga framleis gjeld etter at Fjord1 droppa ho."""
+    now = now or datetime.now(timezone.utc)
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=timezone.utc)
+    win = msg.get("routeWindow")
+    if not isinstance(win, dict):
+        win = window_from_text(
+            f"{msg.get('heading') or ''} {msg.get('text') or ''}",
+            msg.get("publishedAt"),
+        )
+    to_s = (win or {}).get("to")
+    if to_s:
+        try:
+            if now.astimezone(OSLO).date() <= date.fromisoformat(to_s):
+                return True
+        except ValueError:
+            pass
+    if not msg.get("validTo"):
+        return False
+    return message_is_held(msg, now)
+
+
+def retain_held_messages(
+    fresh: list[dict],
+    previous: list[dict] | None,
+    now: datetime | None = None,
+) -> list[dict]:
+    """Fjord1 droppar utgåtte CMS-meldingar; hald dei som framleis gjeld."""
+    now = now or datetime.now(timezone.utc)
+    by_key: dict[str, dict] = {}
+    for msg in previous or []:
+        if message_should_be_retained(msg, now):
+            by_key[message_merge_key(msg)] = msg
+    for msg in fresh or []:
+        by_key[message_merge_key(msg)] = msg
+
+    def published_at(msg: dict) -> datetime:
+        return (
+            parse_iso(msg.get("publishedAt") or msg.get("validFrom"))
+            or datetime.min.replace(tzinfo=timezone.utc)
+        )
+
+    return sorted(by_key.values(), key=published_at, reverse=True)
+
+
+def read_previous_messages(output: Path) -> list[dict]:
+    if not output.exists():
+        return []
+    try:
+        data = json.loads(output.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return []
+    messages = data.get("messages")
+    return messages if isinstance(messages, list) else []
+
+
 def build_payload(messages: list[dict], fetched_at: str | None = None) -> dict:
     return {
         "source": SOURCE_URL,
@@ -422,6 +526,7 @@ def main() -> int:
     except (urllib.error.URLError, TimeoutError, RuntimeError, json.JSONDecodeError) as exc:
         print(f"Kunne ikkje hente trafikkmeldingar: {exc}", file=sys.stderr)
         return 1
+    messages = retain_held_messages(messages, read_previous_messages(output))
     payload = build_payload(messages)
     changed = write_if_changed(payload, output)
     if changed:

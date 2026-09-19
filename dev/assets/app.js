@@ -7,7 +7,7 @@ import {
   setLang,
   t,
   weekdays,
-} from "./i18n.js?v=53";
+} from "./i18n.js?v=54";
 
 const MESSAGES_URL = "data/trafikkmeldinger.json";
 const ROUTES_URL = "data/ruter.json";
@@ -718,6 +718,36 @@ function textWindowCoversToday(msg, now = Date.now()) {
   return Boolean(win?.to && osloIsoFromMs(now) <= win.to);
 }
 
+/** Hald meldinga ut CMS-dagen i Oslo, éin time etter validTo, eller ut tekstvindauget. */
+function messageIsHeld(msg, now = Date.now()) {
+  if (!msg?.validTo) return true;
+  const until = Date.parse(msg.validTo);
+  if (Number.isFinite(until) && until >= now - 60 * 60 * 1000) return true;
+  const validDay = osloIsoFromInstant(msg.validTo);
+  if (validDay && osloIsoFromMs(now) <= validDay) return true;
+  return textWindowCoversToday(msg, now);
+}
+
+/** Behald berre når vi veit at meldinga framleis gjeld etter at Fjord1 droppa ho. */
+function messageShouldBeRetained(msg, now = Date.now()) {
+  if (!msg) return false;
+  if (textWindowCoversToday(msg, now)) return true;
+  if (!msg.validTo) return false;
+  const until = Date.parse(msg.validTo);
+  if (Number.isFinite(until) && until >= now - 60 * 60 * 1000) return true;
+  const validDay = osloIsoFromInstant(msg.validTo);
+  return Boolean(validDay && osloIsoFromMs(now) <= validDay);
+}
+
+function retainHeldMessages(fresh, previous, now = Date.now()) {
+  const byKey = new Map();
+  for (const msg of previous || []) {
+    if (messageShouldBeRetained(msg, now)) byKey.set(messageMergeKey(msg), msg);
+  }
+  for (const msg of fresh || []) byKey.set(messageMergeKey(msg), msg);
+  return [...byKey.values()].sort((a, b) => publishedMs(b) - publishedMs(a));
+}
+
 function messageWindow(msg) {
   const textWin = textRouteWindow(msg);
   const fromDate =
@@ -729,17 +759,7 @@ function messageWindow(msg) {
 function messageAppliesToDate(msg, date, now = Date.now()) {
   if (!isRouteControl(msg)) return false;
   const today = osloIsoFromMs(now);
-  if (msg.validTo) {
-    const until = new Date(msg.validTo).getTime();
-    if (
-      Number.isFinite(until) &&
-      now > until + 60 * 60 * 1000 &&
-      date >= today &&
-      !textWindowCoversToday(msg, now)
-    ) {
-      return false;
-    }
-  }
+  if (date >= today && !messageIsHeld(msg, now)) return false;
   const win = messageWindow(msg);
   if (win.from && date < win.from) return false;
   if (win.to && date > win.to) return false;
@@ -1032,9 +1052,18 @@ function messagesAreStale(payload, now = Date.now()) {
   return now - ms > MESSAGES_STALE_MS;
 }
 
-function mergeMessagePayloads(base, live) {
+function mergeMessagePayloads(base, live, now = Date.now()) {
   if (!live?.messages?.length) return base || null;
-  if (!base?.messages?.length || live.complete) return live;
+  if (!base?.messages?.length) return live;
+  if (live.complete) {
+    return {
+      source: live.source || base.source,
+      fetchedAt: live.fetchedAt || base.fetchedAt,
+      fetchedLive: Boolean(live.fetchedLive),
+      complete: true,
+      messages: retainHeldMessages(live.messages, base.messages, now),
+    };
+  }
   const byKey = new Map();
   for (const msg of base.messages) byKey.set(messageMergeKey(msg), msg);
   let added = false;
@@ -3233,12 +3262,7 @@ function renderTimeline() {
 }
 
 function validMessages(messages, now = Date.now()) {
-  return (messages || []).filter((msg) => {
-    if (!msg.validTo) return true;
-    const until = new Date(msg.validTo).getTime();
-    if (Number.isFinite(until) && until >= now - 60 * 60 * 1000) return true;
-    return textWindowCoversToday(msg, now);
-  });
+  return (messages || []).filter((msg) => messageIsHeld(msg, now));
 }
 
 function routeNameFlags(msg) {
@@ -3558,6 +3582,13 @@ async function loadMessagesOnce() {
 
 function applyIncomingMessages(payload) {
   if (!payload) return false;
+  const previous = state.messages?.messages || readCachedMessages()?.messages;
+  if (previous?.length) {
+    payload = {
+      ...payload,
+      messages: retainHeldMessages(payload.messages, previous),
+    };
+  }
   const same =
     state.messages && messagesFingerprint(state.messages) === messagesFingerprint(payload);
   state.messages = payload;
@@ -4079,6 +4110,8 @@ export {
   isPreview,
   isRouteControl,
   mergeMessagePayloads,
+  messageIsHeld,
+  retainHeldMessages,
   messagesAreStale,
   messagesUrl,
   normalizeFjord1Node,
