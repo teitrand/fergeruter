@@ -52,7 +52,6 @@ import {
   applyMessageFilter,
   usefulMessageFilters,
   matchesChosenRouteNotice,
-  isDisruptionNotice,
   messagesFingerprint,
   messagesUrl,
   isRouteControl,
@@ -62,6 +61,8 @@ import {
   classifyMessage,
   mergeMessagePayloads,
   messagesAreStale,
+  messageIsHeld,
+  retainHeldMessages,
   MESSAGES_STALE_MS,
   normalizeFjord1Node,
   parseFjord1Published,
@@ -157,6 +158,72 @@ test("nynorsk måndag i datoperioden startar ikkje kombiruta for tidleg", () => 
   assert.equal(
     routeModeFromMessages([msg], Date.parse("2026-09-14T08:00:00Z"), "2026-09-14"),
     "kombi"
+  );
+});
+
+test("Fjord1 24-timars validTo blir halden ut Oslo-dagen", () => {
+  const extra = normalizeFjord1Node({
+    heading: "Standal-Trandal-Valderøya-Store Kalvøy",
+    content:
+      "Rute 1136 Standal-Trandal-Valderøya-Store Kalvøy: Grunna utvida verkstedopphald blir det kombinert rute også på laurdag 19.09. MF Geiranger (tlf. 91669321) i rute. For rutetider sjå frammr.no.",
+    date: "18.09.2026 07:59:22",
+    countyNumber: 15,
+    connectionNumber: 132,
+    validFrom: { timestamp: 1789711162 },
+    validTo: { timestamp: 1789797550 },
+  });
+  const saturdayAfternoon = Date.parse("2026-09-19T13:00:00+02:00");
+  const sundayMorning = Date.parse("2026-09-20T08:00:00+02:00");
+  assert.equal(messageIsHeld(extra, saturdayAfternoon), true);
+  assert.equal(messageIsHeld(extra, sundayMorning), false);
+  assert.equal(routeModeFromMessages([extra], saturdayAfternoon, "2026-09-19"), "kombi");
+  assert.equal(routeModeFromMessages([extra], sundayMorning, "2026-09-20"), "1136");
+});
+
+test("live GraphQL-feeden droppar ikkje haldne lokale meldingar", () => {
+  const extra = normalizeFjord1Node({
+    heading: "Standal-Trandal-Valderøya-Store Kalvøy",
+    content:
+      "Rute 1136 Standal-Trandal-Valderøya-Store Kalvøy: Grunna utvida verkstedopphald blir det kombinert rute også på laurdag 19.09. MF Geiranger (tlf. 91669321) i rute. For rutetider sjå frammr.no.",
+    date: "18.09.2026 07:59:22",
+    countyNumber: 15,
+    connectionNumber: 132,
+    validFrom: { timestamp: 1789711162 },
+    validTo: { timestamp: 1789797550 },
+  });
+  const other = {
+    id: "oldeide",
+    heading: "Oldeide-Måløy",
+    text: "Rute 1039: kansellerte avganger.",
+    publishedAt: "2026-09-18T14:49:36+02:00",
+    validTo: "2026-09-19T12:48:57+00:00",
+    isLocal: false,
+  };
+  const saturdayAfternoon = Date.parse("2026-09-19T13:00:00+02:00");
+  const live = {
+    source: "https://www.fjord1.no/trafikkmeldingar",
+    fetchedAt: "2026-09-19T11:00:00.000Z",
+    fetchedLive: true,
+    complete: true,
+    messages: [other],
+  };
+  const base = {
+    source: "https://www.fjord1.no/trafikkmeldingar",
+    fetchedAt: "2026-09-18T23:36:50.000Z",
+    messages: [extra, other],
+  };
+  const merged = mergeMessagePayloads(base, live, saturdayAfternoon);
+  assert.equal(merged.complete, true);
+  assert.ok(merged.messages.some((msg) => msg.routeMode === "kombi"));
+  assert.ok(merged.messages.some((msg) => msg.heading === "Oldeide-Måløy"));
+  assert.equal(routeModeFromMessages(merged.messages, saturdayAfternoon, "2026-09-19"), "kombi");
+
+  const dropped = retainHeldMessages([other], [extra], saturdayAfternoon);
+  assert.ok(dropped.some((msg) => msg.routeMode === "kombi"));
+  const sunday = retainHeldMessages([other], [extra], Date.parse("2026-09-20T08:00:00+02:00"));
+  assert.equal(
+    sunday.some((msg) => /kombinert rute/.test(msg.text || "")),
+    false
   );
 });
 
@@ -995,8 +1062,10 @@ test("sida har val for å byte fergestrekning", () => {
   assert.match(html, /class="filters route-switch"/);
   assert.match(html, /id="route-badge"/);
   assert.match(html, /class="extras-row"/);
-  assert.match(html, /id="messages-summary"/);
-  assert.match(html, /id="messages-details"/);
+  assert.match(html, /data-filter="local"/);
+  assert.match(html, /data-filter="route"/);
+  assert.doesNotMatch(html, /data-filter="issues"/);
+  assert.doesNotMatch(html, /Berre avvik/);
   assert.match(html, /class="site-header is-pending-route"/);
   assert.match(html, /fergeruter-last-mode/);
   assert.match(html, /class="visually-hidden"/);
@@ -1245,7 +1314,7 @@ test("heildags kombirute får raud merking fyrste morgon, ikkje midt i perioden"
     routeMode: "kombi",
     routeWindow: { from: "2026-09-14", to: "2026-09-18" },
     publishedAt: "2026-09-11T10:45:19+02:00",
-    validTo: "2026-09-18T21:55:00+00:00",
+    validTo: "2099-01-01T00:00:00Z",
   };
   setTestState({
     routes: ruter,
@@ -1425,7 +1494,7 @@ const KOMBI_1136 = {
   routeMode: "kombi",
   connectionNumber: 132,
   severity: "info",
-  validTo: "2026-09-18T21:55:00+00:00",
+  validTo: "2099-01-01T00:00:00Z",
 };
 const KOMBI_1135 = {
   id: "msg-1135",
@@ -1437,17 +1506,15 @@ const KOMBI_1135 = {
   routeMode: "kombi",
   connectionNumber: 134,
   severity: "info",
-  validTo: "2026-09-18T21:55:00+00:00",
+  validTo: "2099-01-01T00:00:00Z",
 };
 
-test("sambandsfilter skil 1135 og 1136, og infomelding tel ikkje som avvik", () => {
+test("sambandsfilter skil 1135 og 1136", () => {
   setTestState({ routeChoice: "1136", messageFilter: "local" });
   assert.equal(matchesChosenRouteNotice(KOMBI_1136, "1136"), true);
   assert.equal(matchesChosenRouteNotice(KOMBI_1135, "1136"), false);
   assert.equal(matchesChosenRouteNotice(KOMBI_1135, "1135"), true);
   assert.equal(matchesChosenRouteNotice(KOMBI_1136, "1135"), false);
-  assert.equal(isDisruptionNotice(KOMBI_1136), false);
-  assert.equal(isDisruptionNotice({ severity: "cancelled" }), true);
 
   const all = [KOMBI_1136, KOMBI_1135];
   setTestState({ routeChoice: "1136", messageFilter: "route" });
@@ -1460,14 +1527,8 @@ test("sambandsfilter skil 1135 og 1136, og infomelding tel ikkje som avvik", () 
     applyMessageFilter(all).map((msg) => msg.id),
     ["msg-1135"]
   );
-  setTestState({ routeChoice: "1136", messageFilter: "issues" });
-  assert.deepEqual(applyMessageFilter(all).map((msg) => msg.id), []);
-  assert.deepEqual(usefulMessageFilters(all, "1136"), ["local", "route", "issues"]);
-  assert.deepEqual(usefulMessageFilters([KOMBI_1136], "1136"), ["local", "issues"]);
-  assert.deepEqual(
-    usefulMessageFilters([{ ...KOMBI_1136, severity: "cancelled" }], "1136"),
-    []
-  );
+  assert.deepEqual(usefulMessageFilters(all, "1136"), ["local", "route"]);
+  assert.deepEqual(usefulMessageFilters([KOMBI_1136], "1136"), []);
 });
 
 test("lagra meldingar gjev kombirute med ein gong, utan å vente på nett", () => {
