@@ -1,7 +1,27 @@
 {
   "source": "https://www.fjord1.no/trafikkmeldingar",
-  "fetchedAt": "2026-09-22T10:12:30.148161+00:00",
+  "fetchedAt": "2026-09-22T14:50:29.486936+00:00",
   "messages": [
+    {
+      "id": "RG9tYWluQ29udGVudDoyMTgzMjQ0Ng==",
+      "heading": "Leirvåg - Sløvåg",
+      "text": "Rute 1029 Leirvåg - Sløvåg: På grunn av trafikkulykke i område Lindås blir det omkjøring via Radøy i perioden kl. 14:20 - kl. 14:50. Fylkesvei 57 blir stengt i denne perioden. Mvh Fjord1 på vegner av Skyss.",
+      "publishedAt": "2026-09-22T14:05:53+02:00",
+      "validFrom": "2026-09-22T12:05:53+00:00",
+      "validTo": "2026-09-23T12:04:45+00:00",
+      "countyNumber": 12,
+      "connectionNumber": 1122,
+      "important": false,
+      "severity": "info",
+      "isRoute1136": false,
+      "isLocal": false,
+      "isRouteControl": false,
+      "routeMode": "1136",
+      "routeWindow": null,
+      "activateAt": null,
+      "vessel": null,
+      "routeSwitch": null
+    },
     {
       "id": "RG9tYWluQ29udGVudDoyMTgzMTc0OQ==",
       "heading": "Bognes – Skarberget",
