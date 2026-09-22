@@ -1,7 +1,27 @@
 {
   "source": "https://www.fjord1.no/trafikkmeldingar",
-  "fetchedAt": "2026-09-21T22:19:17.617153+00:00",
+  "fetchedAt": "2026-09-22T05:30:06.808512+00:00",
   "messages": [
+    {
+      "id": "RG9tYWluQ29udGVudDoyMTgyOTk1Ng==",
+      "heading": "Hufthamar - Krokeide",
+      "text": "Rute 1022 Hufthamar - Krokeide: Grunna transport av farleg last vert det redusert kapasitet (maks. 12 passasjerar) på avgang frå Krokeide kl. 10:25. Mvh Fjord1 på vegner av Skyss.",
+      "publishedAt": "2026-09-22T06:44:41+02:00",
+      "validFrom": "2026-09-22T04:44:41+00:00",
+      "validTo": "2026-09-23T04:43:30+00:00",
+      "countyNumber": 12,
+      "connectionNumber": 161,
+      "important": false,
+      "severity": "capacity",
+      "isRoute1136": false,
+      "isLocal": false,
+      "isRouteControl": false,
+      "routeMode": "1136",
+      "routeWindow": null,
+      "activateAt": null,
+      "vessel": null,
+      "routeSwitch": null
+    },
     {
       "id": "RG9tYWluQ29udGVudDoyMTgyMzU1Nw==",
       "heading": "Oldeide-Måløy",
