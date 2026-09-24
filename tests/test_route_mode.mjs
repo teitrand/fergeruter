@@ -270,19 +270,25 @@ test("Fjord1 «også på laurdag» held kombiruta etter CMS-gyldigheita", () => 
   assert.equal(routeModeFromMessages(messages, saturdayAfternoon, "2026-09-19"), "kombi");
   assert.equal(routeModeFromMessages(messages, saturdayAfternoon, "2026-09-20"), "1136");
 
-  setTestState({
-    routes: ruter,
-    kombirute: kombi,
-    date: "2026-09-19",
-    routeChoice: "1136",
-    messages: { messages },
-  });
-  assert.equal(operationalMode("2026-09-19"), "kombi");
-  const saturday = legsForDate("2026-09-19");
-  assert.ok(saturday.every((leg) => leg.table === "kombi"));
-  assert.equal(saturday[0].from, "Sæbø");
-  assert.equal(saturday[0].departure, "06:30:00");
-  assert.equal(vesselNameForTable("kombi"), "Geiranger");
+  const realNow = Date.now;
+  Date.now = () => saturdayAfternoon;
+  try {
+    setTestState({
+      routes: ruter,
+      kombirute: kombi,
+      date: "2026-09-19",
+      routeChoice: "1136",
+      messages: { messages },
+    });
+    assert.equal(operationalMode("2026-09-19"), "kombi");
+    const saturday = legsForDate("2026-09-19");
+    assert.ok(saturday.every((leg) => leg.table === "kombi"));
+    assert.equal(saturday[0].from, "Sæbø");
+    assert.equal(saturday[0].departure, "06:30:00");
+    assert.equal(vesselNameForTable("kombi"), "Geiranger");
+  } finally {
+    Date.now = realNow;
+  }
 });
 
 test("normal drift frå rutestart byter ikkje tabell dagen før", () => {
