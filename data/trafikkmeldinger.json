@@ -1,7 +1,27 @@
 {
   "source": "https://www.fjord1.no/trafikkmeldingar",
-  "fetchedAt": "2026-09-23T22:28:50.119045+00:00",
+  "fetchedAt": "2026-09-24T05:23:01.344922+00:00",
   "messages": [
+    {
+      "id": "RG9tYWluQ29udGVudDoyMTg0MzE3OQ==",
+      "heading": "Stavanger - Byøyene - Hommersåk",
+      "text": "Rute 800 Stavanger - Byøyene - Hommersåk: Anløp fra Lindøy blir fra sørsiden (reservekaia) inntil videre pga værforholdene Mvh Fjord1 på vegne av Kolumbus.",
+      "publishedAt": "2026-09-24T06:29:21+02:00",
+      "validFrom": "2026-09-24T04:29:21+00:00",
+      "validTo": "2026-09-25T04:27:32+00:00",
+      "countyNumber": 11,
+      "connectionNumber": 800,
+      "important": false,
+      "severity": "info",
+      "isRoute1136": false,
+      "isLocal": false,
+      "isRouteControl": false,
+      "routeMode": "1136",
+      "routeWindow": null,
+      "activateAt": null,
+      "vessel": null,
+      "routeSwitch": null
+    },
     {
       "id": "RG9tYWluQ29udGVudDoyMTgzOTQ0Nw==",
       "heading": "Stavanger - Byøyene - Hommersåk",
