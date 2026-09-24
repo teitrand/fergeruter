@@ -1,18 +1,21 @@
 const IS_DEV = self.location.pathname.includes("/dev/");
-const CACHE = IS_DEV ? "fergeruter-dev-v31" : "fergeruter-v31";
+const CACHE = IS_DEV ? "fergeruter-dev-v55" : "fergeruter-v55";
 const PRECACHE = [
   "./",
   "./index.html",
   "./manifest.webmanifest",
   "./assets/app.js",
-  "./assets/app.js?v=31",
+  "./assets/app.js?v=54",
   "./assets/i18n.js",
+  "./assets/i18n.js?v=54",
   "./assets/styles.css",
-  "./assets/styles.css?v=31",
+  "./assets/styles.css?v=54",
   "./assets/favicon.svg",
-  "./assets/icons/icon-192.png",
-  "./assets/icons/icon-512.png",
-  "./assets/icons/apple-touch-icon.png",
+  "./assets/icons/icon-192.png?v=2",
+  "./assets/icons/icon-512.png?v=2",
+  "./assets/icons/icon-maskable-192.png?v=2",
+  "./assets/icons/icon-maskable-512.png?v=2",
+  "./assets/icons/apple-touch-icon.png?v=2",
   "./data/ruter.json",
   "./data/kombirute.json",
   "./data/trafikkmeldinger.json",

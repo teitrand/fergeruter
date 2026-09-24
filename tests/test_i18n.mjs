@@ -10,7 +10,7 @@ import {
   stringKeys,
   stringsFor,
   t,
-} from "../assets/i18n.js";
+} from "../assets/i18n.js?v=54";
 
 function leg(from, to, departure, arrival, dates = ["2026-08-26"]) {
   return { from, to, departure, arrival, activeDates: dates };
@@ -24,11 +24,69 @@ const wednesday = [
 test("seglingstekst har destinasjon i alle språk", () => {
   setLang("nn");
   assert.equal(t("sailing.route", { from: "Standal", to: "Trandal" }), "Standal → Trandal");
-  assert.equal(t("sailing.arrival", { time: "07:00" }), "Ankomst 07:00");
+  assert.equal(t("sailing.cancelled"), "Innstilt");
   setLang("en");
   assert.equal(t("sailing.departure", { time: "06:45" }), "Departure 06:45");
   setLang("de");
   assert.equal(t("sailing.arrival", { time: "07:00" }), "Ankunft 07:00");
+  setLang("nn");
+  assert.equal(t("layover.title"), "Liggetid");
+  assert.equal(t("layover.atQuay", { quay: "Sæbø" }), "Liggetid Sæbø");
+  assert.equal(t("layover.until", { duration: "1 t 2 min", time: "10:30" }), "1 t 2 min, til 10:30");
+  setLang("en");
+  assert.equal(t("layover.atQuay", { quay: "Sæbø" }), "Layover at Sæbø");
+  setLang("de");
+  assert.equal(t("layover.title"), "Liegezeit");
+  setLang("nn");
+  assert.equal(t("messages.expand"), "Vis meir");
+  assert.equal(t("messages.collapse"), "Vis mindre");
+  assert.equal(t("messages.andNMore", { n: 2 }), "og 2 til");
+  assert.equal(t("messages.excerptMore"), "…");
+  assert.equal(t("messages.fetchedLive", { when: "i dag 18:01" }), "Sist henta i dag 18:01 frå Fjord1");
+  assert.equal(t("route.label"), "Vel samband");
+  assert.equal(t("place.from"), "Frå");
+  assert.equal(t("place.to"), "Til");
+  assert.equal(t("place.swap"), "Byt frå og til");
+  assert.equal(t("place.via", { via: "Sæbø, Trandal", time: "10:00" }), "Via Sæbø, Trandal, framme 10:00");
+  assert.equal(
+    t("place.waitAt", { quay: "Sæbø", duration: "1 t 5 min" }),
+    "Vent på Sæbø 1 t 5 min"
+  );
+  assert.equal(t("place.waitUntil", { time: "17:30" }), "til 17:30");
+  assert.equal(t("empty.noTo", { to: "Trandal" }), "Ingen turar til Trandal denne dagen.");
+  assert.equal(t("route.badgeKombi"), "Kombirute");
+  assert.equal(
+    t("status.layoverAt", { quay: "Sæbø", duration: "32 min", time: "13:45" }),
+    "Ferja ligg til kai på Sæbø. Liggetid 32 min, til 13:45."
+  );
+  assert.equal(t("day.todayFull", { date: "søndag 13. september" }), "I dag · søndag 13. september");
+  assert.equal(
+    t("conn.signalCallPhone", { route: "1136", phone: "91 66 93 40" }),
+    "Signaltur, ring 1136 (91 66 93 40)"
+  );
+  assert.equal(t("conn.transferNote", { dest: "Skår", margin: 5 }), "Bytte på Sæbø mot Skår. Rekna med 5 min til å gå over.");
+  assert.equal(t("signal.onRequest"), "På signal");
+  assert.equal(t("signal.callAria", { phone: "916 69 340" }), "Ring ferja 916 69 340");
+  setLang("en");
+  assert.equal(t("signal.callAria", { phone: "916 69 340" }), "Call the ferry 916 69 340");
+  setLang("de");
+  assert.equal(t("signal.callAria", { phone: "916 69 340" }), "Fähre anrufen 916 69 340");
+  setLang("nn");
+  assert.equal(t("install.ios.2"), "Rull og vel «Legg til på heimeskjerm».");
+  assert.equal(t("install.lead"), "Då får du Fergeorakelet som eiga app utan adressefelt, og rutetabellen verkar òg utan nett.");
+  assert.equal(t("meta.title"), "Fergeorakelet 1136 · Standal–Trandal");
+  setLang("en");
+  assert.equal(t("install.title"), "Add the app to your home screen");
+  assert.equal(t("meta.title"), "The Ferry Oracle 1136 · Standal–Trandal");
+  assert.equal(t("install.lead"), "You get The Ferry Oracle as its own app without an address bar, and the timetable also works offline.");
+  assert.equal(t("install.desktop.1"), "Look for the install icon in the address bar, or open the menu and choose “Install The Ferry Oracle”.");
+  assert.equal(t("feedback.mailSubject"), "Feedback on The Ferry Oracle");
+  setLang("de");
+  assert.equal(t("install.android.2"), "Wählen Sie „App installieren“ oder „Zum Startbildschirm hinzufügen“.");
+  assert.equal(t("meta.title"), "Das Fährorakel 1136 · Standal–Trandal");
+  assert.equal(t("install.lead"), "Dann öffnet sich das Fährorakel als eigene App ohne Adressleiste, und der Fahrplan funktioniert auch ohne Netz.");
+  assert.equal(t("install.desktop.1"), "Suchen Sie das Installationssymbol in der Adressleiste, oder öffnen Sie das Menü und wählen Sie „Das Fährorakel installieren“.");
+  assert.equal(t("feedback.mailSubject"), "Feedback zum Fährorakel");
   setLang("nn");
 });
 
@@ -157,6 +215,16 @@ test("melding utan publishedAt brukar validFrom", () => {
   assert.equal(lines.length, 2);
   assert.match(lines[0].text, /21:38/);
   assert.match(lines[1].text, /21:37/);
+});
+
+test("meldingsfilter vis rutenummer", () => {
+  setLang("nn");
+  assert.equal(t("messages.filterRoute", { n: "1135" }), "Rute 1135");
+  setLang("en");
+  assert.equal(t("messages.filterRoute", { n: "1136" }), "Route 1136");
+  setLang("de");
+  assert.equal(t("messages.filterRoute", { n: "1135" }), "Linie 1135");
+  setLang("nn");
 });
 
 class MapStorage {

@@ -8,7 +8,7 @@ import re
 import sys
 import urllib.error
 import urllib.request
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -25,6 +25,10 @@ LOCAL_PLACE_RE = re.compile(
 )
 NORMAL_RE = re.compile(r"normal drift", re.I)
 CANCEL_RE = re.compile(r"innstilt|innstilling", re.I)
+PARTIAL_CANCEL_RE = re.compile(
+    r"følgjande avgangar|avgangar innstilt|avgang(?:en|ar)?\s+(?:kl\.?|klokka)",
+    re.I,
+)
 DELAY_RE = re.compile(r"forsink", re.I)
 CAPACITY_RE = re.compile(r"kapasitet|kapasistet|farleg last|farlig last", re.I)
 KOMBI_RE = re.compile(r"kombinasjon|kombirute|kombinert rute", re.I)
@@ -52,7 +56,7 @@ ACTIVATE_CLOCK_RE = re.compile(
     re.I | re.S,
 )
 WEEKDAY_RE = (
-    r"(?:måndag|mandag|tysdag|tirsdag|onsdag|torsdag|fredag|laurdag|lørdag|sundag|søndag)\s+"
+    r"(?:mandag|måndag|tysdag|tirsdag|onsdag|torsdag|fredag|laurdag|lørdag|sundag|søndag)\s+"
 )
 NUMDATE_RE = r"(\d{1,2})\.(\d{1,2})(?:\.(\d{2,4}))?"
 WINDOW_RANGE_RE = re.compile(
@@ -66,6 +70,10 @@ WINDOW_FROM_RE = re.compile(
 )
 WINDOW_UNTIL_RE = re.compile(
     rf"til\s+og\s+med\s+(?:{WEEKDAY_RE})?{NUMDATE_RE}",
+    re.I,
+)
+WINDOW_ALSO_RE = re.compile(
+    rf"(?:også|òg)\s+(?:på\s+)?(?:{WEEKDAY_RE})?{NUMDATE_RE}",
     re.I,
 )
 QUERY = """
@@ -123,6 +131,14 @@ def is_route_1136(heading: str, text: str, connection_number: int | None) -> boo
     return bool(ROUTE_RE.search(blob))
 
 
+def is_partial_cancel(text: str) -> bool:
+    """Nemnte enkeltavgangar, ikkje heile sambandet innstilt."""
+    blob = text or ""
+    if not CANCEL_RE.search(blob) and not re.search(r"kanseller", blob, re.I):
+        return False
+    return bool(PARTIAL_CANCEL_RE.search(blob))
+
+
 def route_mode_from_text(text: str) -> str:
     """1136, 1135 eller kombi ut frå Fjord1-meldingstekst."""
     blob = text or ""
@@ -136,7 +152,7 @@ def route_mode_from_text(text: str) -> str:
     if has_kombi or (has_cancel and has_1135 and has_1136):
         return "kombi"
     if has_cancel and has_1136 and not has_1135:
-        return "1135"
+        return "1136" if is_partial_cancel(blob) else "1135"
     return "1136"
 
 
@@ -147,6 +163,8 @@ def is_1049_only(heading: str, text: str) -> bool:
 
 def is_route_control(heading: str, text: str, is_local: bool | None = None) -> bool:
     """Meldingar som kan byte 1136/1135/kombirute — ikkje berre 1049."""
+    if is_partial_cancel(text):
+        return False
     if is_1049_only(heading, text):
         return False
     if is_local:
@@ -193,7 +211,7 @@ def _parse_numdate(day: str, month: str, year: str | None, ref: date):
 
 
 def window_from_text(text: str, published: str | None = None) -> dict | None:
-    """Les «frå 14.06 til 18.06» og «frå rutestart fredag 05.06»."""
+    """Les «frå 14.06 til 18.06», «frå rutestart fredag 05.06» og «også på laurdag 19.09»."""
     blob = text or ""
     ref = _ref_date(published)
     match = WINDOW_RANGE_RE.search(blob)
@@ -222,6 +240,13 @@ def window_from_text(text: str, published: str | None = None) -> dict | None:
             "from": start.isoformat() if start else None,
             "to": end.isoformat() if end else None,
         }
+    also_match = WINDOW_ALSO_RE.search(blob)
+    if also_match:
+        extra = _parse_numdate(
+            also_match.group(1), also_match.group(2), also_match.group(3), ref
+        )
+        if extra:
+            return {"from": None, "to": extra.isoformat()}
     return None
 
 
@@ -344,7 +369,7 @@ def fetch_messages(timeout: int = 30) -> list[dict]:
         headers={
             "Content-Type": "application/json",
             "Accept": "application/json",
-            "User-Agent": "Fergeruter/1.0 (+https://github.com/teitrand/fergeruter)",
+            "User-Agent": "Fergeorakelet/1.0 (+https://github.com/teitrand/fergeruter)",
         },
         method="POST",
     )
@@ -360,6 +385,110 @@ def fetch_messages(timeout: int = 30) -> list[dict]:
         or []
     )
     return [normalize_node(edge["node"]) for edge in edges if edge.get("node")]
+
+
+def compact_message_text(value: str | None) -> str:
+    return re.sub(r"\s+", " ", value or "").strip()
+
+
+def message_merge_key(msg: dict) -> str:
+    return f"{compact_message_text(msg.get('heading'))}|{compact_message_text(msg.get('text'))}"
+
+
+def parse_iso(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed
+
+
+def message_is_held(msg: dict, now: datetime | None = None) -> bool:
+    """Hald meldinga ut CMS-dagen (Oslo), éin time etter validTo, eller ut tekstvindauget."""
+    now = now or datetime.now(timezone.utc)
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=timezone.utc)
+    valid_to = parse_iso(msg.get("validTo"))
+    if valid_to is None:
+        return True
+    if valid_to >= now - timedelta(hours=1):
+        return True
+    if now.astimezone(OSLO).date() <= valid_to.astimezone(OSLO).date():
+        return True
+    win = msg.get("routeWindow")
+    if not isinstance(win, dict):
+        win = window_from_text(
+            f"{msg.get('heading') or ''} {msg.get('text') or ''}",
+            msg.get("publishedAt"),
+        )
+    to_s = (win or {}).get("to")
+    if to_s:
+        try:
+            return now.astimezone(OSLO).date() <= date.fromisoformat(to_s)
+        except ValueError:
+            return False
+    return False
+
+
+def message_should_be_retained(msg: dict, now: datetime | None = None) -> bool:
+    """Behald berre når vi veit at meldinga framleis gjeld etter at Fjord1 droppa ho."""
+    now = now or datetime.now(timezone.utc)
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=timezone.utc)
+    win = msg.get("routeWindow")
+    if not isinstance(win, dict):
+        win = window_from_text(
+            f"{msg.get('heading') or ''} {msg.get('text') or ''}",
+            msg.get("publishedAt"),
+        )
+    to_s = (win or {}).get("to")
+    if to_s:
+        try:
+            if now.astimezone(OSLO).date() <= date.fromisoformat(to_s):
+                return True
+        except ValueError:
+            pass
+    if not msg.get("validTo"):
+        return False
+    return message_is_held(msg, now)
+
+
+def retain_held_messages(
+    fresh: list[dict],
+    previous: list[dict] | None,
+    now: datetime | None = None,
+) -> list[dict]:
+    """Fjord1 droppar utgåtte CMS-meldingar; hald dei som framleis gjeld."""
+    now = now or datetime.now(timezone.utc)
+    by_key: dict[str, dict] = {}
+    for msg in previous or []:
+        if message_should_be_retained(msg, now):
+            by_key[message_merge_key(msg)] = msg
+    for msg in fresh or []:
+        by_key[message_merge_key(msg)] = msg
+
+    def published_at(msg: dict) -> datetime:
+        return (
+            parse_iso(msg.get("publishedAt") or msg.get("validFrom"))
+            or datetime.min.replace(tzinfo=timezone.utc)
+        )
+
+    return sorted(by_key.values(), key=published_at, reverse=True)
+
+
+def read_previous_messages(output: Path) -> list[dict]:
+    if not output.exists():
+        return []
+    try:
+        data = json.loads(output.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return []
+    messages = data.get("messages")
+    return messages if isinstance(messages, list) else []
 
 
 def build_payload(messages: list[dict], fetched_at: str | None = None) -> dict:
@@ -397,6 +526,7 @@ def main() -> int:
     except (urllib.error.URLError, TimeoutError, RuntimeError, json.JSONDecodeError) as exc:
         print(f"Kunne ikkje hente trafikkmeldingar: {exc}", file=sys.stderr)
         return 1
+    messages = retain_held_messages(messages, read_previous_messages(output))
     payload = build_payload(messages)
     changed = write_if_changed(payload, output)
     if changed:

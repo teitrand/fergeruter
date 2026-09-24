@@ -1,6 +1,6 @@
 {
-  "name": "Fergeruter 1136",
-  "short_name": "Fergeruter",
+  "name": "Fergeorakelet",
+  "short_name": "Fergeorakelet",
   "description": "Seilingsplan og trafikkmeldingar for ferjesamband 1136 Standal–Trandal–Sæbø–Skår.",
   "start_url": "./",
   "scope": "./",
@@ -13,19 +13,25 @@
   "categories": ["travel", "navigation"],
   "icons": [
     {
-      "src": "assets/icons/icon-192.png",
+      "src": "assets/icons/icon-192.png?v=2",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "assets/icons/icon-512.png",
+      "src": "assets/icons/icon-512.png?v=2",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "assets/icons/icon-maskable-512.png",
+      "src": "assets/icons/icon-maskable-192.png?v=2",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "assets/icons/icon-maskable-512.png?v=2",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"

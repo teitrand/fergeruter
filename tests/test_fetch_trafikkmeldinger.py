@@ -8,6 +8,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
+from datetime import datetime, timezone
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "fetch_trafikkmeldinger.py"
@@ -216,6 +217,42 @@ class RouteModeTests(unittest.TestCase):
         self.assertEqual(mod.route_mode_from_text(text), "kombi")
         self.assertIsNone(mod.switch_from_text(text))
 
+    def test_nynorsk_mandag_in_range_is_read(self):
+        text = (
+            "Rute 1136: På grunn av planlagt verkstedopphald blir det utført kombinert "
+            "rute i sambandet frå måndag 14.09 til og med fredag 18.09."
+        )
+        self.assertEqual(
+            mod.window_from_text(text, "2026-09-11T10:00:00+02:00"),
+            {"from": "2026-09-14", "to": "2026-09-18"},
+        )
+
+    def test_also_on_saturday_extends_window(self):
+        text = (
+            "Rute 1136 Standal-Trandal-Valderøya-Store Kalvøy: Grunna utvida "
+            "verkstedopphald blir det kombinert rute også på laurdag 19.09. "
+            "MF Geiranger (tlf. 91669321) i rute. For rutetider sjå frammr.no."
+        )
+        self.assertEqual(
+            mod.window_from_text(text, "2026-09-18T07:59:22+02:00"),
+            {"from": None, "to": "2026-09-19"},
+        )
+        node = {
+            "id": "sat",
+            "heading": "Standal-Trandal-Valderøya-Store Kalvøy",
+            "countyNumber": 15,
+            "connectionNumber": 132,
+            "date": "18.09.2026 07:59:22",
+            "content": text,
+            "importantMessage": False,
+            "validFrom": {"timestamp": 1789711162},
+            "validTo": {"timestamp": 1789797550},
+        }
+        msg = mod.normalize_node(node)
+        self.assertEqual(msg["routeMode"], "kombi")
+        self.assertEqual(msg["vessel"], "Geiranger")
+        self.assertEqual(msg["routeWindow"], {"from": None, "to": "2026-09-19"})
+
     def test_rutestart_date_is_read(self):
         text = "Det vert normal drift i sambandet frå rutestart fredag 05.06."
         self.assertEqual(
@@ -248,6 +285,23 @@ class RouteModeTests(unittest.TestCase):
         self.assertEqual(mod.route_mode_from_text(text), "1136")
         self.assertIsNone(mod.switch_from_text(text))
         self.assertEqual(mod.activate_at_from_text(text), "14:50:00")
+
+    def test_listed_cancelled_sailings_do_not_switch_to_1135(self):
+        text = (
+            "FJORD1 Rute 1136 Standal-Trandal-Valderøya-Store Kalvøy (www.Fjord1.no):  "
+            "Grunna kviletidsbestemmelser og pålagt kvile til mannskapet vert "
+            "følgjande avgangar innstilt: 20:00 og 20:40 frå Standal, 20:20 og 21:00 frå Trandal"
+        )
+        self.assertTrue(mod.is_partial_cancel(text))
+        self.assertEqual(mod.classify(text), "cancelled")
+        self.assertEqual(mod.route_mode_from_text(text), "1136")
+        self.assertFalse(
+            mod.is_route_control("Standal-Trandal-Valderøya-Store Kalvøy", text, True)
+        )
+        self.assertEqual(
+            mod.route_mode_from_text("Rute 1136 Standal-Trandal er innstilt inntil vidare."),
+            "1135",
+        )
 
 
 class FetchTests(unittest.TestCase):
@@ -313,6 +367,115 @@ class FetchTests(unittest.TestCase):
             self.assertFalse(mod.write_if_changed(second, path))
             stored = json.loads(path.read_text(encoding="utf-8"))
             self.assertEqual(stored["fetchedAt"], "2026-09-03T00:00:00+00:00")
+
+
+class RetainHeldMessagesTests(unittest.TestCase):
+    def test_keeps_local_notice_until_end_of_oslo_day(self):
+        text = (
+            "Rute 1136 Standal-Trandal-Valderøya-Store Kalvøy: Grunna utvida "
+            "verkstedopphald blir det kombinert rute også på laurdag 19.09. "
+            "MF Geiranger (tlf. 91669321) i rute. For rutetider sjå frammr.no."
+        )
+        node = {
+            "id": "sat",
+            "heading": "Standal-Trandal-Valderøya-Store Kalvøy",
+            "countyNumber": 15,
+            "connectionNumber": 132,
+            "date": "18.09.2026 07:59:22",
+            "content": text,
+            "importantMessage": False,
+            "validFrom": {"timestamp": 1789711162},
+            "validTo": {"timestamp": 1789797550},
+        }
+        extra = mod.normalize_node(node)
+        other = {
+            "id": "oldeide",
+            "heading": "Oldeide-Måløy",
+            "text": "Rute 1039: kansellerte avganger.",
+            "publishedAt": "2026-09-18T14:49:36+02:00",
+            "validTo": "2026-09-19T12:48:57+00:00",
+        }
+        saturday = datetime(2026, 9, 19, 11, 0, tzinfo=timezone.utc)
+        sunday = datetime(2026, 9, 20, 6, 0, tzinfo=timezone.utc)
+        self.assertTrue(mod.message_is_held(extra, saturday))
+        self.assertFalse(mod.message_is_held(extra, sunday))
+        retained = mod.retain_held_messages([other], [extra, other], saturday)
+        self.assertEqual(len(retained), 2)
+        self.assertTrue(any(msg.get("routeMode") == "kombi" for msg in retained))
+        dropped = mod.retain_held_messages([other], [extra, other], sunday)
+        self.assertFalse(any(msg.get("routeMode") == "kombi" for msg in dropped))
+
+    def test_fetch_keeps_previous_held_message(self):
+        graphql = {
+            "data": {
+                "content": {
+                    "trafficMessages": {
+                        "edges": [
+                            {
+                                "node": {
+                                    "id": "other",
+                                    "heading": "Oldeide-Måløy",
+                                    "countyNumber": 14,
+                                    "connectionNumber": 669,
+                                    "date": "18.09.2026 14:49:36",
+                                    "content": "Rute 1039: kansellerte avganger.",
+                                    "importantMessage": False,
+                                    "validFrom": {"timestamp": 1789738176},
+                                    "validTo": {"timestamp": 1789822137},
+                                }
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+
+        class FakeResponse:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+            def read(self):
+                return json.dumps(graphql).encode("utf-8")
+
+        class FrozenDateTime(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                current = datetime(2026, 9, 19, 11, 0, tzinfo=timezone.utc)
+                return current if tz is None else current.astimezone(tz)
+
+        extra = mod.normalize_node(
+            {
+                "id": "sat",
+                "heading": "Standal-Trandal-Valderøya-Store Kalvøy",
+                "countyNumber": 15,
+                "connectionNumber": 132,
+                "date": "18.09.2026 07:59:22",
+                "content": (
+                    "Rute 1136 Standal-Trandal-Valderøya-Store Kalvøy: Grunna utvida "
+                    "verkstedopphald blir det kombinert rute også på laurdag 19.09. "
+                    "MF Geiranger (tlf. 91669321) i rute. For rutetider sjå frammr.no."
+                ),
+                "importantMessage": False,
+                "validFrom": {"timestamp": 1789711162},
+                "validTo": {"timestamp": 1789797550},
+            }
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "trafikkmeldinger.json"
+            out.write_text(
+                json.dumps(mod.build_payload([extra]), ensure_ascii=False, indent=2) + "\n",
+                encoding="utf-8",
+            )
+            with patch.object(mod.urllib.request, "urlopen", return_value=FakeResponse()):
+                with patch.object(sys, "argv", ["fetch_trafikkmeldinger.py", str(out)]):
+                    with patch.object(mod, "datetime", FrozenDateTime):
+                        self.assertEqual(mod.main(), 0)
+            data = json.loads(out.read_text(encoding="utf-8"))
+            self.assertEqual(len(data["messages"]), 2)
+            self.assertTrue(any(msg.get("routeMode") == "kombi" for msg in data["messages"]))
 
 
 if __name__ == "__main__":
