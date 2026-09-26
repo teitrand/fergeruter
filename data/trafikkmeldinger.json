@@ -1,7 +1,27 @@
 {
   "source": "https://www.fjord1.no/trafikkmeldingar",
-  "fetchedAt": "2026-09-26T14:00:45.398314+00:00",
+  "fetchedAt": "2026-09-26T20:07:02.753784+00:00",
   "messages": [
+    {
+      "id": "RG9tYWluQ29udGVudDoyMTg1ODU2OQ==",
+      "heading": "Askvoll-Gjervik-Fure-Askvoll",
+      "text": "Rute 1140 Askvoll - Gjervik - Fure: Avgang fra Askvoll kl 0640 og fra Gjervik kl 0655 i morgen 27.09 blir utført av passasjerbåt, deretter normal drift i sambandet med MF Solskjel. Mvh Fjord1 på vegner av Skyss.",
+      "publishedAt": "2026-09-26T20:20:16+02:00",
+      "validFrom": "2026-09-26T18:20:16+00:00",
+      "validTo": "2026-09-27T18:18:33+00:00",
+      "countyNumber": 14,
+      "connectionNumber": 431,
+      "important": false,
+      "severity": "normal",
+      "isRoute1136": false,
+      "isLocal": false,
+      "isRouteControl": false,
+      "routeMode": "1136",
+      "routeWindow": null,
+      "activateAt": null,
+      "vessel": null,
+      "routeSwitch": null
+    },
     {
       "id": "RG9tYWluQ29udGVudDoyMTg1NjU2Mw==",
       "heading": "Askvoll-Gjervik-Fure-Askvoll",
@@ -103,7 +123,7 @@
       "routeSwitch": null
     },
     {
-      "id": "RG9tYWluQ29udGVudDoyMTg1MjQ4NA==",
+      "id": "RG9tYWluQ29udGVudDoyMTg1OTIwNg==",
       "heading": "Mortavika-Arsvågen",
       "text": "Rute 1130 Arsvågen - Mortavika: Det er normal drift i sambandet fra kl 1700",
       "publishedAt": "2026-09-25T17:02:15+02:00",
@@ -123,7 +143,7 @@
       "routeSwitch": null
     },
     {
-      "id": "RG9tYWluQ29udGVudDoyMTg1MjEwNQ==",
+      "id": "RG9tYWluQ29udGVudDoyMTg1OTIwNw==",
       "heading": "Mortavika-Arsvågen",
       "text": "Rute 1130 Arsvågen - Mortavika: Grunnet driftsproblem blir A ruten innstilt inntil videre.Det vil si kl XX:30 fra Arsvågen og XX:00 fra Mortavika.",
       "publishedAt": "2026-09-25T16:04:54+02:00",
@@ -163,7 +183,7 @@
       "routeSwitch": null
     },
     {
-      "id": "RG9tYWluQ29udGVudDoyMTg1MTAxMQ==",
+      "id": "RG9tYWluQ29udGVudDoyMTg1OTIwOA==",
       "heading": "Kleppestø - Bergen",
       "text": "Rute 490 Kleppestø - Bergen: Grunna driftsproblem vert det sett opp alternativ transport. OppdateringBuss for Båt fra Kleppestø kl 1423, 1503,1543,1623 og 1703.Fra Strandkaien kl 1440 1520 1600 1640 og 1720 : de andre avganger går som normalt Mvh Fjord1 på vegner av Skyss.",
       "publishedAt": "2026-09-25T13:28:55+02:00",
