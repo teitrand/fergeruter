@@ -7,7 +7,7 @@ import {
   setLang,
   t,
   weekdays,
-} from "./i18n.js?v=54";
+} from "./i18n.js?v=55";
 
 const MESSAGES_URL = "data/trafikkmeldinger.json";
 const ROUTES_URL = "data/ruter.json";
@@ -3350,6 +3350,8 @@ function sortMessagesForRoute(messages, route = chosenRoute()) {
   return [...messages].sort((a, b) => {
     const byRoute = messageRouteScore(a, route) - messageRouteScore(b, route);
     if (byRoute) return byRoute;
+    const byPublished = publishedMs(b) - publishedMs(a);
+    if (byPublished) return byPublished;
     return (SEVERITY_RANK[a.severity] ?? 9) - (SEVERITY_RANK[b.severity] ?? 9);
   });
 }
