@@ -33,7 +33,7 @@ import {
   shouldFetchLive,
   serviceWindowMinutes,
 } from "../assets/app.js";
-import { setLang } from "../assets/i18n.js?v=54";
+import { setLang } from "../assets/i18n.js?v=55";
 
 beforeEach(() => {
   setLang("nn");
@@ -578,6 +578,42 @@ test("meldingar for valt samband kjem øvst", () => {
   assert.equal(sorted1136[0].heading, standal.heading);
   const sorted1135 = sortMessagesForRoute([standal, other, leknes], "1135");
   assert.equal(sorted1135[0].heading, leknes.heading);
+});
+
+test("nyaste melding kjem føre eldre innstilling med same relevans", () => {
+  const olderCancel = {
+    heading: "Festøya-Hundeidvika",
+    text: "Grunna driftsproblem vert følgjande avgangar innstilt",
+    severity: "cancelled",
+    publishedAt: "2026-09-27T13:12:59+02:00",
+  };
+  const newerNormal = {
+    heading: "Festøya-Hundeidvika",
+    text: "Det vert normal drift i sambandet frå kl. 14:00.",
+    severity: "normal",
+    publishedAt: "2026-09-27T13:46:03+02:00",
+  };
+  const sorted = sortMessagesForRoute([olderCancel, newerNormal], "1136");
+  assert.equal(sorted[0].text, newerNormal.text);
+  assert.equal(sorted[1].text, olderCancel.text);
+});
+
+test("melding for valt samband ligg over nyare melding om anna samband", () => {
+  const olderRoute = {
+    heading: "Standal-Trandal-Valderøya-Store Kalvøy",
+    text: "Verkstad",
+    connectionNumber: 132,
+    severity: "info",
+    publishedAt: "2026-09-27T08:00:00+02:00",
+  };
+  const newerOther = {
+    heading: "Festøya-Hundeidvika",
+    text: "innstilt",
+    severity: "cancelled",
+    publishedAt: "2026-09-27T14:00:00+02:00",
+  };
+  const sorted = sortMessagesForRoute([newerOther, olderRoute], "1136");
+  assert.equal(sorted[0].heading, olderRoute.heading);
 });
 
 test("sanntidsvindauge er fyrste avgang til siste ankomst", () => {
