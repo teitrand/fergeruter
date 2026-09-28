@@ -1,7 +1,27 @@
 {
   "source": "https://www.fjord1.no/trafikkmeldingar",
-  "fetchedAt": "2026-09-28T00:11:25.081471+00:00",
+  "fetchedAt": "2026-09-28T05:17:23.258298+00:00",
   "messages": [
+    {
+      "id": "RG9tYWluQ29udGVudDoyMTg3MDc3MQ==",
+      "heading": "Festøya-Hundeidvika",
+      "text": "Rute 1049 Hundeidvika - Festøya: Grunna driftsproblem vert sambandet innstilt inntil vidare.",
+      "publishedAt": "2026-09-28T06:05:17+02:00",
+      "validFrom": "2026-09-28T04:05:17+00:00",
+      "validTo": "2026-09-29T04:04:27+00:00",
+      "countyNumber": 15,
+      "connectionNumber": 226,
+      "important": false,
+      "severity": "cancelled",
+      "isRoute1136": false,
+      "isLocal": true,
+      "isRouteControl": false,
+      "routeMode": "1136",
+      "routeWindow": null,
+      "activateAt": null,
+      "vessel": null,
+      "routeSwitch": null
+    },
     {
       "id": "RG9tYWluQ29udGVudDoyMTg2NDk1NQ==",
       "heading": "Festøya-Hundeidvika",
