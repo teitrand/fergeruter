@@ -268,7 +268,9 @@ test("Fjord1 «også på laurdag» held kombiruta etter CMS-gyldigheita", () => 
     kombirute: kombi,
     date: "2026-09-19",
     routeChoice: "1136",
-    messages: { messages },
+    messages: {
+      messages: messages.map((msg) => ({ ...msg, validTo: "2099-01-01T00:00:00Z" })),
+    },
   });
   assert.equal(operationalMode("2026-09-19"), "kombi");
   const saturday = legsForDate("2026-09-19");
@@ -1265,7 +1267,7 @@ test("signaltur ringjer rett ferje, tel:+47", () => {
     routeMode: "kombi",
     routeWindow: { from: "2026-09-14", to: "2026-09-18" },
     publishedAt: "2026-09-11T10:45:19+02:00",
-    validTo: "2026-09-25T21:55:00+00:00",
+    validTo: "2099-01-01T00:00:00Z",
   };
   setTestState({
     date: "2026-09-17",
