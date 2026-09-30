@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Hent trafikkmeldingar frå Fjord1 GraphQL og lagre som JSON."""
+"""Hent trafikkmeldingar frå Fjord1 sitt Ibexa-API og lagre som JSON."""
 
 from __future__ import annotations
 
+import base64
 import json
 import re
 import sys
@@ -12,8 +13,12 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-GRAPHQL_URL = "https://www.fjord1.no/graphql"
+# www.fjord1.no/graphql svarar 404. Trafikkmeldingane er Ibexa-typen
+# traffic_message og kan søkjast anonymt via REST-viewet under.
+REST_URL = "https://www.fjord1.no/api/ezp/v2/views"
 SOURCE_URL = "https://www.fjord1.no/trafikkmeldingar"
+PAGE_SIZE = 50
+MAX_MESSAGES = 500
 OSLO = ZoneInfo("Europe/Oslo")
 ROUTE_RE = re.compile(r"\b1136\b|trandal|standal|valderøy|store kalvøy|sæbø|skår", re.I)
 # Hjørundfjorden (1136 Standal-Trandal-Sæbø-Skår, 1135 Sæbø-Leknes) pluss
@@ -76,29 +81,6 @@ WINDOW_ALSO_RE = re.compile(
     rf"(?:også|òg)\s+(?:på\s+)?(?:{WEEKDAY_RE})?{NUMDATE_RE}",
     re.I,
 )
-QUERY = """
-{
-  content {
-    trafficMessages(first: 50, sortBy: [_datePublished, _desc]) {
-      pageInfo { hasNextPage }
-      edges {
-        node {
-          id
-          heading
-          countyNumber
-          connectionNumber
-          date
-          content
-          importantMessage
-          validFrom { timestamp }
-          validTo { timestamp }
-        }
-      }
-    }
-  }
-}
-"""
-
 # Fjord1 sitt interne sambandsnummer for rute 1136.
 ROUTE_1136_CONNECTION = 132
 
@@ -361,30 +343,108 @@ def normalize_node(node: dict) -> dict:
     }
 
 
-def fetch_messages(timeout: int = 30) -> list[dict]:
-    payload = json.dumps({"query": QUERY}).encode("utf-8")
+def content_id_to_message_id(content_id: int | str) -> str:
+    """Same id-format som det gamle GraphQL-svaret (base64 av DomainContent:<id>)."""
+    raw = f"DomainContent:{content_id}".encode("utf-8")
+    return base64.b64encode(raw).decode("ascii")
+
+
+def _as_list(value) -> list:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return value
+    return [value]
+
+
+def _timestamp(value) -> int | None:
+    if isinstance(value, dict):
+        ts = value.get("timestamp")
+        return ts if isinstance(ts, int) else None
+    return None
+
+
+def node_from_content(content: dict) -> dict:
+    """Map eit Ibexa traffic_message-objekt til noden normalize_node forventar."""
+    version = (content.get("CurrentVersion") or {}).get("Version") or {}
+    fields = _as_list((version.get("Fields") or {}).get("field"))
+    values = {
+        field.get("fieldDefinitionIdentifier"): field.get("fieldValue")
+        for field in fields
+        if isinstance(field, dict)
+    }
+    heading = values.get("heading") or ""
+    text = values.get("content") or ""
+    date_str = values.get("date") or ""
+    return {
+        "id": content_id_to_message_id(content["_id"]),
+        "heading": heading if isinstance(heading, str) else str(heading),
+        "countyNumber": values.get("county_number"),
+        "connectionNumber": values.get("connection_number"),
+        "date": date_str if isinstance(date_str, str) else "",
+        "content": text if isinstance(text, str) else str(text),
+        "importantMessage": bool(values.get("important_message")),
+        "validFrom": {"timestamp": _timestamp(values.get("valid_from"))},
+        "validTo": {"timestamp": _timestamp(values.get("valid_to"))},
+    }
+
+
+def fetch_view_page(offset: int, timeout: int) -> dict:
+    payload = json.dumps(
+        {
+            "ViewInput": {
+                "identifier": "trafikkmeldingar",
+                "Query": {
+                    "Filter": {"ContentTypeIdentifierCriterion": "traffic_message"},
+                    "limit": PAGE_SIZE,
+                    "offset": offset,
+                },
+            }
+        }
+    ).encode("utf-8")
     req = urllib.request.Request(
-        GRAPHQL_URL,
+        REST_URL,
         data=payload,
         headers={
-            "Content-Type": "application/json",
-            "Accept": "application/json",
+            "Content-Type": "application/vnd.ez.api.ViewInput+json",
+            "Accept": "application/vnd.ez.api.View+json",
             "User-Agent": "Fergeorakelet/1.0 (+https://github.com/teitrand/fergeruter)",
         },
         method="POST",
     )
     with urllib.request.urlopen(req, timeout=timeout) as response:
         body = json.loads(response.read().decode("utf-8"))
-    if body.get("errors"):
-        raise RuntimeError(f"Fjord1 GraphQL-feil: {body['errors']}")
-    edges = (
-        body.get("data", {})
-        .get("content", {})
-        .get("trafficMessages", {})
-        .get("edges")
-        or []
-    )
-    return [normalize_node(edge["node"]) for edge in edges if edge.get("node")]
+    if body.get("ErrorMessage"):
+        message = body["ErrorMessage"].get("errorMessage") or body["ErrorMessage"]
+        raise RuntimeError(f"Fjord1 REST-feil: {message}")
+    view = body.get("View")
+    if not isinstance(view, dict) or not isinstance(view.get("Result"), dict):
+        raise RuntimeError("Uventa svar frå Fjord1 REST-viewet")
+    return view["Result"]
+
+
+def fetch_messages(timeout: int = 30) -> list[dict]:
+    offset = 0
+    nodes: list[dict] = []
+    total: int | None = None
+    while offset < MAX_MESSAGES:
+        result = fetch_view_page(offset, timeout)
+        if total is None and isinstance(result.get("count"), int):
+            total = result["count"]
+        hits = _as_list((result.get("searchHits") or {}).get("searchHit"))
+        if not hits:
+            break
+        for hit in hits:
+            content = (hit.get("value") or {}).get("Content") if isinstance(hit, dict) else None
+            if not isinstance(content, dict) or content.get("_id") is None:
+                continue
+            nodes.append(normalize_node(node_from_content(content)))
+        offset += len(hits)
+        if total is not None and offset >= total:
+            break
+        if len(hits) < PAGE_SIZE:
+            break
+    return nodes
 
 
 def compact_message_text(value: str | None) -> str:

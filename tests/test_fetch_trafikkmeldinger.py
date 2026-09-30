@@ -293,31 +293,68 @@ class RouteModeTests(unittest.TestCase):
         )
 
 
-class FetchTests(unittest.TestCase):
-    def test_fetch_writes_json(self):
-        graphql = {
-            "data": {
-                "content": {
-                    "trafficMessages": {
-                        "edges": [
-                            {
-                                "node": {
-                                    "id": "1",
-                                    "heading": "Standal-Trandal-Valderøya-Store Kalvøy",
-                                    "countyNumber": 15,
-                                    "connectionNumber": 132,
-                                    "date": "24.08.2026 12:46:06",
-                                    "content": "Rute 1136: normal drift.",
-                                    "importantMessage": False,
-                                    "validFrom": {"timestamp": 1787568366},
-                                    "validTo": {"timestamp": 1787654704},
-                                }
-                            }
-                        ]
+def rest_view(nodes: list[dict]) -> dict:
+    """Bygg eit Ibexa View-svar frå nodar på GraphQL-form."""
+    hits = []
+    for node in nodes:
+        mapping = {
+            "heading": node["heading"],
+            "county_number": node["countyNumber"],
+            "connection_number": node["connectionNumber"],
+            "date": node["date"],
+            "content": node["content"],
+            "important_message": node["importantMessage"],
+            "valid_from": node["validFrom"],
+            "valid_to": node["validTo"],
+        }
+        fields = [
+            {"fieldDefinitionIdentifier": ident, "fieldValue": value}
+            for ident, value in mapping.items()
+        ]
+        hits.append(
+            {
+                "value": {
+                    "Content": {
+                        "_id": node["contentId"],
+                        "CurrentVersion": {"Version": {"Fields": {"field": fields}}},
                     }
                 }
             }
+        )
+    search_hits = hits[0] if len(hits) == 1 else hits
+    return {
+        "View": {
+            "Result": {
+                "count": len(hits),
+                "searchHits": {"searchHit": search_hits},
+            }
         }
+    }
+
+
+class FetchTests(unittest.TestCase):
+    def test_content_id_matches_former_graphql_id(self):
+        self.assertEqual(
+            mod.content_id_to_message_id(21874418),
+            "RG9tYWluQ29udGVudDoyMTg3NDQxOA==",
+        )
+
+    def test_fetch_writes_json(self):
+        payload = rest_view(
+            [
+                {
+                    "contentId": 21870001,
+                    "heading": "Standal-Trandal-Valderøya-Store Kalvøy",
+                    "countyNumber": 15,
+                    "connectionNumber": 132,
+                    "date": "24.08.2026 12:46:06",
+                    "content": "Rute 1136: normal drift.",
+                    "importantMessage": False,
+                    "validFrom": {"timestamp": 1787568366},
+                    "validTo": {"timestamp": 1787654704},
+                }
+            ]
+        )
 
         class FakeResponse:
             def __enter__(self):
@@ -327,7 +364,7 @@ class FetchTests(unittest.TestCase):
                 return False
 
             def read(self):
-                return json.dumps(graphql).encode("utf-8")
+                return json.dumps(payload).encode("utf-8")
 
         with tempfile.TemporaryDirectory() as tmp:
             out = Path(tmp) / "trafikkmeldinger.json"
@@ -336,7 +373,11 @@ class FetchTests(unittest.TestCase):
                     self.assertEqual(mod.main(), 0)
             data = json.loads(out.read_text(encoding="utf-8"))
             self.assertEqual(len(data["messages"]), 1)
+            self.assertEqual(
+                data["messages"][0]["id"], mod.content_id_to_message_id(21870001)
+            )
             self.assertTrue(data["messages"][0]["isRoute1136"])
+            self.assertEqual(data["messages"][0]["connectionNumber"], 132)
             self.assertIn("fjord1.no", data["source"])
 
     def test_write_skipped_when_messages_unchanged(self):
@@ -395,29 +436,21 @@ class RetainHeldMessagesTests(unittest.TestCase):
         self.assertFalse(any(msg.get("routeMode") == "kombi" for msg in dropped))
 
     def test_fetch_keeps_previous_held_message(self):
-        graphql = {
-            "data": {
-                "content": {
-                    "trafficMessages": {
-                        "edges": [
-                            {
-                                "node": {
-                                    "id": "other",
-                                    "heading": "Oldeide-Måløy",
-                                    "countyNumber": 14,
-                                    "connectionNumber": 669,
-                                    "date": "18.09.2026 14:49:36",
-                                    "content": "Rute 1039: kansellerte avganger.",
-                                    "importantMessage": False,
-                                    "validFrom": {"timestamp": 1789738176},
-                                    "validTo": {"timestamp": 1789822137},
-                                }
-                            }
-                        ]
-                    }
+        payload = rest_view(
+            [
+                {
+                    "contentId": 21870002,
+                    "heading": "Oldeide-Måløy",
+                    "countyNumber": 14,
+                    "connectionNumber": 669,
+                    "date": "18.09.2026 14:49:36",
+                    "content": "Rute 1039: kansellerte avganger.",
+                    "importantMessage": False,
+                    "validFrom": {"timestamp": 1789738176},
+                    "validTo": {"timestamp": 1789822137},
                 }
-            }
-        }
+            ]
+        )
 
         class FakeResponse:
             def __enter__(self):
@@ -427,7 +460,7 @@ class RetainHeldMessagesTests(unittest.TestCase):
                 return False
 
             def read(self):
-                return json.dumps(graphql).encode("utf-8")
+                return json.dumps(payload).encode("utf-8")
 
         class FrozenDateTime(datetime):
             @classmethod
