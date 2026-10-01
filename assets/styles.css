@@ -988,6 +988,10 @@ h2.day-label {
   color: var(--stop);
 }
 
+.stop.is-signal-off:not(.is-past) .stop-state {
+  color: var(--ink);
+}
+
 .stop-state {
   font-size: 0.82rem;
   color: var(--water);
