@@ -978,6 +978,12 @@ h2.day-label {
   border-color: #f0c4bf;
 }
 
+.stop-tag-booked {
+  color: var(--ok);
+  border-color: #b7ddd4;
+  background: #e7f6f2;
+}
+
 .stop.is-cancelled .stop-time,
 .stop.is-cancelled .stop-name {
   text-decoration: line-through;
