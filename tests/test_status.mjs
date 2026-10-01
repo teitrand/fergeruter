@@ -35,7 +35,7 @@ import {
   shouldFetchLive,
   serviceWindowMinutes,
 } from "../assets/app.js";
-import { setLang } from "../assets/i18n.js?v=56";
+import { setLang } from "../assets/i18n.js?v=57";
 
 beforeEach(() => {
   setLang("nn");
@@ -252,7 +252,7 @@ test("signaltur som ligg til kai etter avgang går ikkje", () => {
   setTestState({ live });
   const status = currentStatus(signalMorning, now);
   assert.equal(status.signal, "skipped");
-  assert.equal(status.short, "Signalturen frå Standal går ikkje");
+  assert.equal(status.short, "Signalturen frå Standal er ikkje utført");
   assert.match(status.text, /kl\. 06:45/);
   assert.match(status.text, /Standal/);
   assert.doesNotMatch(status.text, /forsinka/);
