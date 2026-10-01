@@ -7,7 +7,7 @@ import {
   setLang,
   t,
   weekdays,
-} from "./i18n.js?v=57";
+} from "./i18n.js?v=58";
 
 const MESSAGES_URL = "data/trafikkmeldinger.json";
 const ROUTES_URL = "data/ruter.json";
@@ -17,7 +17,18 @@ const LIVE_VM_URLS = {
   1136: "https://api.entur.io/realtime/v1/rest/vm?datasetId=MOR&LineRef=MOR:Line:1136",
   1135: "https://api.entur.io/realtime/v1/rest/vm?datasetId=MOR&LineRef=MOR:Line:1135",
 };
+const ENTUR_JOURNEY_URL = "https://api.entur.io/journey-planner/v3/graphql";
 const ENTUR_CLIENT = "teitrand-fergeruter";
+/** Stoppestader der vi spør Entur om avlyste avgangar. */
+const STOP_PLACES = {
+  Standal: "NSR:StopPlace:39713",
+  Trandal: "NSR:StopPlace:58521",
+  Sæbø: "NSR:StopPlace:58765",
+  Skår: "NSR:StopPlace:41385",
+  Leknes: "NSR:StopPlace:58766",
+  Valderøya: "NSR:StopPlace:61752",
+  "Store Kalvøy": "NSR:StopPlace:58525",
+};
 const HOME_QUAY = "Standal";
 const LIVE_MAX_AGE_MS = 3 * 60 * 1000;
 const FEEDBACK_MAIL = "teitrand@hotmail.com";
@@ -110,6 +121,8 @@ const state = {
   liveFetchedAt: 0,
   liveBackoffMs: 0,
   liveBlockedUntil: 0,
+  /** Service journey-id som Entur har merkt avlyst i dag. */
+  cancelledJourneys: new Set(),
 };
 
 let renderedDate = null;
@@ -492,13 +505,15 @@ function cancelledDepartureSet(messages = state.messages?.messages) {
 
 function isCancelledDeparture(leg, cancelled = cancelledDepartureSet()) {
   if (!leg) return false;
+  if (isToday() && !leg.signal && journeyCancelled(leg)) return true;
   return cancelled.has(`${quayPlace(leg.from)}|${leg.departure}`);
 }
 
 function runningLegs(legs) {
   const cancelled = cancelledDepartureSet();
-  if (!cancelled.size) return legs;
-  return legs.filter((leg) => !isCancelledDeparture(leg, cancelled));
+  return (legs || []).filter(
+    (leg) => !isCancelledDeparture(leg, cancelled) && !journeyCancelled(leg)
+  );
 }
 
 function isRouteControl(msg) {
@@ -1477,6 +1492,70 @@ function serviceJourneyId(value) {
   return match ? match[0] : "";
 }
 
+/** Avlyst hos Entur i dag. Rute-id blir brukt fleire datoar, så berre dagsens status bruker settet. */
+function journeyCancelled(leg, cancelled = state.cancelledJourneys) {
+  const id = serviceJourneyId(leg?.id);
+  if (!id || !cancelled || typeof cancelled.has !== "function") return false;
+  return cancelled.has(id);
+}
+
+function osloOffsetMinutes(ms) {
+  const parts = osloParts(new Date(ms));
+  const asUtc = Date.UTC(
+    Number(parts.year),
+    Number(parts.month) - 1,
+    Number(parts.day),
+    Number(parts.hour),
+    Number(parts.minute),
+    Number(parts.second)
+  );
+  return Math.round((asUtc - ms) / 60000);
+}
+
+function osloDayStartIso(date = todayIso()) {
+  const [year, month, day] = date.split("-").map(Number);
+  const utcMidnight = Date.UTC(year, month - 1, day, 0, 0, 0);
+  const offset = osloOffsetMinutes(utcMidnight);
+  const abs = Math.abs(offset);
+  const hh = String(Math.floor(abs / 60)).padStart(2, "0");
+  const mm = String(abs % 60).padStart(2, "0");
+  const sign = offset >= 0 ? "+" : "-";
+  return `${date}T00:00:00${sign}${hh}:${mm}`;
+}
+
+function cancellationStops(date = todayIso()) {
+  const names = new Set();
+  for (const leg of legsForDate(date)) names.add(quayPlace(leg.from));
+  return [...names].filter((name) => STOP_PLACES[name]);
+}
+
+function cancellationQuery(stops) {
+  const fields = stops
+    .map((name, index) => {
+      const id = STOP_PLACES[name];
+      return `s${index}: stopPlace(id: "${id}") { estimatedCalls(startTime: $start, timeRange: 86400, numberOfDepartures: 40, includeCancelledTrips: true, whiteListed: { lines: ["MOR:Line:1136", "MOR:Line:1135"] }) { cancellation serviceJourney { id } } }`;
+    })
+    .join("\n");
+  return `query Cancelled($start: DateTime!) { ${fields} }`;
+}
+
+function cancelledJourneyIds(payload) {
+  const data = payload?.data && typeof payload.data === "object" ? payload.data : payload;
+  const ids = new Set();
+  if (!data || typeof data !== "object") return ids;
+  const groups = Array.isArray(data) ? data : Object.values(data);
+  for (const group of groups) {
+    const calls = Array.isArray(group) ? group : group?.estimatedCalls;
+    if (!Array.isArray(calls)) continue;
+    for (const call of calls) {
+      if (!call?.cancellation) continue;
+      const id = serviceJourneyId(call.serviceJourney?.id || call.id);
+      if (id) ids.add(id);
+    }
+  }
+  return ids;
+}
+
 function siriBool(value) {
   if (value === true || value === false) return value;
   const text = unwrapSiri(value).toLowerCase();
@@ -1581,7 +1660,18 @@ function isInUnrunSignalTail(legs, stuck, leg) {
  * eller ein seinare tur er den som faktisk blir køyrd.
  */
 function signalVerdict(leg, live = state.live, now = nowMinutes(), legs = null) {
-  if (!leg?.signal || !isLiveFresh(live)) return null;
+  if (!leg?.signal) return null;
+  if (journeyCancelled(leg)) {
+    if (isLiveFresh(live)) {
+      const dayLegs = legs || legsForDate(todayIso());
+      const monitored = legForLive(dayLegs, live);
+      if (monitored && sameLeg(monitored, leg) && leftOrigin(live, monitored) === true) {
+        return "running";
+      }
+    }
+    return "skipped";
+  }
+  if (!isLiveFresh(live)) return null;
   if (now < clockMinutes(leg.departure)) return null;
   const dayLegs = legs || legsForDate(todayIso());
   const monitored = legForLive(dayLegs, live);
@@ -2646,6 +2736,9 @@ function sailingDoneAt(event) {
   if (event.kind === "arr") return event.at;
   if (event.kind !== "dep" || !event.leg) return event.at;
   const leg = event.leg;
+  if (leg.signal && isToday() && signalVerdict(leg) === "skipped") {
+    return clockMinutes(leg.departure);
+  }
   if (
     state.fromFilter &&
     !state.toFilter &&
@@ -3907,12 +4000,42 @@ function liveBlockedUntil() {
   return state.liveBlockedUntil || 0;
 }
 
+async function fetchCancellations() {
+  const stops = cancellationStops();
+  if (!stops.length) return new Set();
+  const response = await fetch(ENTUR_JOURNEY_URL, {
+    method: "POST",
+    headers: {
+      "ET-Client-Name": ENTUR_CLIENT,
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify({
+      query: cancellationQuery(stops),
+      variables: { start: osloDayStartIso() },
+    }),
+  });
+  if (!response.ok) throw new Error(response.statusText);
+  const payload = await response.json();
+  if (payload?.errors && !payload.data) throw new Error("Entur");
+  return cancelledJourneyIds(payload);
+}
+
+async function loadCancellations() {
+  try {
+    state.cancelledJourneys = await fetchCancellations();
+  } catch (error) {
+    console.error(error);
+  }
+}
+
 async function loadLivePosition() {
   if (!shouldFetchLive()) return;
   if (Date.now() - (state.liveFetchedAt || 0) < LIVE_MIN_INTERVAL_MS) return;
   state.liveFetchedAt = Date.now();
   const urls = liveFetchUrls();
   const found = [];
+  const cancellations = loadCancellations();
   try {
     for (const url of urls) {
       const live = await fetchLive(url);
@@ -3927,6 +4050,7 @@ async function loadLivePosition() {
     noteLiveFailure();
     console.error(error);
   }
+  await cancellations;
 }
 
 function applyTimetable({ routes, kombirute, connections }, { persist = true } = {}) {
@@ -4280,6 +4404,7 @@ function resetTestState() {
   state.liveFetchedAt = 0;
   state.liveBackoffMs = 0;
   state.liveBlockedUntil = 0;
+  state.cancelledJourneys = new Set();
   lastLiveStructureKey = null;
   fjord1GraphqlBlocked = false;
   messagesHydrated = false;
@@ -4323,6 +4448,9 @@ export {
   installHint,
   isCancelledDeparture,
   cancelledSailingsFromText,
+  cancelledJourneyIds,
+  journeyCancelled,
+  osloDayStartIso,
   classifyMessage,
   isPartialCancel,
   isLiveFresh,

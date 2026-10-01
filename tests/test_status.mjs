@@ -16,6 +16,8 @@ import {
   liveStatus,
   currentStatus,
   signalVerdict,
+  cancelledJourneyIds,
+  osloDayStartIso,
   matchesLegPlaces,
   matchesStop,
   minDeadheadMinutes,
@@ -35,7 +37,7 @@ import {
   shouldFetchLive,
   serviceWindowMinutes,
 } from "../assets/app.js";
-import { setLang } from "../assets/i18n.js?v=57";
+import { setLang } from "../assets/i18n.js?v=58";
 
 beforeEach(() => {
   setLang("nn");
@@ -323,6 +325,65 @@ test("vanleg tur tek framleis med Entur-forseinking", () => {
   const status = currentStatus(legs, 7 * 60 + 45);
   assert.match(status.text, /på veg mot Trandal/);
   assert.match(status.text, /5 min forsinka/);
+});
+
+test("avlyst signaltur blir ikkje ståande som på veg til Standal", () => {
+  const outId = "MOR:ServiceJourney:1136_128_9150000047474268";
+  const backId = "MOR:ServiceJourney:1136_129_9150000046366348";
+  const evening = [
+    leg("Standal", "Trandal", "18:45:00", "19:00:00"),
+    leg("Trandal", "Standal", "19:40:00", "19:55:00"),
+    signalLeg("Standal", "Trandal", "20:00:00", "20:15:00", outId),
+    signalLeg("Trandal", "Standal", "20:20:00", "20:35:00", backId),
+  ];
+  const now = 20 * 60 + 25;
+  assert.equal(ferryStatus(evening, now, evening).text, "Ferja er på veg mot Standal");
+  setTestState({ cancelledJourneys: new Set([outId, backId]) });
+  assert.equal(signalVerdict(evening[2], null, now, evening), "skipped");
+  assert.equal(signalVerdict(evening[3], null, now, evening), "skipped");
+  const status = currentStatus(evening, now);
+  assert.equal(status.underway, undefined);
+  assert.equal(status.short, "Ferja er ferdig for dagen på Standal");
+  assert.doesNotMatch(status.text, /på veg/);
+});
+
+test("cancelledJourneyIds plukkar berre avlyste turar", () => {
+  const ids = cancelledJourneyIds({
+    data: {
+      standal: {
+        estimatedCalls: [
+          {
+            cancellation: false,
+            serviceJourney: { id: "MOR:ServiceJourney:1136_127_9150000046318049" },
+          },
+          {
+            cancellation: true,
+            serviceJourney: { id: "MOR:ServiceJourney:1136_128_9150000047474268" },
+          },
+        ],
+      },
+      trandal: {
+        estimatedCalls: [
+          {
+            cancellation: true,
+            serviceJourney: { id: "MOR:ServiceJourney:1136_129_9150000046366348#0" },
+          },
+        ],
+      },
+    },
+  });
+  assert.deepEqual(
+    [...ids].sort(),
+    [
+      "MOR:ServiceJourney:1136_128_9150000047474268",
+      "MOR:ServiceJourney:1136_129_9150000046366348",
+    ]
+  );
+});
+
+test("oslo-døgnet startar med rett offset", () => {
+  assert.equal(osloDayStartIso("2026-10-01"), "2026-10-01T00:00:00+02:00");
+  assert.equal(osloDayStartIso("2026-01-15"), "2026-01-15T00:00:00+01:00");
 });
 
 test("parseVehicleMonitoring les kai og avgang for signaltur", () => {
