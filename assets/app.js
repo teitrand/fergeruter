@@ -7,7 +7,7 @@ import {
   setLang,
   t,
   weekdays,
-} from "./i18n.js?v=55";
+} from "./i18n.js?v=57";
 
 const MESSAGES_URL = "data/trafikkmeldinger.json";
 const ROUTES_URL = "data/ruter.json";
@@ -1459,6 +1459,191 @@ function delayMinutes(value) {
   return Number.isFinite(numeric) ? Math.floor(numeric / 60) : null;
 }
 
+/** Stoppestader frå Entur. Nærare enn dette reknar vi ferja som liggjande til kai. */
+const QUAY_RADIUS_M = 250;
+const QUAY_COORDS = {
+  Standal: { latitude: 62.266216, longitude: 6.423177 },
+  Trandal: { latitude: 62.260997, longitude: 6.500688 },
+  Sæbø: { latitude: 62.210998, longitude: 6.475821 },
+  Skår: { latitude: 62.17922, longitude: 6.533571 },
+  Leknes: { latitude: 62.205859, longitude: 6.5345 },
+  Valderøya: { latitude: 62.495872, longitude: 6.128569 },
+  "Store Kalvøy": { latitude: 62.526923, longitude: 6.20374 },
+};
+
+function serviceJourneyId(value) {
+  const text = unwrapSiri(value);
+  const match = String(text || "").match(/MOR:ServiceJourney:[^#\s]+/);
+  return match ? match[0] : "";
+}
+
+function siriBool(value) {
+  if (value === true || value === false) return value;
+  const text = unwrapSiri(value).toLowerCase();
+  if (text === "true") return true;
+  if (text === "false") return false;
+  return null;
+}
+
+function distanceMeters(lat1, lon1, lat2, lon2) {
+  const radius = 6371000;
+  const toRad = (degrees) => (degrees * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return 2 * radius * Math.asin(Math.min(1, Math.sqrt(a)));
+}
+
+function distanceToQuay(live, quay) {
+  const place = QUAY_COORDS[quayPlace(quay)];
+  const lat = Number(live?.latitude);
+  const lon = Number(live?.longitude);
+  if (!place || !Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  if (lat === 0 && lon === 0) return null;
+  return distanceMeters(lat, lon, place.latitude, place.longitude);
+}
+
+function osloHm(iso) {
+  if (!iso) return "";
+  const ms = Date.parse(iso);
+  if (!Number.isFinite(ms)) return "";
+  const parts = osloParts(new Date(ms));
+  return `${parts.hour}:${parts.minute}`;
+}
+
+function sameLeg(a, b) {
+  if (!a || !b) return false;
+  const aId = serviceJourneyId(a.id);
+  const bId = serviceJourneyId(b.id);
+  if (aId && bId) return aId === bId;
+  return a.departure === b.departure && a.from === b.from && a.to === b.to;
+}
+
+function legForLive(legs, live) {
+  if (!live) return null;
+  const ref = serviceJourneyId(live.journeyRef);
+  if (ref) {
+    const hit = (legs || []).find((leg) => serviceJourneyId(leg.id) === ref);
+    if (hit) return hit;
+  }
+  const aimed = osloHm(live.originAimed);
+  if (!aimed) return null;
+  const stop = quayPlace(live.stopName);
+  return (
+    (legs || []).find((leg) => {
+      if (hhmm(leg.departure) !== aimed) return false;
+      if (!stop) return true;
+      if (quayPlace(leg.from) === stop) return true;
+      const dist = distanceToQuay(live, leg.from);
+      return dist != null && dist <= QUAY_RADIUS_M;
+    }) || null
+  );
+}
+
+/**
+ * Har ferja lagt frå kaien turen startar på?
+ * true = lagt frå, false = ligg framleis der, null = veit ikkje.
+ */
+function leftOrigin(live, leg) {
+  if (!live || !leg) return null;
+  if (live.actualDeparture) return true;
+  const origin = quayPlace(leg.from);
+  const stop = quayPlace(live.stopName);
+  if (live.atStop === true && stop === origin) return false;
+  if (live.atStop === true && stop && stop !== origin) return true;
+  const dist = distanceToQuay(live, origin);
+  if (dist != null) return dist > QUAY_RADIUS_M;
+  if (live.atStop === false && stop && stop !== origin) return true;
+  if (live.atStop === true) return false;
+  return null;
+}
+
+function legIndex(legs, leg) {
+  return (legs || []).findIndex((item) => sameLeg(item, leg));
+}
+
+/** Signalturar som kjem etter ein tur som ikkje la frå kai, før neste vanlege avgang. */
+function isInUnrunSignalTail(legs, stuck, leg) {
+  const start = legIndex(legs, stuck);
+  const at = legIndex(legs, leg);
+  if (start < 0 || at <= start) return false;
+  for (let i = start + 1; i <= at; i += 1) {
+    if (!legs[i].signal) return false;
+  }
+  return true;
+}
+
+/**
+ * «running» når signalturen har lagt frå kai.
+ * «skipped» når avgangstida er passert og ferja framleis ligg der,
+ * eller ein seinare tur er den som faktisk blir køyrd.
+ */
+function signalVerdict(leg, live = state.live, now = nowMinutes(), legs = null) {
+  if (!leg?.signal || !isLiveFresh(live)) return null;
+  if (now < clockMinutes(leg.departure)) return null;
+  const dayLegs = legs || legsForDate(todayIso());
+  const monitored = legForLive(dayLegs, live);
+  if (!monitored) return null;
+  if (sameLeg(monitored, leg)) {
+    const left = leftOrigin(live, monitored);
+    if (left === true) return "running";
+    if (left === false) return "skipped";
+    return null;
+  }
+  if (clockMinutes(monitored.departure) > clockMinutes(leg.departure)) return "skipped";
+  if (
+    monitored.signal &&
+    leftOrigin(live, monitored) === false &&
+    isInUnrunSignalTail(dayLegs, monitored, leg)
+  ) {
+    return "skipped";
+  }
+  return null;
+}
+
+function signalSkippedStatus(leg, now) {
+  const short = t("signal.notRunningShort", { from: leg.from });
+  const detail = t("signal.notRunningText", {
+    from: leg.from,
+    to: leg.to,
+    time: hhmm(leg.departure),
+    quay: leg.from,
+  });
+  return {
+    at: now,
+    live: true,
+    signal: "skipped",
+    short,
+    text: t("live.fromEntur", { text: detail }),
+  };
+}
+
+function signalRunningStatus(leg, live, now) {
+  const dest = firstKnownQuay(live.destination) || leg.to;
+  const base = t("status.underwayTo", { dest });
+  const start = clockMinutes(leg.departure);
+  const end = leg.arrival ? clockMinutes(leg.arrival) : start + 1;
+  return withSpan(
+    {
+      at: start + 0.5,
+      underway: true,
+      signal: "running",
+      ...withSanntid(base, live),
+    },
+    start,
+    end,
+    now
+  );
+}
+
+function delayApplies(live, monitored) {
+  if (!live || !(live.delayMinutes >= 1)) return false;
+  if (monitored?.signal && leftOrigin(live, monitored) !== true) return false;
+  return true;
+}
+
 function homeQuay(legs) {
   return legs[0]?.from || HOME_QUAY;
 }
@@ -1515,6 +1700,8 @@ function parseVehicleMonitoring(data) {
   const activity = activities[0];
   const journey = activity.MonitoredVehicleJourney || {};
   const location = journey.VehicleLocation || {};
+  const call = journey.MonitoredCall || {};
+  const framed = journey.FramedVehicleJourneyRef || {};
   const recorded = activity.RecordedAtTime || activity.ValidUntilTime;
   return {
     destination: firstKnownQuay(unwrapSiri(journey.DestinationName)),
@@ -1523,6 +1710,11 @@ function parseVehicleMonitoring(data) {
     latitude: location.Latitude ?? location.latitude,
     longitude: location.Longitude ?? location.longitude,
     monitored: journey.Monitored,
+    journeyRef: serviceJourneyId(framed.DatedVehicleJourneyRef),
+    atStop: siriBool(call.VehicleAtStop),
+    stopName: firstKnownQuay(unwrapSiri(call.StopPointName)),
+    actualDeparture: unwrapSiri(call.ActualDepartureTime),
+    originAimed: unwrapSiri(journey.OriginAimedDepartureTime),
     validUntil: activity.ValidUntilTime,
     recordedAt: recorded,
   };
@@ -1699,14 +1891,27 @@ function ferryStatus(legs, now = nowMinutes(), allLegs = null) {
   return null;
 }
 
-function currentStatus(legs) {
-  const planned = ferryStatus(runningLegs(legs));
-  if (!isLiveFresh(state.live)) return planned;
-  if (planned) {
-    const base = (planned.short || planned.text || "").replace(/\.$/, "");
-    return { ...planned, ...withSanntid(base, state.live) };
+function currentStatus(legs, now = nowMinutes()) {
+  const planned = ferryStatus(runningLegs(legs), now);
+  const live = isLiveFresh(state.live) ? state.live : null;
+  if (!live) return planned;
+  const monitored = legForLive(legs, live);
+  if (monitored?.signal && leftOrigin(live, monitored) === true) {
+    return signalRunningStatus(monitored, live, now);
   }
-  return liveStatus(state.live);
+  if (
+    monitored?.signal &&
+    leftOrigin(live, monitored) === false &&
+    now >= clockMinutes(monitored.departure)
+  ) {
+    return signalSkippedStatus(monitored, now);
+  }
+  if (planned && delayApplies(live, monitored)) {
+    const base = (planned.short || planned.text || "").replace(/\.$/, "");
+    return { ...planned, ...withSanntid(base, live) };
+  }
+  if (planned) return planned;
+  return liveStatus(live);
 }
 
 function isVisibleDeparture(leg) {
@@ -2455,9 +2660,12 @@ function sailingDoneAt(event) {
 
 function departureRow(leg, past, connections, journey = null) {
   const cancelled = isCancelledDeparture(leg);
+  const verdict = isToday() ? signalVerdict(leg) : null;
   const row = el(
     "div",
-    `stop stop-dep${past ? " is-past" : ""}${cancelled ? " is-cancelled" : ""}`
+    `stop stop-dep${past ? " is-past" : ""}${cancelled ? " is-cancelled" : ""}${
+      verdict === "skipped" ? " is-signal-off" : ""
+    }`
   );
   row.append(el("span", "stop-time", hhmm(leg.departure)));
   const body = el("span", "stop-body");
@@ -2476,6 +2684,7 @@ function departureRow(leg, past, connections, journey = null) {
     if (via) body.append(el("span", "stop-note stop-conn", via));
     const note = signalNote(leg, isToday());
     if (note) body.append(note);
+    if (verdict === "skipped") body.append(el("span", "stop-note", t("signal.stillAtQuay")));
     const depConn = connectionNote(connections, "dep", leg);
     if (depConn) body.append(el("span", "stop-note stop-conn", depConn));
     const arrConn = connectionNote(connections, "arr", leg);
@@ -2485,13 +2694,16 @@ function departureRow(leg, past, connections, journey = null) {
   const departed = isToday() && hasPassed(leg.departure);
   const remaining = cancelled
     ? t("sailing.cancelled")
-    : past || departed
-      ? t("gone")
-      : isToday()
-        ? countdown(leg.departure)
-        : "";
+    : verdict === "skipped"
+      ? t("signal.notRunning")
+      : past || departed
+        ? t("gone")
+        : isToday()
+          ? countdown(leg.departure)
+          : "";
   const remainingNode = el("span", "stop-state", remaining);
-  if (isToday() && !cancelled) remainingNode.dataset.countdown = leg.departure;
+  if (verdict === "skipped") remainingNode.dataset.signal = "skipped";
+  else if (isToday() && !cancelled) remainingNode.dataset.countdown = leg.departure;
   row.append(remainingNode);
   return row;
 }
@@ -3151,6 +3363,7 @@ function liveStructureKey(events, now, status) {
       (event.quays || []).join(","),
       timelineEventIsPast(event, events, now) ? 1 : 0,
       bookingState(event),
+      isToday() && event.leg ? signalVerdict(event.leg, state.live, now) || "" : "",
     ]);
   return JSON.stringify({
     date: selectedDate(),
@@ -3178,7 +3391,11 @@ function patchNowProgress() {
 
 function patchLiveClock() {
   patchNowProgress();
-  document.querySelectorAll("[data-countdown]").forEach((node) => {
+  document.querySelectorAll("[data-countdown], [data-signal]").forEach((node) => {
+    if (node.dataset.signal === "skipped") {
+      node.textContent = t("signal.notRunning");
+      return;
+    }
     const time = node.dataset.countdown;
     const past = node.closest(".is-past");
     node.textContent =
@@ -4093,6 +4310,7 @@ export {
   compareTimelineEvents,
   currentStatus,
   dayType,
+  signalVerdict,
   delayMinutes,
   emptyPlaceMessage,
   feedbackMailto,

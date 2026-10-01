@@ -14,8 +14,8 @@ function isMessagesJson(url) {
 }
 
 test("rutetabell-JSON brukar stale-while-revalidate, meldingar og skall brukar network-first", () => {
-  assert.match(sw, /fergeruter-dev-v56/);
-  assert.match(sw, /i18n\.js\?v=55/);
+  assert.match(sw, /fergeruter-dev-v58/);
+  assert.match(sw, /i18n\.js\?v=57/);
   assert.match(sw, /function isTimetableJson/);
   assert.match(sw, /function isMessagesJson/);
   assert.match(sw, /staleWhileRevalidate\(request,\s*\{\s*notify: true/);
