@@ -7,7 +7,7 @@ import {
   setLang,
   t,
   weekdays,
-} from "./i18n.js?v=58";
+} from "./i18n.js?v=59";
 
 const MESSAGES_URL = "data/trafikkmeldinger.json";
 const ROUTES_URL = "data/ruter.json";
@@ -123,6 +123,8 @@ const state = {
   liveBlockedUntil: 0,
   /** Service journey-id som Entur har merkt avlyst i dag. */
   cancelledJourneys: new Set(),
+  /** Når vi sist fekk svar frå Entur om avlysingar. 0 = ikkje spurt enno. */
+  cancellationsFetchedAt: 0,
 };
 
 let renderedDate = null;
@@ -1285,7 +1287,23 @@ function phoneIcon() {
   return svg;
 }
 
-function signalTag(leg, { call = true } = {}) {
+function signalIsBooked(leg, now = nowMinutes()) {
+  if (!isToday() || !leg?.signal) return false;
+  const fetchedAt = state.cancellationsFetchedAt;
+  if (!fetchedAt || osloIsoFromMs(fetchedAt) !== todayIso()) return false;
+  if (journeyCancelled(leg)) return false;
+  if (signalVerdict(leg, state.live, now) === "skipped") return false;
+  const deadline = bookingDeadline(leg);
+  if (deadline == null) return false;
+  const fetched = osloParts(new Date(fetchedAt));
+  const fetchedMinutes = Number(fetched.hour) * 60 + Number(fetched.minute);
+  if (fetchedMinutes < deadline) return false;
+  if (leg.arrival && now >= clockMinutes(leg.arrival)) return false;
+  return true;
+}
+
+function signalTag(leg, { call = true, booked = false } = {}) {
+  if (booked) return el("span", "stop-tag stop-tag-booked", t("signal.booked"));
   const phone = call ? signalPhone(leg) : "";
   if (!telHref(phone)) return el("span", "stop-tag", t("signal.onRequest"));
   const link = el("a", "stop-tag stop-tag-call");
@@ -2703,6 +2721,7 @@ function connectionNote(index, kind, leg) {
  * enn i dag, ville ei nedteljing mot dagens klokke vore feil.
  */
 function signalNote(leg, live) {
+  if (live && signalIsBooked(leg)) return null;
   const deadline = bookingDeadline(leg);
   if (deadline == null) return null;
   const note = el("span", "stop-note");
@@ -2754,6 +2773,7 @@ function sailingDoneAt(event) {
 function departureRow(leg, past, connections, journey = null) {
   const cancelled = isCancelledDeparture(leg);
   const verdict = isToday() ? signalVerdict(leg) : null;
+  const booked = Boolean(leg.signal) && verdict !== "skipped" && signalIsBooked(leg);
   const row = el(
     "div",
     `stop stop-dep${past ? " is-past" : ""}${cancelled ? " is-cancelled" : ""}${
@@ -2765,7 +2785,7 @@ function departureRow(leg, past, connections, journey = null) {
   const head = el("span", "stop-head");
   head.append(el("span", "stop-name", t("sailing.route", { from: leg.from, to: leg.to })));
   if (cancelled) head.append(el("span", "stop-tag stop-tag-stop", t("sailing.cancelled")));
-  if (leg.signal) head.append(signalTag(leg, { call: !cancelled }));
+  if (leg.signal) head.append(signalTag(leg, { call: !cancelled && !booked, booked }));
   body.append(head);
   if (showArrivals()) {
     body.append(
@@ -3439,6 +3459,7 @@ function renderReveal(pastCount) {
 function bookingState(event) {
   const leg = event.leg;
   if (!leg?.signal) return "";
+  if (signalIsBooked(leg)) return "booked";
   const deadline = bookingDeadline(leg);
   if (deadline == null) return "";
   const deadlineClock = `${minutesToClock(deadline)}:00`;
@@ -4024,6 +4045,7 @@ async function fetchCancellations() {
 async function loadCancellations() {
   try {
     state.cancelledJourneys = await fetchCancellations();
+    state.cancellationsFetchedAt = Date.now();
   } catch (error) {
     console.error(error);
   }
@@ -4405,6 +4427,7 @@ function resetTestState() {
   state.liveBackoffMs = 0;
   state.liveBlockedUntil = 0;
   state.cancelledJourneys = new Set();
+  state.cancellationsFetchedAt = 0;
   lastLiveStructureKey = null;
   fjord1GraphqlBlocked = false;
   messagesHydrated = false;
@@ -4436,6 +4459,7 @@ export {
   currentStatus,
   dayType,
   signalVerdict,
+  signalIsBooked,
   delayMinutes,
   emptyPlaceMessage,
   feedbackMailto,

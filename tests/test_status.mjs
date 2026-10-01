@@ -16,6 +16,7 @@ import {
   liveStatus,
   currentStatus,
   signalVerdict,
+  signalIsBooked,
   cancelledJourneyIds,
   osloDayStartIso,
   matchesLegPlaces,
@@ -37,7 +38,7 @@ import {
   shouldFetchLive,
   serviceWindowMinutes,
 } from "../assets/app.js";
-import { setLang } from "../assets/i18n.js?v=58";
+import { setLang } from "../assets/i18n.js?v=59";
 
 beforeEach(() => {
   setLang("nn");
@@ -325,6 +326,31 @@ test("vanleg tur tek framleis med Entur-forseinking", () => {
   const status = currentStatus(legs, 7 * 60 + 45);
   assert.match(status.text, /på veg mot Trandal/);
   assert.match(status.text, /5 min forsinka/);
+});
+
+test("signaltur som ikkje er avlyst etter fristen er bestilt", () => {
+  const id = "MOR:ServiceJourney:1136_booked";
+  const trip = signalLeg("Standal", "Trandal", "13:00:00", "13:15:00", id);
+  const start = Date.parse(osloDayStartIso(todayIso()));
+  setTestState({
+    cancelledJourneys: new Set(),
+    cancellationsFetchedAt: start + (12 * 60 + 30) * 60 * 1000,
+  });
+  assert.equal(signalIsBooked(trip, 12 * 60 + 30), true);
+  setTestState({ cancellationsFetchedAt: start + 11 * 60 * 60 * 1000 });
+  assert.equal(signalIsBooked(trip, 12 * 60 + 30), false);
+  setTestState({
+    cancelledJourneys: new Set([id]),
+    cancellationsFetchedAt: start + (12 * 60 + 30) * 60 * 1000,
+  });
+  assert.equal(signalIsBooked(trip, 12 * 60 + 30), false);
+  setTestState({ cancelledJourneys: new Set(), cancellationsFetchedAt: 0 });
+  assert.equal(signalIsBooked(trip, 12 * 60 + 30), false);
+  setTestState({
+    cancelledJourneys: new Set(),
+    cancellationsFetchedAt: start + (12 * 60 + 30) * 60 * 1000,
+  });
+  assert.equal(signalIsBooked(trip, 13 * 60 + 20), false);
 });
 
 test("avlyst signaltur blir ikkje ståande som på veg til Standal", () => {

@@ -15,7 +15,7 @@ import {
   setTestState,
   track,
 } from "../assets/app.js";
-import { setLang } from "../assets/i18n.js?v=58";
+import { setLang } from "../assets/i18n.js?v=59";
 
 const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
 const app = readFileSync(new URL("../assets/app.js", import.meta.url), "utf8");
@@ -86,9 +86,9 @@ test("header har ikkje ferjegrafikk mellom kaiene", () => {
 
 test("sida har den dekorative stiplede streken øverst", () => {
   assert.match(html, /class="skyline"/);
-  assert.match(html, /assets\/styles\.css\?v=58/);
-  assert.match(html, /assets\/app\.js\?v=58/);
-  assert.match(app, /from "\.\/i18n\.js\?v=58"/);
+  assert.match(html, /assets\/styles\.css\?v=59/);
+  assert.match(html, /assets\/app\.js\?v=59/);
+  assert.match(app, /from "\.\/i18n\.js\?v=59"/);
   assert.match(app, /renderRouteChrome\(\);\s*renderPlaceFilter/);
   const css = readFileSync(new URL("../assets/styles.css", import.meta.url), "utf8");
   assert.match(css, /\.skyline\s*\{[^}]*repeating-linear-gradient/s);
