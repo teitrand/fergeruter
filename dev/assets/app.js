@@ -10,6 +10,7 @@ import {
 } from "./i18n.js?v=59";
 
 const MESSAGES_URL = "data/trafikkmeldinger.json";
+const SIGNAL_LOG_URL = "data/signalturar.json";
 const ROUTES_URL = "data/ruter.json";
 const KOMBI_URL = "data/kombirute.json";
 const CONNECTIONS_URL = "data/korrespondanse.json";
@@ -125,6 +126,7 @@ const state = {
   cancelledJourneys: new Set(),
   /** Når vi sist fekk svar frå Entur om avlysingar. 0 = ikkje spurt enno. */
   cancellationsFetchedAt: 0,
+  signalLog: null,
 };
 
 let renderedDate = null;
@@ -404,19 +406,27 @@ function previewLocation(loc) {
 }
 
 /** Testhost /dev/ les produksjonsfila. Action oppdaterer berre main. */
-function messagesUrl(loc) {
+function productionDataUrl(loc, file) {
   const here = previewLocation(loc);
   const path = String(here?.pathname || "");
-  if (!path.includes("/dev/")) return MESSAGES_URL;
+  if (!path.includes("/dev/")) return file;
   try {
     let origin = here.origin;
     if (!origin && here.href) origin = new URL(here.href).origin;
-    if (!origin) return MESSAGES_URL;
+    if (!origin) return file;
     const prefix = path.slice(0, path.indexOf("/dev/"));
-    return `${origin}${prefix}/data/trafikkmeldinger.json`;
+    return `${origin}${prefix}/data/${file.replace(/^data\//, "")}`;
   } catch {
-    return MESSAGES_URL;
+    return file;
   }
+}
+
+function messagesUrl(loc) {
+  return productionDataUrl(loc, MESSAGES_URL);
+}
+
+function signalLogUrl(loc) {
+  return productionDataUrl(loc, SIGNAL_LOG_URL);
 }
 
 /** Lokal utvikling og /dev/ på Pages. Produksjon tek ikkje ?rute=. */
@@ -1288,9 +1298,13 @@ function phoneIcon() {
 }
 
 function signalIsBooked(leg, now = nowMinutes()) {
-  if (!isToday() || !leg?.signal) return false;
+  if (!leg?.signal) return false;
+  if (signalLogStatus(leg) === "skipped") return false;
+  if (!isToday()) return signalLogStatus(leg) === "booked";
   const fetchedAt = state.cancellationsFetchedAt;
-  if (!fetchedAt || osloIsoFromMs(fetchedAt) !== todayIso()) return false;
+  if (!fetchedAt || osloIsoFromMs(fetchedAt) !== todayIso()) {
+    return signalLogStatus(leg) === "booked";
+  }
   if (journeyCancelled(leg)) return false;
   if (signalVerdict(leg, state.live, now) === "skipped") return false;
   const deadline = bookingDeadline(leg);
@@ -1298,7 +1312,7 @@ function signalIsBooked(leg, now = nowMinutes()) {
   const fetched = osloParts(new Date(fetchedAt));
   const fetchedMinutes = Number(fetched.hour) * 60 + Number(fetched.minute);
   if (fetchedMinutes < deadline) return false;
-  if (leg.arrival && now >= clockMinutes(leg.arrival)) return false;
+  if (leg.arrival && now >= clockMinutes(leg.arrival)) return signalLogStatus(leg) === "booked";
   return true;
 }
 
@@ -1677,18 +1691,31 @@ function isInUnrunSignalTail(legs, stuck, leg) {
  * «skipped» når avgangstida er passert og ferja framleis ligg der,
  * eller ein seinare tur er den som faktisk blir køyrd.
  */
+function signalLogStatus(leg, date = selectedDate()) {
+  const trips = state.signalLog?.days?.[date];
+  const list = Array.isArray(trips) ? trips : trips?.trips;
+  if (!Array.isArray(list) || !leg) return null;
+  const id = serviceJourneyId(leg.id);
+  const hit = list.find(
+    (item) =>
+      (id && serviceJourneyId(item.id) === id) ||
+      (item.departure === leg.departure && item.from === leg.from && item.to === leg.to)
+  );
+  if (hit?.status === "booked" || hit?.status === "skipped") return hit.status;
+  return null;
+}
+
 function signalVerdict(leg, live = state.live, now = nowMinutes(), legs = null) {
   if (!leg?.signal) return null;
-  if (journeyCancelled(leg)) {
-    if (isLiveFresh(live)) {
-      const dayLegs = legs || legsForDate(todayIso());
-      const monitored = legForLive(dayLegs, live);
-      if (monitored && sameLeg(monitored, leg) && leftOrigin(live, monitored) === true) {
-        return "running";
-      }
+  if (!isToday()) return signalLogStatus(leg) === "skipped" ? "skipped" : null;
+  if (isLiveFresh(live)) {
+    const dayLegs = legs || legsForDate(todayIso());
+    const monitored = legForLive(dayLegs, live);
+    if (monitored && sameLeg(monitored, leg) && leftOrigin(live, monitored) === true) {
+      return "running";
     }
-    return "skipped";
   }
+  if (journeyCancelled(leg) || signalLogStatus(leg) === "skipped") return "skipped";
   if (!isLiveFresh(live)) return null;
   if (now < clockMinutes(leg.departure)) return null;
   const dayLegs = legs || legsForDate(todayIso());
@@ -2721,7 +2748,8 @@ function connectionNote(index, kind, leg) {
  * enn i dag, ville ei nedteljing mot dagens klokke vore feil.
  */
 function signalNote(leg, live) {
-  if (live && signalIsBooked(leg)) return null;
+  if (signalIsBooked(leg)) return null;
+  if (!isToday() && signalLogStatus(leg) === "skipped") return null;
   const deadline = bookingDeadline(leg);
   if (deadline == null) return null;
   const note = el("span", "stop-note");
@@ -2772,7 +2800,7 @@ function sailingDoneAt(event) {
 
 function departureRow(leg, past, connections, journey = null) {
   const cancelled = isCancelledDeparture(leg);
-  const verdict = isToday() ? signalVerdict(leg) : null;
+  const verdict = leg.signal ? signalVerdict(leg) : null;
   const booked = Boolean(leg.signal) && verdict !== "skipped" && signalIsBooked(leg);
   const row = el(
     "div",
@@ -2809,6 +2837,8 @@ function departureRow(leg, past, connections, journey = null) {
     ? t("sailing.cancelled")
     : verdict === "skipped"
       ? t("signal.notRunning")
+      : !isToday() && booked
+      ? t("gone")
       : past || departed
         ? t("gone")
         : isToday()
@@ -4110,6 +4140,22 @@ async function fetchTimetableFiles() {
   return { routes, kombirute, connections };
 }
 
+async function loadSignalLog() {
+  try {
+    const response = await fetch(signalLogUrl(), { cache: "no-cache" });
+    if (!response.ok) return;
+    const data = await response.json();
+    if (!data || typeof data.days !== "object") return;
+    state.signalLog = data;
+    if (hasTimetable()) {
+      renderLive();
+      renderLedeStatus();
+    }
+  } catch (error) {
+    console.error(error);
+  }
+}
+
 async function loadRoutes({ useCache = true } = {}) {
   await whenMessagesHydrated();
   const label = document.getElementById("day-label");
@@ -4428,6 +4474,7 @@ function resetTestState() {
   state.liveBlockedUntil = 0;
   state.cancelledJourneys = new Set();
   state.cancellationsFetchedAt = 0;
+  state.signalLog = null;
   lastLiveStructureKey = null;
   fjord1GraphqlBlocked = false;
   messagesHydrated = false;
@@ -4460,6 +4507,8 @@ export {
   dayType,
   signalVerdict,
   signalIsBooked,
+  signalLogStatus,
+  signalLogUrl,
   delayMinutes,
   emptyPlaceMessage,
   feedbackMailto,
@@ -4574,6 +4623,7 @@ if (typeof document !== "undefined") {
   registerServiceWorker();
   loadMessages();
   loadRoutes();
+  loadSignalLog();
   scheduleTick();
   scheduleMessagesPoll();
   track(`Visit ${getLang()}`, null, { interactive: false });

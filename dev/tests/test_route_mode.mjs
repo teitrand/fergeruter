@@ -54,6 +54,7 @@ import {
   matchesChosenRouteNotice,
   messagesFingerprint,
   messagesUrl,
+  signalLogUrl,
   isRouteControl,
   cancelledSailingsFromText,
   isPartialCancel,
@@ -884,6 +885,14 @@ test("testhost hentar trafikkmeldingar frå produksjon, localhost og prod les lo
       href: "https://teitrand.github.io/fergeruter/",
     }),
     "data/trafikkmeldinger.json"
+  );
+  assert.equal(
+    signalLogUrl({
+      hostname: "teitrand.github.io",
+      pathname: "/fergeruter/dev/",
+      href: "https://teitrand.github.io/fergeruter/dev/",
+    }),
+    "https://teitrand.github.io/fergeruter/data/signalturar.json"
   );
 });
 

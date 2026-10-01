@@ -17,6 +17,7 @@ import {
   currentStatus,
   signalVerdict,
   signalIsBooked,
+  signalLogStatus,
   cancelledJourneyIds,
   osloDayStartIso,
   matchesLegPlaces,
@@ -326,6 +327,74 @@ test("vanleg tur tek framleis med Entur-forseinking", () => {
   const status = currentStatus(legs, 7 * 60 + 45);
   assert.match(status.text, /på veg mot Trandal/);
   assert.match(status.text, /5 min forsinka/);
+});
+
+test("loggen viser bestilt og ikkje utført ei veke attende", () => {
+  const booked = signalLeg("Standal", "Trandal", "13:00:00", "13:15:00", "MOR:ServiceJourney:1136_booked");
+  const skipped = signalLeg(
+    "Trandal",
+    "Standal",
+    "13:20:00",
+    "13:35:00",
+    "MOR:ServiceJourney:1136_skip"
+  );
+  setTestState({
+    date: "2026-09-28",
+    signalLog: {
+      keptDays: 7,
+      days: {
+        "2026-09-28": [
+          { id: "MOR:ServiceJourney:1136_booked", from: "Standal", to: "Trandal", departure: "13:00:00", status: "booked" },
+          { id: "MOR:ServiceJourney:1136_skip", from: "Trandal", to: "Standal", departure: "13:20:00", status: "skipped" },
+        ],
+      },
+    },
+  });
+  assert.equal(signalLogStatus(booked), "booked");
+  assert.equal(signalIsBooked(booked), true);
+  assert.equal(signalVerdict(skipped), "skipped");
+  assert.equal(signalIsBooked(skipped), false);
+});
+
+test("logga ikkje utført blir ståande når Entur har gløymt avlysinga", () => {
+  const id = "MOR:ServiceJourney:1136_128_9150000047474268";
+  const trip = signalLeg("Standal", "Trandal", "20:00:00", "20:15:00", id);
+  const start = Date.parse(osloDayStartIso(todayIso()));
+  setTestState({
+    cancelledJourneys: new Set(),
+    cancellationsFetchedAt: start + (20 * 60 + 30) * 60 * 1000,
+    signalLog: {
+      days: {
+        [todayIso()]: [{ id, from: "Standal", to: "Trandal", departure: "20:00:00", status: "skipped" }],
+      },
+    },
+  });
+  assert.equal(signalVerdict(trip, null, 20 * 60 + 10), "skipped");
+  assert.equal(signalIsBooked(trip, 20 * 60 + 10), false);
+});
+
+test("logga ikkje utført blir køyrd dersom ferja likevel har lagt frå kai", () => {
+  const id = "MOR:ServiceJourney:1136_128_9150000047474268";
+  const trip = signalLeg("Standal", "Trandal", "20:00:00", "20:15:00", id);
+  const live = freshLive({
+    journeyRef: id,
+    originAimed: "2026-10-01T20:00:00+02:00",
+    atStop: false,
+    stopName: "Trandal",
+    actualDeparture: "2026-10-01T20:02:00+02:00",
+    latitude: 62.263,
+    longitude: 6.46,
+  });
+  setTestState({
+    live,
+    signalLog: {
+      days: {
+        [todayIso()]: [{ id, from: "Standal", to: "Trandal", departure: "20:00:00", status: "skipped" }],
+      },
+    },
+  });
+  assert.equal(signalVerdict(trip, live, 20 * 60 + 10, [trip]), "running");
+  assert.equal(signalIsBooked(trip, 20 * 60 + 10), false);
 });
 
 test("signaltur som ikkje er avlyst etter fristen er bestilt", () => {
