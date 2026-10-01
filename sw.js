@@ -1,15 +1,15 @@
 const IS_DEV = self.location.pathname.includes("/dev/");
-const CACHE = IS_DEV ? "fergeruter-dev-v58" : "fergeruter-v58";
+const CACHE = IS_DEV ? "fergeruter-dev-v59" : "fergeruter-v59";
 const PRECACHE = [
   "./",
   "./index.html",
   "./manifest.webmanifest",
   "./assets/app.js",
-  "./assets/app.js?v=57",
+  "./assets/app.js?v=59",
   "./assets/i18n.js",
-  "./assets/i18n.js?v=57",
+  "./assets/i18n.js?v=59",
   "./assets/styles.css",
-  "./assets/styles.css?v=57",
+  "./assets/styles.css?v=59",
   "./assets/favicon.svg",
   "./assets/icons/icon-192.png?v=2",
   "./assets/icons/icon-512.png?v=2",
@@ -20,6 +20,7 @@ const PRECACHE = [
   "./data/kombirute.json",
   "./data/trafikkmeldinger.json",
   "./data/korrespondanse.json",
+  "./data/signalturar.json",
 ];
 
 function isOwnCache(key) {
@@ -34,6 +35,11 @@ function isTimetableJson(url) {
 /** Trafikkmeldingar styrer 1136/1135/kombi og kan skifte kvart 5. minutt. */
 function isMessagesJson(url) {
   return url.pathname.endsWith("/trafikkmeldinger.json");
+}
+
+/** Signaltur-loggen blir skriven nokre gonger om dagen og skal ikkje bli liggjande gammal. */
+function isSignalLogJson(url) {
+  return url.pathname.endsWith("/signalturar.json");
 }
 
 /** Same cache-nøkkel for datafiler, òg når meldingar vart henta med ?t= tidlegare. */
@@ -136,6 +142,10 @@ self.addEventListener("fetch", (event) => {
   }
   if (isMessagesJson(url)) {
     event.respondWith(networkFirst(request, { notifyType: "messages-updated" }));
+    return;
+  }
+  if (isSignalLogJson(url)) {
+    event.respondWith(networkFirst(request));
     return;
   }
   if (shell) {
