@@ -7,7 +7,7 @@ import {
   setLang,
   t,
   weekdays,
-} from "./i18n.js?v=62";
+} from "./i18n.js?v=63";
 
 const MESSAGES_URL = "data/trafikkmeldinger.json";
 const SIGNAL_LOG_URL = "data/signalturar.json";
@@ -1902,6 +1902,21 @@ function minDeadheadMinutes(allLegs, fromQuay, toQuay) {
   return shortest;
 }
 
+/** Kortaste planlagde overfarten mellom to kaier. Tomturen tek ikkje heile holet. */
+function crossingMinutes(allLegs, fromQuay, toQuay) {
+  const from = quayPlace(fromQuay);
+  const to = quayPlace(toQuay);
+  if (!from || !to || from === to) return null;
+  let shortest = null;
+  for (const leg of allLegs || []) {
+    if (quayPlace(leg.from) !== from || quayPlace(leg.to) !== to) continue;
+    if (!leg.departure || !leg.arrival) continue;
+    const minutes = clockMinutes(leg.arrival) - clockMinutes(leg.departure);
+    if (minutes > 0 && (shortest == null || minutes < shortest)) shortest = minutes;
+  }
+  return shortest;
+}
+
 function parseVehicleMonitoring(data) {
   const deliveries = data?.Siri?.ServiceDelivery?.VehicleMonitoringDelivery;
   const list = Array.isArray(deliveries) ? deliveries : deliveries ? [deliveries] : [];
@@ -2063,6 +2078,19 @@ function ferryStatus(legs, now = nowMinutes(), allLegs = null) {
       const end = clockMinutes(next.departure);
       const moving = !isCombinedTimetable() && leg.to !== next.from;
       if (moving) {
+        const sail = crossingMinutes(catalog, leg.to, next.from);
+        const sailEnd = sail != null && sail < end - start ? start + sail : end;
+        if (now >= sailEnd && sailEnd < end) {
+          return withSpan(
+            {
+              at: sailEnd + 0.5,
+              text: t("status.mooredAt", { quay: next.from }),
+            },
+            sailEnd,
+            end,
+            now
+          );
+        }
         return withSpan(
           {
             at: start + 0.5,
@@ -2070,7 +2098,7 @@ function ferryStatus(legs, now = nowMinutes(), allLegs = null) {
             text: t("status.repositionTo", { quay: next.from }),
           },
           start,
-          end,
+          sailEnd,
           now
         );
       }
