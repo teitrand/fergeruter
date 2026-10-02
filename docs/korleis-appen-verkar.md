@@ -277,7 +277,7 @@ For **ein annan dag** finst ikkje dagens avlysingsmengd. Berre loggen: `booked` 
 2. Før fyrste avgang: ligg på frå-kaia.
 3. Mellom avgang og ankomst: «på veg mot {kai}». Framdrift er lineær mellom klokkesletta.
 4. Mellom ankomst og neste avgang på same kai: «ligg til kai». Opphald på minst 20 minutt er liggetid (matpause), med eigen tekst.
-5. Mellom ankomst og neste avgang på ein annan kai, og tabellen ikkje er kombi: tomflytting.
+5. Mellom ankomst og neste avgang på ein annan kai, og tabellen ikkje er kombi: tomflytting. Ho varer den kortaste planlagde overfarten mellom dei kaiane. Deretter ligg ferja til kai på neste kai til avgangen. Er overfarten ukjend, varer tomturen heile holet.
 6. Etter siste ankomst: ferdig på den kaia om det er heimkai eller kombi. Elles tomtur heim i det kortaste holet tabellen har mellom dei kaiane, deretter «ferdig på Standal».
 7. Om VM er fersk: signaltur som har lagt frå kai overstyrer med destinasjon og forseinking. Signaltur som ikkje har lagt frå kai overstyrer med «ikkje utført». Vanleg rute får forseinking lagt på tabellteksten.
 
