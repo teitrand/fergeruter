@@ -281,7 +281,7 @@ For **ein annan dag** finst ikkje dagens avlysingsmengd. Berre loggen: `booked` 
 6. Etter siste ankomst: ferdig på den kaia om det er heimkai eller kombi. Elles tomtur heim i det kortaste holet tabellen har mellom dei kaiane, deretter «ferdig på Standal».
 7. Om VM er fersk: signaltur som har lagt frå kai overstyrer med destinasjon og forseinking. Signaltur som ikkje har lagt frå kai overstyrer med «ikkje utført». Vanleg rute får forseinking lagt på tabellteksten.
 
-Filtra frå/til endrar kva rader som visest, ikkje kvar ferja er. Reise med mellomstopp følgjer same ferje. Skår→Standal går via Sæbø/Trandal. Leknes→Standal i vanleg rute byter ferje på Sæbø og får ventetid. Korrespondanse blir merkt på avgang og ankomst, ikkje som eigne rader.
+Filtra frå/til endrar kva rader som visest, ikkje kvar ferja er. Reise med mellomstopp følgjer same ferje. Skår→Standal går via Sæbø/Trandal. Leknes→Standal i vanleg rute byter ferje på Sæbø og får ventetid. Korrespondanse blir merkt på avgang og ankomst, ikkje som eigne rader. Fyrste avgang i reisa står i hovudlinja. Seinare bein og venting på knutepunktet får klassen `stop-onward` og er innrykka, så dei ikkje ser ut som avgangar frå startkaien.
 
 ## 9. Nettlesaren
 
