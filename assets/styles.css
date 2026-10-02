@@ -913,6 +913,54 @@ h2.day-label {
 
 .stop-dep .stop-name { font-weight: 600; }
 
+.stop-detail {
+  border: 0;
+  padding: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.stop-detail:hover,
+.stop-detail:focus-visible {
+  text-decoration: underline;
+  text-underline-offset: 0.14em;
+}
+
+.stop-dep {
+  cursor: pointer;
+  border-radius: 10px;
+}
+
+.stop-dep:hover {
+  background: rgba(255, 255, 255, 0.45);
+}
+
+.stop-dep:focus-visible {
+  outline: 2px solid var(--water);
+  outline-offset: 2px;
+}
+
+.departure-dialog .detail-copy,
+.departure-dialog .detail-status,
+.departure-dialog .detail-caveat {
+  margin: 0.45rem 0;
+}
+
+.departure-dialog .detail-status {
+  font-weight: 700;
+  color: var(--fjord);
+}
+
+.departure-dialog .detail-caveat {
+  padding: 0.7rem 0.85rem;
+  border-radius: 14px;
+  background: #f8ead6;
+  color: var(--ink);
+}
+
 .stop-eta {
   font-variant-numeric: tabular-nums;
   font-weight: 400;

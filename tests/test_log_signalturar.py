@@ -72,6 +72,38 @@ class SignalLogTests(unittest.TestCase):
         )
         self.assertEqual(merged[0]["status"], "skipped")
 
+    def test_fyrste_observasjon_held_tidspunktet(self):
+        first = apply_observations(
+            [],
+            [
+                {
+                    "id": "MOR:ServiceJourney:1136_a",
+                    "from": "Standal",
+                    "to": "Trandal",
+                    "departure": "13:00:00",
+                    "status": "booked",
+                }
+            ],
+            "2026-10-02T06:50:00+02:00",
+        )
+        self.assertEqual(first[0]["observedAt"], "2026-10-02T06:50:00+02:00")
+        again = apply_observations(
+            first,
+            [
+                {
+                    "id": "MOR:ServiceJourney:1136_a",
+                    "from": "Standal",
+                    "to": "Trandal",
+                    "departure": "13:00:00",
+                    "status": "skipped",
+                }
+            ],
+            "2026-10-02T07:20:00+02:00",
+        )
+        self.assertEqual(again[0]["status"], "skipped")
+        self.assertEqual(again[0]["observedAt"], "2026-10-02T06:50:00+02:00")
+        self.assertEqual(again[0]["skippedAt"], "2026-10-02T07:20:00+02:00")
+
     def test_loggen_held_sju_dagar(self):
         days = {f"2026-09-{day:02d}": [] for day in range(20, 31)}
         days["2026-10-01"] = []
