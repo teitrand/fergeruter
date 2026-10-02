@@ -7,7 +7,7 @@ import {
   setLang,
   t,
   weekdays,
-} from "./i18n.js?v=61";
+} from "./i18n.js?v=62";
 
 const MESSAGES_URL = "data/trafikkmeldinger.json";
 const SIGNAL_LOG_URL = "data/signalturar.json";
@@ -2597,6 +2597,12 @@ function journeyForLeg(journeys, leg) {
   return journeys.find((journey) => journey.legs.some((part) => legKey(part) === key)) || null;
 }
 
+/** Seinare bein i same reisa. Fyrste avgang er den du faktisk tek frå filteret. */
+function isOnwardLeg(leg, journey) {
+  if (!journey || journey.legs.length < 2 || !leg) return false;
+  return legKey(journey.legs[0]) !== legKey(leg);
+}
+
 function journeyNote(leg, journey) {
   if (!journey || journey.legs.length < 2) return null;
   if (legKey(journey.legs[0]) !== legKey(leg)) return null;
@@ -2882,11 +2888,12 @@ function departureRow(leg, past, connections, journey = null) {
   const cancelled = isCancelledDeparture(leg);
   const verdict = leg.signal ? signalVerdict(leg) : null;
   const booked = Boolean(leg.signal) && verdict !== "skipped" && signalIsBooked(leg);
+  const onward = isOnwardLeg(leg, journey);
   const row = el(
     "div",
     `stop stop-dep${past ? " is-past" : ""}${cancelled ? " is-cancelled" : ""}${
       verdict === "skipped" ? " is-signal-off" : ""
-    }`
+    }${onward ? " stop-onward" : ""}`
   );
   row.append(el("span", "stop-time", hhmm(leg.departure)));
   const body = el("span", "stop-body");
@@ -3059,7 +3066,7 @@ function layoverRow(stay, past) {
 }
 
 function waitRow(stay, past) {
-  const row = el("div", `stop stop-layover stop-wait${past ? " is-past" : ""}`);
+  const row = el("div", `stop stop-layover stop-wait stop-onward${past ? " is-past" : ""}`);
   row.append(el("span", "stop-time", hhmm(stay.from)));
   const body = el("span", "stop-body");
   body.append(
@@ -3256,6 +3263,7 @@ function buildEvents(legs, connections) {
           kind: "dep",
           quays: [leg.from, leg.to],
           leg,
+          onward: isOnwardLeg(leg, journey),
           build: (past) => departureRow(leg, past, connections, journey),
         });
         if (journey?.wait && journey.wait.afterKey === legKey(leg)) {
@@ -3265,6 +3273,7 @@ function buildEvents(legs, connections) {
             kind: "wait",
             quays: [journey.wait.quay],
             stay: journey.wait,
+            onward: true,
             build: (past) => waitRow(journey.wait, past),
           });
         }
