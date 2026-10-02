@@ -1,7 +1,27 @@
 {
   "source": "https://www.fjord1.no/trafikkmeldingar",
-  "fetchedAt": "2026-10-02T17:55:29.093829+00:00",
+  "fetchedAt": "2026-10-02T21:29:48.594421+00:00",
   "messages": [
+    {
+      "id": "RG9tYWluQ29udGVudDoyMTkwODczMQ==",
+      "heading": "Mortavika-Arsvågen",
+      "text": "Rute 1130 Arsvågen - Mortavika: Det er normal drift i sambandet. I morgen vil det i forbindelse med start høstferie gå en ekstra ferge i tidsrommet 0900-1530. Det vil i dette tidsrommet være avganger hvert kvarter fra begge sider.",
+      "publishedAt": "2026-10-02T20:37:57+02:00",
+      "validFrom": "2026-10-02T18:37:57+00:00",
+      "validTo": "2026-10-03T18:36:38+00:00",
+      "countyNumber": 11,
+      "connectionNumber": 528,
+      "important": false,
+      "severity": "normal",
+      "isRoute1136": false,
+      "isLocal": false,
+      "isRouteControl": false,
+      "routeMode": "1136",
+      "routeWindow": null,
+      "activateAt": null,
+      "vessel": null,
+      "routeSwitch": null
+    },
     {
       "id": "RG9tYWluQ29udGVudDoyMTkwODM1Mg==",
       "heading": "Rysjedalsvika-Rutledal-Krakhella",
