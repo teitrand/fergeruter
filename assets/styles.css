@@ -20,14 +20,15 @@
 html, body {
   margin: 0;
   min-height: 100%;
+  background: var(--sand);
 }
 
 body {
   font-family: Outfit, "Segoe UI", sans-serif;
   color: var(--ink);
-  background:
-    radial-gradient(1200px 500px at 10% -10%, #1a6b8a 0%, transparent 55%),
-    linear-gradient(180deg, #062833 0%, #0b3c4b 38%, #f3ead8 38.1%, #efe4cf 100%);
+  background: var(--sand);
+  min-height: 100vh;
+  min-height: 100dvh;
 }
 
 .skip-link {
@@ -46,8 +47,8 @@ body {
   margin-top: env(safe-area-inset-top, 0px);
   background: repeating-linear-gradient(
     90deg,
-    #d7eeea 0 20px,
-    rgba(126, 200, 195, 0.18) 20px 34px
+    rgba(7, 59, 76, 0.16) 0 20px,
+    rgba(7, 59, 76, 0.05) 20px 34px
   );
 }
 
@@ -70,7 +71,7 @@ main,
   row-gap: 0.18rem;
   align-items: start;
   padding: 1.4rem 0 0.85rem;
-  color: var(--foam);
+  color: var(--ink);
 }
 
 .header-tools {
@@ -90,9 +91,9 @@ main,
 
 .lang-btn,
 .install-btn {
-  border: 1px solid rgba(215, 238, 234, 0.35);
+  border: 1px solid rgba(7, 59, 76, 0.28);
   background: transparent;
-  color: var(--foam);
+  color: var(--fjord);
   border-radius: 999px;
   padding: 0.28rem 0.7rem;
   font: inherit;
@@ -134,7 +135,7 @@ main,
 .install-btn:hover,
 .lang-btn:focus-visible,
 .install-btn:focus-visible {
-  border-color: var(--foam);
+  border-color: var(--fjord);
   outline: none;
 }
 
@@ -284,7 +285,7 @@ h1, h2, h3 {
 .route-switch-label {
   font-size: 0.92rem;
   font-weight: 600;
-  color: var(--foam);
+  color: var(--fjord);
 }
 
 .route-switch {
@@ -294,14 +295,14 @@ h1, h2, h3 {
   margin: 0;
   padding: 0.22rem;
   border-radius: 999px;
-  background: rgba(4, 28, 36, 0.45);
-  border: 1px solid rgba(215, 238, 234, 0.55);
-  box-shadow: inset 0 0 0 1px rgba(4, 28, 36, 0.2);
+  background: #fff;
+  border: 1px solid var(--line);
+  box-shadow: none;
 }
 
 .route-switch .chip {
   background: transparent;
-  color: var(--foam);
+  color: var(--fjord);
   border-color: transparent;
   font-weight: 600;
   white-space: nowrap;
@@ -311,7 +312,7 @@ h1, h2, h3 {
 .route-switch .chip:hover,
 .route-switch .chip:focus-visible {
   border-color: transparent;
-  background: rgba(215, 238, 234, 0.16);
+  background: var(--foam);
   outline: none;
 }
 
@@ -324,7 +325,7 @@ h1, h2, h3 {
 .lede {
   grid-area: lede;
   margin: 0.15rem 0 0;
-  color: #d7eeea;
+  color: var(--muted);
   line-height: 1.45;
 }
 

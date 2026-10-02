@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Hent rutetabellane for 1136 og 1135 frå Entur.
 
-Køyr berre når rutetabellen er endra. Nettlesaren les den lagra fila.
+Workflowen køyrer kvar dag. Fila blir berre skriven når innhaldet er endra.
+Nettlesaren les den lagra fila.
 
 Kombinasjonsruta ligg ikkje i Entur. Ho er transkribert frå FRAM-PDF i
 data/kombirute.json (scripts/build_kombirute.py) og blir bytt ut når FRAM
@@ -26,7 +27,7 @@ QUAY_ALIASES = {"Lekneset": "Leknes"}
 QUAY_SUFFIXES = (" ferjekai", " kai")
 
 # Kaiane i Hjørundfjorden. Turar mellom desse og Valderøya/Store Kalvøy er
-# forflytting utan passasjerar, jf. fotnote 4 i ruteheftet.
+# forflytting utan passasjerar. PDF-en frå 17.08.26 har berre fotnote 1) og 3).
 HJORUNDFJORD_QUAYS = ("Standal", "Trandal", "Sæbø", "Skår", "Leknes", "Bjørke", "Urke")
 
 SIGNAL_RE = re.compile(r"min\.?\s*(\d+)\s*(timar|time|minutt|min)", re.I)

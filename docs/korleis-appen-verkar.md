@@ -18,7 +18,7 @@ To samband, éi ferje om gongen:
 
 Kaien Lekneset hos Entur blir normalisert til Leknes.
 
-Heimkai er fyrste `from` i dagen, i praksis Standal. Etter siste passasjertur reknar sida med at ferja går tom tilbake til Standal om det finst eit tilsvarande hol i tabellen. Den tomturen står ikkje i Entur.
+Heimkai er fyrste `from` i dagen, i praksis Standal. Etter siste passasjertur reknar sida med at ferja går tom tilbake til Standal. Tomtur mellom Valderøya/Store Kalvøy og Hjørundfjorden tek 120 minutt (AIS, om lag 110–125), deretter ligg ho til kai. Den tomturen står ikkje i Entur.
 
 Fartya som er namngjevne i meldingar og kombirute er M/F Geiranger (916 69 321) og M/F Kvernes (916 69 340, MMSI 257297400). Signaltur-telefonen i ruteheftet er 91 66 93 40.
 
@@ -54,7 +54,7 @@ tests/                  node:test og unittest
 Skriven av `scripts/fetch_ruter.py`.
 
 - `source`, `fetchedAt`
-- `hjorundfjordQuays`: kaier der tur mot Valderøya/Store Kalvøy er tomflytting (fotnote 4)
+- `hjorundfjordQuays`: kaier i Hjørundfjorden. Tur mot Valderøya/Store Kalvøy er tomflytting utan passasjerar. PDF-en frå 17.08.26 har fotnote 1) og 3), ikkje ein eigen fotnote for tomturen
 - `lines["1136"]` og `lines["1135"]`: `lineId`, `publicCode`, `lineName`, `legs[]`
 
 Kvart bein:
@@ -76,7 +76,7 @@ Signaltur blir sett av `PDF_SIGNAL_1136` i `fetch_ruter.py`, fotnote 1) og 3) i 
 Skriven av `scripts/build_kombirute.py` frå ein hardkoda transkripsjon av FRAM-PDF (per no 18.11.25). Ikkje parse PDF i CI. Ved ny PDF: oppdater kjelde-URL og transkripsjonen, køyr skriptet, sjå at testane i `tests/test_kombirute.py` stemmer.
 
 - `crossingMinutes`: overfartstid per par, t.d. `"Sæbø–Leknes": 15`
-- `legs[]` har `days` (`weekday`, `saturday`, `sunday`, …) i staden for `activeDates`
+- `legs[]` har `days` (`weekday`, `saturday`, `sunday`) i staden for `activeDates`. Offisiell norsk høgtidsdag som fell på kvardag eller laurdag (1. nyttårsdag, skjærtorsdag, langfredag, 2. påskedag, 1. mai, 17. mai, Kristi himmelfartsdag, 2. pinsedag, 1. og 2. juledag) bruker `sunday`, jf. «Søndagsruter på andre helge- og høgtidsdagar» i FRAM-PDF-en. 1136 og 1135 bruker `activeDates` frå Entur og blir ikkje påverka
 - `signal` er ofte `null` på kombibeina. PDF-notisen er «berre på signal seinast 1 time før», men loggen i `signalturar.json` tek berre bein frå `ruter.json` som har `signal` og `activeDates`
 
 Neste fylte celle i PDF-en er neste stopp. Ankomst = avgang + overfartstid. Éi ferje, éi samanhengande rute. Overlappande signalturar i PDF-en (Skår og Leknes samstundes) er ikkje tomflytting.
@@ -144,7 +144,7 @@ Spørjinga hentar `line(id)` for `MOR:Line:1136` og `MOR:Line:1135`: service jou
 3. legg `activeDates` frå kalenderen til journeyen
 4. skriv fila berre som ein heil erstatning
 
-Køyr manuelt, eller workflow **Oppdater rutetabell** (`workflow_dispatch`). Ingen dagleg cron. Nettlesaren les fila. Han spør ikkje Journey Planner for sjølve tabellen.
+Køyr manuelt, eller workflow **Oppdater rutetabell**. Ho går kvar natt (`20 4 * * *` UTC) på `main`, og kan òg startast med `workflow_dispatch`. Fila blir berre skriven når innhaldet er endra. Nettlesaren les fila. Han spør ikkje Journey Planner for sjølve tabellen.
 
 Korrespondanse blir henta i same workflow av `fetch_korrespondanse.py`.
 
@@ -277,8 +277,8 @@ For **ein annan dag** finst ikkje dagens avlysingsmengd. Berre loggen: `booked` 
 2. Før fyrste avgang: ligg på frå-kaia.
 3. Mellom avgang og ankomst: «på veg mot {kai}». Framdrift er lineær mellom klokkesletta.
 4. Mellom ankomst og neste avgang på same kai: «ligg til kai». Opphald på minst 20 minutt er liggetid (matpause), med eigen tekst.
-5. Mellom ankomst og neste avgang på ein annan kai, og tabellen ikkje er kombi: tomflytting. Ho varer den kortaste planlagde overfarten mellom dei kaiane. Deretter ligg ferja til kai på neste kai til avgangen. Er overfarten ukjend, varer tomturen heile holet.
-6. Etter siste ankomst: ferdig på den kaia om det er heimkai eller kombi. Elles tomtur heim i det kortaste holet tabellen har mellom dei kaiane, deretter «ferdig på Standal».
+5. Mellom ankomst og neste avgang på ein annan kai, og tabellen ikkje er kombi: tomflytting. Ho varer den kortaste planlagde overfarten mellom dei kaiane. Tomtur mellom Valderøya/Store Kalvøy og ein kai i Hjørundfjorden har inga direkte linje; den varer 120 minutt. Deretter ligg ferja til kai på neste kai (Standal på veg inn, Valderøya før passasjeravgangen på veg ut) til avgangen. Er holet kortare enn overfarten, varer tomturen heile holet. Er overfarten ukjend, varer tomturen òg heile holet.
+6. Etter siste ankomst: ferdig på den kaia om det er heimkai eller kombi. Elles tomtur heim med same overfart som i punkt 5 (Valderøya/Store Kalvøy → Standal: 120 minutt), deretter ligg ho til kai på Standal over natta. Manglar både overfart og hol i tabellen, seier vi at ho går heim og ligg der over natta, utan eit oppfunne klokkeslett.
 7. Om VM er fersk: signaltur som har lagt frå kai overstyrer med destinasjon og forseinking. Signaltur som ikkje har lagt frå kai overstyrer med «ikkje utført». Vanleg rute får forseinking lagt på tabellteksten.
 
 Filtra frå/til endrar kva rader som visest, ikkje kvar ferja er. Reise med mellomstopp følgjer same ferje. Skår→Standal går via Sæbø/Trandal. Leknes→Standal i vanleg rute byter ferje på Sæbø og får ventetid. Korrespondanse blir merkt på avgang og ankomst, ikkje som eigne rader. Fyrste avgang i reisa står i hovudlinja. Seinare bein og venting på knutepunktet får klassen `stop-onward` og er innrykka, så dei ikkje ser ut som avgangar frå startkaien.
@@ -350,6 +350,8 @@ Det som må halde:
 - Logg `skipped` blir ikkje bestilt att, heller ikkje om Entur har gløymt avlysinga
 - Loggen viser bestilt og ikkje utført på ein tidlegare dato
 - Kombirute-transkripsjonen stemmer med byggaren
+- Høgtidsdag i kombirute bruker søndagstabellen
+- Tomtur Valderøya/Store Kalvøy ↔ Hjørundfjorden varer 120 minutt, deretter kai
 - Cache-versjonen i SW, HTML og JS er den same
 
 ## 12. Byggje opp att
