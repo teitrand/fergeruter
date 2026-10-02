@@ -41,7 +41,7 @@ import {
   shouldFetchLive,
   serviceWindowMinutes,
 } from "../assets/app.js";
-import { setLang } from "../assets/i18n.js?v=62";
+import { setLang } from "../assets/i18n.js?v=63";
 
 beforeEach(() => {
   setLang("nn");
@@ -111,6 +111,35 @@ test("NO-status fyller tida mellom stopp, òg i liggetid og kort kai-opphald", (
   assert.equal(before.progress, undefined);
   const done = ferryStatus(weekdayHome, 21 * 60, weekdayHome);
   assert.equal(done.progress, undefined);
+});
+
+test("tomtur varer overfarten, deretter ligg ferja på neste kai", () => {
+  const running = [
+    leg("Trandal", "Sæbø", "08:00:00", "08:30:00"),
+    leg("Trandal", "Standal", "09:45:00", "10:00:00"),
+  ];
+  const catalog = [...running, leg("Sæbø", "Trandal", "09:20:00", "09:45:00")];
+  const during = ferryStatus(running, 8 * 60 + 40, catalog);
+  assert.equal(during.underway, true);
+  assert.equal(during.text, "Ferja går til Trandal utan passasjerar");
+  assert.equal(during.from, 8 * 60 + 30);
+  assert.equal(during.until, 8 * 60 + 55);
+  const alongside = ferryStatus(running, 8 * 60 + 57, catalog);
+  assert.equal(alongside.underway, undefined);
+  assert.equal(alongside.text, "Ferja ligg til kai på Trandal");
+  assert.equal(alongside.from, 8 * 60 + 55);
+  assert.equal(alongside.until, 9 * 60 + 45);
+});
+
+test("tomtur utan kjend overfart varer heile holet", () => {
+  const legs = [
+    leg("Sæbø", "Skår", "08:35:00", "08:55:00"),
+    leg("Trandal", "Standal", "09:45:00", "10:00:00"),
+  ];
+  const status = ferryStatus(legs, 9 * 60, legs);
+  assert.equal(status.underway, true);
+  assert.equal(status.text, "Ferja går til Trandal utan passasjerar");
+  assert.equal(status.until, 9 * 60 + 45);
 });
 
 test("etter siste passasjertur til Valderøya går ho heim utan folk", () => {
