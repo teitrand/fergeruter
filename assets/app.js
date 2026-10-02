@@ -7,7 +7,7 @@ import {
   setLang,
   t,
   weekdays,
-} from "./i18n.js?v=59";
+} from "./i18n.js?v=61";
 
 const MESSAGES_URL = "data/trafikkmeldinger.json";
 const SIGNAL_LOG_URL = "data/signalturar.json";
@@ -126,6 +126,10 @@ const state = {
   cancelledJourneys: new Set(),
   /** Når vi sist fekk svar frå Entur om avlysingar. 0 = ikkje spurt enno. */
   cancellationsFetchedAt: 0,
+  /** Turar som var med i siste avlysingssvar, avlyst eller ikkje. */
+  seenJourneys: new Set(),
+  /** Sett etter fristen når turen faktisk låg i Entur utan avlysing. Vert ståande ut dagen. */
+  confirmedBooked: new Set(),
   signalLog: null,
 };
 
@@ -1297,23 +1301,76 @@ function phoneIcon() {
   return svg;
 }
 
+function fetchMinutes(fetchedAt) {
+  const fetched = osloParts(new Date(fetchedAt));
+  return Number(fetched.hour) * 60 + Number(fetched.minute);
+}
+
+/** Turen låg i Entur utan avlysing, og svaret kom etter tingefristen. */
+function signalSeenBooked(leg) {
+  const id = serviceJourneyId(leg?.id);
+  if (!id || !leg?.signal) return false;
+  if (state.confirmedBooked.has(id)) return true;
+  const fetchedAt = state.cancellationsFetchedAt;
+  if (!fetchedAt || osloIsoFromMs(fetchedAt) !== todayIso()) return false;
+  if (!state.seenJourneys.has(id) || journeyCancelled(leg)) return false;
+  const deadline = bookingDeadline(leg);
+  return deadline != null && fetchMinutes(fetchedAt) >= deadline;
+}
+
 function signalIsBooked(leg, now = nowMinutes()) {
   if (!leg?.signal) return false;
   if (signalLogStatus(leg) === "skipped") return false;
   if (!isToday()) return signalLogStatus(leg) === "booked";
-  const fetchedAt = state.cancellationsFetchedAt;
-  if (!fetchedAt || osloIsoFromMs(fetchedAt) !== todayIso()) {
-    return signalLogStatus(leg) === "booked";
-  }
-  if (journeyCancelled(leg)) return false;
   if (signalVerdict(leg, state.live, now) === "skipped") return false;
+  if (signalLogStatus(leg) === "booked") return true;
+  const fetchedAt = state.cancellationsFetchedAt;
+  if (!fetchedAt || osloIsoFromMs(fetchedAt) !== todayIso()) return false;
+  if (journeyCancelled(leg)) return false;
   const deadline = bookingDeadline(leg);
   if (deadline == null) return false;
-  const fetched = osloParts(new Date(fetchedAt));
-  const fetchedMinutes = Number(fetched.hour) * 60 + Number(fetched.minute);
+  const fetchedMinutes = fetchMinutes(fetchedAt);
   if (fetchedMinutes < deadline) return false;
-  if (leg.arrival && now >= clockMinutes(leg.arrival)) return signalLogStatus(leg) === "booked";
+  const id = serviceJourneyId(leg.id);
+  if (id && state.confirmedBooked.has(id)) return true;
+  if (id && state.seenJourneys.has(id)) {
+    state.confirmedBooked.add(id);
+    return true;
+  }
+  if (leg.arrival && now >= clockMinutes(leg.arrival)) return false;
   return true;
+}
+
+/**
+ * Kva detaljvindauget skal seie. Entur har ikkje tidspunkt for sjølve ringinga.
+ * `observedAt` er når vi fyrst såg statusen, ikkje når nokon tinga.
+ */
+function departureDetail(leg, now = nowMinutes()) {
+  const signal = Boolean(leg?.signal);
+  const verdict = signal ? signalVerdict(leg, state.live, now) : null;
+  const skipped = verdict === "skipped";
+  const booked = signal && !skipped && signalIsBooked(leg, now);
+  const cancelled = isCancelledDeparture(leg);
+  const entry = signal ? signalLogEntry(leg) : null;
+  const deadline = signal ? bookingDeadline(leg) : null;
+  let phase = "regular";
+  if (cancelled && !signal) phase = "cancelled";
+  else if (skipped) phase = "skipped";
+  else if (booked) phase = "booked";
+  else if (signal && deadline != null && isToday() && now < deadline) phase = "open";
+  else if (signal) phase = "unknown";
+  return {
+    phase,
+    booked,
+    skipped,
+    cancelled,
+    signal,
+    deadline,
+    minutesBefore: leg?.signal?.minutesBefore ?? null,
+    phone: signal ? signalPhone(leg) : "",
+    observedAt: entry?.observedAt || null,
+    skippedAt: entry?.skippedAt || null,
+  };
 }
 
 function signalTag(leg, { call = true, booked = false } = {}) {
@@ -1571,19 +1628,33 @@ function cancellationQuery(stops) {
   return `query Cancelled($start: DateTime!) { ${fields} }`;
 }
 
-function cancelledJourneyIds(payload) {
+function callsFromCancellationPayload(payload) {
   const data = payload?.data && typeof payload.data === "object" ? payload.data : payload;
-  const ids = new Set();
-  if (!data || typeof data !== "object") return ids;
+  if (!data || typeof data !== "object") return [];
   const groups = Array.isArray(data) ? data : Object.values(data);
+  const calls = [];
   for (const group of groups) {
-    const calls = Array.isArray(group) ? group : group?.estimatedCalls;
-    if (!Array.isArray(calls)) continue;
-    for (const call of calls) {
-      if (!call?.cancellation) continue;
-      const id = serviceJourneyId(call.serviceJourney?.id || call.id);
-      if (id) ids.add(id);
-    }
+    const list = Array.isArray(group) ? group : group?.estimatedCalls;
+    if (Array.isArray(list)) calls.push(...list);
+  }
+  return calls;
+}
+
+function cancelledJourneyIds(payload) {
+  const ids = new Set();
+  for (const call of callsFromCancellationPayload(payload)) {
+    if (!call?.cancellation) continue;
+    const id = serviceJourneyId(call.serviceJourney?.id || call.id);
+    if (id) ids.add(id);
+  }
+  return ids;
+}
+
+function seenJourneyIds(payload) {
+  const ids = new Set();
+  for (const call of callsFromCancellationPayload(payload)) {
+    const id = serviceJourneyId(call.serviceJourney?.id || call.id);
+    if (id) ids.add(id);
   }
   return ids;
 }
@@ -1691,16 +1762,22 @@ function isInUnrunSignalTail(legs, stuck, leg) {
  * «skipped» når avgangstida er passert og ferja framleis ligg der,
  * eller ein seinare tur er den som faktisk blir køyrd.
  */
-function signalLogStatus(leg, date = selectedDate()) {
+function signalLogEntry(leg, date = selectedDate()) {
   const trips = state.signalLog?.days?.[date];
   const list = Array.isArray(trips) ? trips : trips?.trips;
   if (!Array.isArray(list) || !leg) return null;
   const id = serviceJourneyId(leg.id);
-  const hit = list.find(
-    (item) =>
-      (id && serviceJourneyId(item.id) === id) ||
-      (item.departure === leg.departure && item.from === leg.from && item.to === leg.to)
+  return (
+    list.find(
+      (item) =>
+        (id && serviceJourneyId(item.id) === id) ||
+        (item.departure === leg.departure && item.from === leg.from && item.to === leg.to)
+    ) || null
   );
+}
+
+function signalLogStatus(leg, date = selectedDate()) {
+  const hit = signalLogEntry(leg, date);
   if (hit?.status === "booked" || hit?.status === "skipped") return hit.status;
   return null;
 }
@@ -1727,7 +1804,10 @@ function signalVerdict(leg, live = state.live, now = nowMinutes(), legs = null) 
     if (left === false) return "skipped";
     return null;
   }
-  if (clockMinutes(monitored.departure) > clockMinutes(leg.departure)) return "skipped";
+  if (clockMinutes(monitored.departure) > clockMinutes(leg.departure)) {
+    if (signalSeenBooked(leg)) return null;
+    return "skipped";
+  }
   if (
     monitored.signal &&
     leftOrigin(live, monitored) === false &&
@@ -2811,7 +2891,15 @@ function departureRow(leg, past, connections, journey = null) {
   row.append(el("span", "stop-time", hhmm(leg.departure)));
   const body = el("span", "stop-body");
   const head = el("span", "stop-head");
-  head.append(el("span", "stop-name", t("sailing.route", { from: leg.from, to: leg.to })));
+  const name = el("button", "stop-name stop-detail", t("sailing.route", { from: leg.from, to: leg.to }));
+  name.type = "button";
+  name.setAttribute("aria-haspopup", "dialog");
+  name.setAttribute("aria-controls", "departure-dialog");
+  name.addEventListener("click", (event) => {
+    event.stopPropagation();
+    openDepartureDetail(leg);
+  });
+  head.append(name);
   if (cancelled) head.append(el("span", "stop-tag stop-tag-stop", t("sailing.cancelled")));
   if (leg.signal) head.append(signalTag(leg, { call: !cancelled && !booked, booked }));
   body.append(head);
@@ -2848,7 +2936,93 @@ function departureRow(leg, past, connections, journey = null) {
   if (verdict === "skipped") remainingNode.dataset.signal = "skipped";
   else if (isToday() && !cancelled) remainingNode.dataset.countdown = leg.departure;
   row.append(remainingNode);
+  row.addEventListener("click", (event) => {
+    if (event.target.closest("a, button")) return;
+    openDepartureDetail(leg);
+  });
   return row;
+}
+
+function detailParagraph(className, text) {
+  return el("p", className || "detail-copy", text);
+}
+
+function renderDepartureDetail(leg) {
+  const detail = departureDetail(leg);
+  const title = document.getElementById("departure-title");
+  const body = document.getElementById("departure-body");
+  const close = document.getElementById("departure-close");
+  if (title) {
+    title.textContent = t("detail.title", {
+      time: hhmm(leg.departure),
+      from: leg.from,
+      to: leg.to,
+    });
+  }
+  if (close) close.textContent = t("detail.close");
+  if (!body) return;
+  const nodes = [];
+  if (leg.arrival) nodes.push(detailParagraph("", t("sailing.arrival", { time: hhmm(leg.arrival) })));
+  const status = detail.cancelled
+    ? t("sailing.cancelled")
+    : detail.skipped
+      ? t("signal.notRunning")
+      : detail.booked
+        ? t("signal.booked")
+        : detail.signal
+          ? t("signal.onRequest")
+          : t("detail.regular");
+  nodes.push(detailParagraph("detail-status", status));
+  if (!detail.signal) {
+    if (detail.cancelled) nodes.push(detailParagraph("", t("detail.cancelled")));
+  } else {
+    const deadline = detail.deadline != null ? minutesToClock(detail.deadline) : "";
+    nodes.push(
+      detailParagraph(
+        "",
+        t("signal.how", {
+          lead:
+            (detail.minutesBefore || 60) === 60
+              ? t("signal.leadHour")
+              : durationText(detail.minutesBefore || 60),
+          time: deadline,
+        })
+      )
+    );
+    if (telHref(detail.phone)) {
+      const line = el("p", "detail-copy");
+      const link = el("a", "stop-phone", t("signal.callLink", { phone: detail.phone }));
+      line.append(bindTelLink(link, detail.phone, "detail"));
+      nodes.push(line);
+    }
+    if (detail.phase === "booked") {
+      nodes.push(detailParagraph("", t("signal.bookedHow", { time: deadline })));
+      if (detail.observedAt) {
+        nodes.push(detailParagraph("", t("signal.observed", { when: formatDateTime(detail.observedAt) })));
+      }
+      nodes.push(detailParagraph("detail-caveat", t("signal.caveat")));
+    } else if (detail.phase === "open") {
+      nodes.push(detailParagraph("", t("signal.openHow", { time: deadline })));
+      nodes.push(detailParagraph("detail-caveat", t("signal.caveat")));
+    } else if (detail.phase === "skipped") {
+      nodes.push(detailParagraph("", t("signal.skippedHow", { time: deadline })));
+      const when = detail.skippedAt || detail.observedAt;
+      if (when) nodes.push(detailParagraph("", t("signal.skippedWhen", { when: formatDateTime(when) })));
+    } else if (detail.phase === "unknown") {
+      nodes.push(detailParagraph("", t("signal.unknownHow", { time: deadline })));
+      nodes.push(detailParagraph("detail-caveat", t("signal.caveat")));
+    }
+  }
+  body.replaceChildren(...nodes);
+}
+
+function openDepartureDetail(leg) {
+  const dialog = document.getElementById("departure-dialog");
+  if (!dialog || !leg) return;
+  renderDepartureDetail(leg);
+  track("Departure detail", { signal: leg.signal ? "yes" : "no" });
+  if (typeof dialog.showModal === "function" && !dialog.open) dialog.showModal();
+  else dialog.setAttribute("open", "");
 }
 
 function layoverAfter(leg, next) {
@@ -4053,7 +4227,7 @@ function liveBlockedUntil() {
 
 async function fetchCancellations() {
   const stops = cancellationStops();
-  if (!stops.length) return new Set();
+  if (!stops.length) return { cancelled: new Set(), seen: new Set() };
   const response = await fetch(ENTUR_JOURNEY_URL, {
     method: "POST",
     headers: {
@@ -4069,13 +4243,34 @@ async function fetchCancellations() {
   if (!response.ok) throw new Error(response.statusText);
   const payload = await response.json();
   if (payload?.errors && !payload.data) throw new Error("Entur");
-  return cancelledJourneyIds(payload);
+  return {
+    cancelled: cancelledJourneyIds(payload),
+    seen: seenJourneyIds(payload),
+  };
+}
+
+function rememberSeenBookings() {
+  const fetchedAt = state.cancellationsFetchedAt;
+  if (!fetchedAt || osloIsoFromMs(fetchedAt) !== todayIso()) return;
+  const fetchedMinutes = fetchMinutes(fetchedAt);
+  for (const leg of legsForDate(todayIso())) {
+    if (!leg?.signal) continue;
+    const id = serviceJourneyId(leg.id);
+    if (!id || !state.seenJourneys.has(id) || state.cancelledJourneys.has(id)) continue;
+    const deadline = bookingDeadline(leg);
+    if (deadline == null || fetchedMinutes < deadline) continue;
+    state.confirmedBooked.add(id);
+  }
+  for (const id of state.cancelledJourneys) state.confirmedBooked.delete(id);
 }
 
 async function loadCancellations() {
   try {
-    state.cancelledJourneys = await fetchCancellations();
+    const { cancelled, seen } = await fetchCancellations();
+    state.cancelledJourneys = cancelled;
+    state.seenJourneys = seen;
     state.cancellationsFetchedAt = Date.now();
+    rememberSeenBookings();
   } catch (error) {
     console.error(error);
   }
@@ -4335,6 +4530,16 @@ function registerServiceWorker() {
   });
 }
 
+function bindDepartureDialog() {
+  const dialog = document.getElementById("departure-dialog");
+  const close = document.getElementById("departure-close");
+  if (!dialog) return;
+  close?.addEventListener("click", () => dialog.close());
+  dialog.addEventListener("click", (event) => {
+    if (event.target === dialog) dialog.close();
+  });
+}
+
 function bindFeedback() {
   const dialog = document.getElementById("feedback-dialog");
   const openBtn = document.getElementById("feedback-open");
@@ -4434,6 +4639,7 @@ function bindControls() {
   });
   bindLanguage();
   bindInstallPrompt();
+  bindDepartureDialog();
   bindFeedback();
 
   document.addEventListener("visibilitychange", () => {
@@ -4474,6 +4680,8 @@ function resetTestState() {
   state.liveBlockedUntil = 0;
   state.cancelledJourneys = new Set();
   state.cancellationsFetchedAt = 0;
+  state.seenJourneys = new Set();
+  state.confirmedBooked = new Set();
   state.signalLog = null;
   lastLiveStructureKey = null;
   fjord1GraphqlBlocked = false;
@@ -4509,6 +4717,7 @@ export {
   signalIsBooked,
   signalLogStatus,
   signalLogUrl,
+  departureDetail,
   delayMinutes,
   emptyPlaceMessage,
   feedbackMailto,
@@ -4522,6 +4731,7 @@ export {
   isCancelledDeparture,
   cancelledSailingsFromText,
   cancelledJourneyIds,
+  seenJourneyIds,
   journeyCancelled,
   osloDayStartIso,
   classifyMessage,

@@ -78,7 +78,7 @@ def observe_signal_trips(legs, now_minutes, cancelled_ids, seen_ids):
     return observations
 
 
-def apply_observations(existing, observations):
+def apply_observations(existing, observations, observed_at=None):
     by_id = {}
     for trip in existing or []:
         journey = service_journey_id(trip.get("id"))
@@ -94,7 +94,15 @@ def apply_observations(existing, observations):
             status = "skipped"
         elif prev and prev.get("status") == "booked" and status != "skipped":
             status = "booked"
-        by_id[journey] = {**obs, "id": journey, "status": status}
+        record = {**obs, "id": journey, "status": status}
+        observed = (prev or {}).get("observedAt") or observed_at
+        if observed:
+            record["observedAt"] = observed
+        if status == "skipped":
+            skipped = (prev or {}).get("skippedAt") or observed_at
+            if skipped:
+                record["skippedAt"] = skipped
+        by_id[journey] = record
     return sorted(by_id.values(), key=lambda trip: (trip.get("departure") or "", trip.get("from") or ""))
 
 
@@ -173,7 +181,9 @@ def update_log(existing, routes, moment, cancelled_ids, seen_ids=None, kept_days
     legs = signal_legs(routes, date_iso)
     observations = observe_signal_trips(legs, now_minutes, cancelled_ids, seen_ids or set())
     days = dict((existing or {}).get("days") or {})
-    days[date_iso] = apply_observations(days.get(date_iso) or [], observations)
+    days[date_iso] = apply_observations(
+        days.get(date_iso) or [], observations, local.isoformat()
+    )
     days = prune_days(days, today, kept_days)
     return {
         "keptDays": kept_days,

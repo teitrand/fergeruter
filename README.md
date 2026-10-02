@@ -1,6 +1,6 @@
 # Fergeorakelet
 
-Statisk oversikt over **trafikkmeldingar frå Fjord1** og **seglingsplanen** for Hjørundfjorden. Til vanleg viser sida rute **1136** Standal–Trandal–Sæbø–Skår–Valderøya–Store Kalvøy. Når Fjord1 innstiller 1136 (eller innfører kombirute), byter sida tabell automatisk.
+Statisk oversikt over **trafikkmeldingar frå Fjord1** og **seglingsplanen** for Hjørundfjorden. Korleis kvar kjede blir henta, sjekka og sett saman, står i [docs/korleis-appen-verkar.md](docs/korleis-appen-verkar.md). Til vanleg viser sida rute **1136** Standal–Trandal–Sæbø–Skår–Valderøya–Store Kalvøy. Når Fjord1 innstiller 1136 (eller innfører kombirute), byter sida tabell automatisk.
 
 Sida viser heile dagen som ei samanhengande tidslinje med alle anløpa i rekkjefølgje, og ei **No**-linje som fortel om ferja ligg til kai eller er på veg. Under dagen kan du velje **frå** og **til** (t.d. alle turar til Trandal, eller berre Standal→Trandal) og byte retning med pila mellom vala. Korrespondanse ligg i ei eiga nedtrekksliste. Posisjonen er i utgangspunktet rekna ut frå den aktive tabellen. Når Entur sender køyretøyposisjon for 1136 eller 1135, visest den som sanntid. Etter siste passasjertur (t.d. onsdag på Valderøya) reknar sida med at ferja går tilbake til Standal utan passasjerar og ligg der over natta — den turen står ikkje i Entur.
 
@@ -115,6 +115,7 @@ I Plausible-panelet ser du:
 | `Route 1136` / `Route 1135` | Byte fergestrekning (klikk). Sjå òg `route` på alle vitjingar |
 | `Messages local` / `route` | Filter på trafikkmeldingar |
 | `Show past` / `Hide past` | Vis eller skjul tidlegare anløp |
+| `Departure detail` | Trykk på ein avgang for å sjå detaljar (`signal`: `yes` / `no`) |
 | `Install app` / `App installed` | Installer-knappen (`how`: `native` eller `help`), og når Chrome/Edge faktisk har lagt til appen |
 | `Feedback yes` / `Feedback no` | Tommel opp/ned i tilbakemeldingsruta |
 | `Feedback message` | Nokon sender ei skriftleg melding |
