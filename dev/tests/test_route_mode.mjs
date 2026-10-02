@@ -78,7 +78,7 @@ const kombi = JSON.parse(
 const SMS =
   "Grunna driftsproblem så er ferjerutene 1135 og 1136 innstilt, det blir utført kombinasjonsrute med MF Kvernes. Første avgang frå Sæbø ca. 08:15. Sjå rutetabell på frammr.no.";
 
-const WEEKDAY = "2026-08-28";
+const WEEKDAY = "2026-10-01";
 
 beforeEach(() => resetTestState());
 
@@ -459,7 +459,7 @@ test("innstilte kveldsavgangar skøyt ikkje til 1135, men merkar turane", () => 
   setTestState({
     routes: ruter,
     kombirute: kombi,
-    date: "2026-09-13",
+    date: "2026-10-04",
     routeChoice: "1136",
     messages: {
       messages: [
@@ -475,9 +475,9 @@ test("innstilte kveldsavgangar skøyt ikkje til 1135, men merkar turane", () => 
       ],
     },
   });
-  assert.equal(operationalMode("2026-09-13"), "1136");
+  assert.equal(operationalMode("2026-10-04"), "1136");
   assert.equal(activeMode(), "1136");
-  const legs = legsForDate("2026-09-13");
+  const legs = legsForDate("2026-10-04");
   const standal2000 = legs.find((leg) => leg.from === "Standal" && leg.departure === "20:00:00");
   const trandal2020 = legs.find((leg) => leg.from === "Trandal" && leg.departure === "20:20:00");
   const standal2040 = legs.find((leg) => leg.from === "Standal" && leg.departure === "20:40:00");
@@ -819,7 +819,7 @@ test("usikre avgangar er berre hol mellom melding og start", () => {
           text,
           routeMode: "kombi",
           routeSwitch: switchFromText(text),
-          publishedAt: "2026-08-28T07:00:00+02:00",
+          publishedAt: `${WEEKDAY}T07:00:00+02:00`,
           validTo: "2099-01-01T00:00:00Z",
         },
       ],
@@ -973,6 +973,40 @@ test("appen viser same Frå-tid som kombirute-tabellen for alle daggrupper", () 
     const got = new Set(legs.map((leg) => `${leg.from}|${clockMin(leg.departure)}`));
     assert.deepEqual([...got].sort(), [...jsonFromKeys(kind)].sort(), kind);
   }
+});
+
+test("høgtidsdag i kombirute brukar søndagstabellen", () => {
+  useKombi();
+  const holidays = [
+    "2026-01-01",
+    "2026-04-02",
+    "2026-04-03",
+    "2026-04-06",
+    "2026-05-01",
+    "2026-05-14",
+    "2026-05-17",
+    "2026-05-25",
+    "2026-12-25",
+    "2026-12-26",
+    "2027-01-01",
+    "2027-03-25",
+    "2027-03-26",
+    "2027-03-29",
+    "2027-05-01",
+    "2027-05-06",
+    "2027-05-17",
+    "2027-12-25",
+    "2027-12-26",
+  ];
+  const sunday = [...jsonFromKeys("sunday")].sort();
+  for (const iso of holidays) {
+    assert.equal(dayType(iso), "sunday", iso);
+    const got = legsForDate(iso).map((leg) => `${leg.from}|${clockMin(leg.departure)}`);
+    assert.deepEqual([...got].sort(), sunday, iso);
+  }
+  assert.equal(dayType("2027-05-07"), "weekday");
+  assert.equal(dayType("2026-08-29"), "saturday");
+  assert.equal(dayType("2026-10-04"), "sunday");
 });
 
 test("val kan skjule ankomsttider utan å miste destinasjon", () => {
@@ -1191,7 +1225,7 @@ test("kombirute viser alle ankomstar frå overfartstid", () => {
 
 test("1136 merkar berre PDF-fotnote 1) og 3) som signal", () => {
   setTestState({ routes: ruter, kombirute: kombi, messages: { messages: [] } });
-  const friday = legsForDate("2026-08-28");
+  const friday = legsForDate("2026-10-02");
   const standal0740 = friday.find((leg) => leg.from === "Standal" && leg.departure === "07:40:00");
   const saebo0835 = friday.find((leg) => leg.from === "Sæbø" && leg.departure === "08:35:00");
   const standal0645 = friday.find((leg) => leg.from === "Standal" && leg.departure === "06:45:00");
@@ -1201,13 +1235,13 @@ test("1136 merkar berre PDF-fotnote 1) og 3) som signal", () => {
   assert.equal(saebo0835.signal.minutesBefore, 60);
   assert.ok(standal0645?.signal);
 
-  const saturday = legsForDate("2026-08-29");
+  const saturday = legsForDate("2026-10-03");
   const satStandal = saturday.find((leg) => leg.from === "Standal" && leg.departure === "07:40:00");
   const satTrandal = saturday.find((leg) => leg.from === "Trandal" && leg.departure === "08:00:00");
   assert.equal(satStandal?.signal, null);
   assert.ok(satTrandal?.signal);
 
-  const wednesday = legsForDate("2026-09-02");
+  const wednesday = legsForDate("2026-10-07");
   const valderoya = wednesday.find(
     (leg) => leg.from === "Valderøya" && leg.departure === "11:10:00"
   );
@@ -1219,11 +1253,11 @@ test("1135 merkar matpause som liggetid, ikkje innkomst ved valt kai", () => {
   setTestState({
     routes: ruter,
     kombirute: kombi,
-    date: "2026-09-13",
+    date: "2026-10-04",
     routeChoice: "1135",
     messages: { messages: [] },
   });
-  const legs = legsForDate("2026-09-13");
+  const legs = legsForDate("2026-10-04");
   const all = buildEvents(legs, null);
   assert.ok(all.every((event) => event.kind !== "arr"));
   const stays = all.filter((event) => event.kind === "layover");
@@ -1277,7 +1311,7 @@ test("kombirute merkar berre fotnote-celler som signal", () => {
 
 test("signaltur ringjer rett ferje, tel:+47", () => {
   setTestState({ routes: ruter, kombirute: kombi, messages: { messages: [] } });
-  const friday = legsForDate("2026-08-28");
+  const friday = legsForDate("2026-10-02");
   const saebo0835 = friday.find((leg) => leg.from === "Sæbø" && leg.departure === "08:35:00");
   assert.equal(telHref("91 66 93 40"), "tel:+4791669340");
   assert.equal(telHref("91669321"), "tel:+4791669321");
@@ -1309,11 +1343,11 @@ test("signaltur ringjer rett ferje, tel:+47", () => {
   assert.equal(vesselNameForTable("kombi"), "Geiranger");
   assert.equal(telHref(signalPhone(during)), "tel:+4791669321");
 
-  setTestState({ date: "2026-09-19" });
-  assert.equal(operationalMode("2026-09-19"), "1136");
+  setTestState({ date: "2026-10-03" });
+  assert.equal(operationalMode("2026-10-03"), "1136");
   assert.equal(vesselNameForTable("1136"), "Kvernes");
   assert.equal(vesselNameForTable("kombi"), null);
-  const after = legsForDate("2026-09-19").find((leg) => leg.signal);
+  const after = legsForDate("2026-10-03").find((leg) => leg.signal);
   assert.ok(after);
   assert.equal(after.table, "1136");
   assert.equal(telHref(signalPhone(after)), "tel:+4791669340");
@@ -1363,10 +1397,10 @@ test("heildags kombirute får raud merking fyrste morgon, ikkje midt i perioden"
     isLocal: true,
     isRouteControl: true,
     heading: "Leknes-Sæbø",
-    text: "På grunn av planlagt verkstedopphald blir det utført kombinert rute i sambandet frå måndag 14.09 til og med fredag 18.09.",
+    text: "På grunn av planlagt verkstedopphald blir det utført kombinert rute i sambandet frå måndag 05.10 til og med fredag 09.10.",
     routeMode: "kombi",
-    routeWindow: { from: "2026-09-14", to: "2026-09-18" },
-    publishedAt: "2026-09-11T10:45:19+02:00",
+    routeWindow: { from: "2026-10-05", to: "2026-10-09" },
+    publishedAt: "2026-10-02T10:45:19+02:00",
     validTo: "2099-01-01T00:00:00Z",
   };
   setTestState({
@@ -1374,32 +1408,32 @@ test("heildags kombirute får raud merking fyrste morgon, ikkje midt i perioden"
     kombirute: kombi,
     messages: { messages: [verksted] },
   });
-  setTestState({ date: "2026-09-13" });
-  assert.equal(operationalMode("2026-09-13"), "1136");
-  assert.equal(buildEvents(legsForDate("2026-09-13"), null).filter((event) => event.kind === "split").length, 0);
+  setTestState({ date: "2026-10-04" });
+  assert.equal(operationalMode("2026-10-04"), "1136");
+  assert.equal(buildEvents(legsForDate("2026-10-04"), null).filter((event) => event.kind === "split").length, 0);
 
-  setTestState({ date: "2026-09-14" });
-  assert.equal(operationalMode("2026-09-14"), "kombi");
-  const monday = legsForDate("2026-09-14");
+  setTestState({ date: "2026-10-05" });
+  assert.equal(operationalMode("2026-10-05"), "kombi");
+  const monday = legsForDate("2026-10-05");
   const mondaySplits = buildEvents(monday, null).filter((event) => event.kind === "split");
   assert.equal(mondaySplits.length, 1);
   assert.equal(mondaySplits[0].at, clockMin(monday[0].departure));
   assert.equal(monday[0].departure, "06:00:00");
 
-  setTestState({ date: "2026-09-15" });
-  assert.equal(operationalMode("2026-09-15"), "kombi");
-  assert.equal(buildEvents(legsForDate("2026-09-15"), null).filter((event) => event.kind === "split").length, 0);
+  setTestState({ date: "2026-10-06" });
+  assert.equal(operationalMode("2026-10-06"), "kombi");
+  assert.equal(buildEvents(legsForDate("2026-10-06"), null).filter((event) => event.kind === "split").length, 0);
 
-  setTestState({ date: "2026-09-19" });
-  assert.equal(operationalMode("2026-09-19"), "1136");
-  const saturday = legsForDate("2026-09-19");
+  setTestState({ date: "2026-10-10" });
+  assert.equal(operationalMode("2026-10-10"), "1136");
+  const saturday = legsForDate("2026-10-10");
   const saturdaySplits = buildEvents(saturday, null).filter((event) => event.kind === "split");
   assert.equal(saturdaySplits.length, 1);
   assert.equal(saturdaySplits[0].at, clockMin(saturday[0].departure));
 
-  setTestState({ date: "2026-09-19", routeChoice: "1135", toFilter: "Trandal" });
+  setTestState({ date: "2026-10-10", routeChoice: "1135", toFilter: "Trandal" });
   assert.equal(activeMode(), "1135");
-  const mixed = legsForPlaceFilter("2026-09-19", legsForDate("2026-09-19"));
+  const mixed = legsForPlaceFilter("2026-10-10", legsForDate("2026-10-10"));
   assert.ok(mixed.some((leg) => leg.table === "1135"));
   assert.ok(mixed.some((leg) => leg.table === "1136"));
   const filtered = buildEvents(mixed, null).filter((event) => matchesStop(event));

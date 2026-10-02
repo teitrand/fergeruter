@@ -6,6 +6,7 @@ import json
 import sys
 import tempfile
 import unittest
+from datetime import date, timedelta
 from pathlib import Path
 from unittest.mock import patch
 
@@ -402,7 +403,7 @@ def _from_times(legs, iso):
 class StoredTimetableTests(unittest.TestCase):
     def test_1135_saebo_0815_weekday_from_entur(self):
         data = json.loads((ROOT / "data" / "ruter.json").read_text(encoding="utf-8"))
-        weekday = "2026-08-28"
+        weekday = "2026-10-01"
         match = [
             leg
             for leg in data["lines"]["1135"]["legs"]
@@ -423,10 +424,10 @@ class StoredTimetableTests(unittest.TestCase):
         """Berre 1)/3)-cellene i 1136-PDF-en skal vere merkte som signal."""
         data = json.loads((ROOT / "data" / "ruter.json").read_text(encoding="utf-8"))
         samples = {
-            "mtthf": "2026-08-31",
-            "wednesday": "2026-09-02",
-            "saturday": "2026-08-29",
-            "sunday": "2026-08-30",
+            "mtthf": "2026-10-01",
+            "wednesday": "2026-10-07",
+            "saturday": "2026-10-03",
+            "sunday": "2026-10-04",
         }
         for group, iso in samples.items():
             expected = {
@@ -447,10 +448,10 @@ class StoredTimetableTests(unittest.TestCase):
         """Frå-kolonnane i FRAM 1136-PDF 17.08.26."""
         data = json.loads((ROOT / "data" / "ruter.json").read_text(encoding="utf-8"))
         samples = {
-            "mtthf": "2026-08-31",
-            "wednesday": "2026-09-02",
-            "saturday": "2026-08-29",
-            "sunday": "2026-08-30",
+            "mtthf": "2026-10-01",
+            "wednesday": "2026-10-07",
+            "saturday": "2026-10-03",
+            "sunday": "2026-10-04",
         }
         legs = data["lines"]["1136"]["legs"]
         for group, iso in samples.items():
@@ -464,21 +465,31 @@ class StoredTimetableTests(unittest.TestCase):
                 self.assertEqual(got.get(quay, set()), times, f"{group} {quay}")
 
     def test_1135_from_times_match_fram_pdf_seasons(self):
-        """1135 sommar til 31.08, haust frå 01.09. Inga 1)."""
+        """1135 haust frå 01.09. Entur sitt vindauge har ikkje sommaren lenger."""
         data = json.loads((ROOT / "data" / "ruter.json").read_text(encoding="utf-8"))
         legs = data["lines"]["1135"]["legs"]
         samples = [
-            (FRAM_PDF_FROM_1135_SUMMER["weekday"], "2026-08-31"),
-            (FRAM_PDF_FROM_1135_SUMMER["saturday"], "2026-08-29"),
-            (FRAM_PDF_FROM_1135_SUMMER["sunday"], "2026-08-30"),
-            (FRAM_PDF_FROM_1135_AUTUMN["weekday"], "2026-09-01"),
-            (FRAM_PDF_FROM_1135_AUTUMN["saturday"], "2026-09-05"),
-            (FRAM_PDF_FROM_1135_AUTUMN["sunday"], "2026-09-06"),
+            (FRAM_PDF_FROM_1135_AUTUMN["weekday"], "2026-10-01"),
+            (FRAM_PDF_FROM_1135_AUTUMN["saturday"], "2026-10-03"),
+            (FRAM_PDF_FROM_1135_AUTUMN["sunday"], "2026-10-04"),
         ]
         for expected, iso in samples:
             got = _from_times(legs, iso)
             for quay, times in expected.items():
                 self.assertEqual(got.get(quay, set()), set(times.split()), f"{iso} {quay}")
+
+    def test_active_dates_cover_the_coming_months(self):
+        """Tabellen skal ikkje gå ut om nokre veker. Jobben hentar på nytt kvar dag."""
+        data = json.loads((ROOT / "data" / "ruter.json").read_text(encoding="utf-8"))
+        horizon = date.today() + timedelta(days=60)
+        for code in ("1136", "1135"):
+            dates = {
+                iso
+                for leg in data["lines"][code]["legs"]
+                for iso in (leg.get("activeDates") or [])
+            }
+            self.assertTrue(dates, code)
+            self.assertGreaterEqual(max(dates), horizon.isoformat(), code)
 
 
 if __name__ == "__main__":
