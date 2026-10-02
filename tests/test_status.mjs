@@ -25,6 +25,7 @@ import {
   matchesLegPlaces,
   matchesStop,
   minDeadheadMinutes,
+  OUTER_DEADHEAD_MINUTES,
   nextArrivalAt,
   excerptText,
   headingDay,
@@ -41,7 +42,7 @@ import {
   shouldFetchLive,
   serviceWindowMinutes,
 } from "../assets/app.js";
-import { setLang } from "../assets/i18n.js?v=63";
+import { setLang } from "../assets/i18n.js?v=65";
 
 beforeEach(() => {
   setLang("nn");
@@ -147,14 +148,18 @@ test("etter siste passasjertur til Valderøya går ho heim utan folk", () => {
   assert.match(status.short, /tilbake til Standal/);
   assert.match(status.text, /Valderøya/);
   assert.equal(status.underway, true);
+  assert.equal(status.until, 19 * 60 + 45 + OUTER_DEADHEAD_MINUTES);
   assert.doesNotMatch(status.text, /ferdig for dagen på Valderøya/);
 });
 
-test("etter hol tilsvarande dagsforflyttinga ligg ho på Standal", () => {
-  const status = ferryStatus(wednesday, 21 * 60 + 55, wednesday);
+test("etter tomturen heim ligg ho på Standal", () => {
+  const still = ferryStatus(wednesday, 21 * 60 + 30, wednesday);
+  assert.equal(still.underway, true);
+  const status = ferryStatus(wednesday, 21 * 60 + 50, wednesday);
   assert.equal(status.short, "Ferja ligg til kai på Standal");
   assert.match(status.text, /Standal/);
   assert.doesNotMatch(status.text, /Valderøya/);
+  assert.equal(OUTER_DEADHEAD_MINUTES, 120);
 });
 
 test("dagar der siste anløp er Standal seier ferdig der", () => {
@@ -163,14 +168,76 @@ test("dagar der siste anløp er Standal seier ferdig der", () => {
   assert.equal(status.text, "Ferja er ferdig for dagen på Standal.");
 });
 
-test("utan hol i tabellen finn vi ikkje opp ei klokkeslett", () => {
+test("nattur frå Valderøya har fast tid òg utan hol i tabellen", () => {
   const onlyEvening = [
     leg("Standal", "Trandal", "07:40:00", "07:55:00"),
     leg("Store Kalvøy", "Valderøya", "19:25:00", "19:45:00"),
   ];
+  const during = ferryStatus(onlyEvening, 20 * 60, onlyEvening);
+  assert.equal(during.underway, true);
+  assert.match(during.short, /tilbake til Standal/);
+  assert.equal(during.until, 19 * 60 + 45 + OUTER_DEADHEAD_MINUTES);
+  assert.doesNotMatch(during.text, /over natta/);
+  const home = ferryStatus(onlyEvening, 21 * 60 + 50, onlyEvening);
+  assert.equal(home.short, "Ferja ligg til kai på Standal");
+});
+
+test("utan kjend overfart og utan hol finn vi ikkje opp ei klokkeslett", () => {
+  const onlyEvening = [
+    leg("Standal", "Trandal", "07:40:00", "07:55:00"),
+    leg("Trandal", "Bjørke", "19:25:00", "19:45:00"),
+  ];
   const status = ferryStatus(onlyEvening, 20 * 60, onlyEvening);
   assert.match(status.text, /over natta/);
-  assert.doesNotMatch(status.text, /ferdig for dagen på Valderøya/);
+  assert.doesNotMatch(status.text, /ferdig for dagen på Bjørke/);
+});
+
+test("tomtur Valderøya til Standal varer den faste tida, deretter kai", () => {
+  const during = ferryStatus(wednesday, 13 * 60, wednesday);
+  assert.equal(during.underway, true);
+  assert.equal(during.text, "Ferja går til Standal utan passasjerar");
+  assert.equal(during.from, 12 * 60 + 30);
+  assert.equal(during.until, 12 * 60 + 30 + OUTER_DEADHEAD_MINUTES);
+  const alongside = ferryStatus(wednesday, 14 * 60 + 35, wednesday);
+  assert.equal(alongside.underway, undefined);
+  assert.equal(alongside.text, "Ferja ligg til kai på Standal");
+  assert.equal(alongside.from, 14 * 60 + 30);
+  assert.equal(alongside.until, 14 * 60 + 40);
+});
+
+test("tomtur ut til Valderøya varer den faste tida, deretter kai før avgang", () => {
+  const during = ferryStatus(wednesday, 9 * 60 + 30, wednesday);
+  assert.equal(during.underway, true);
+  assert.equal(during.text, "Ferja går til Valderøya utan passasjerar");
+  assert.equal(during.from, 8 * 60 + 55);
+  assert.equal(during.until, 8 * 60 + 55 + OUTER_DEADHEAD_MINUTES);
+  const alongside = ferryStatus(wednesday, 11 * 60, wednesday);
+  assert.equal(alongside.text, "Ferja ligg til kai på Valderøya");
+  assert.equal(alongside.from, 10 * 60 + 55);
+  assert.equal(alongside.until, 11 * 60 + 10);
+});
+
+test("laurdagsholet til Standal er på veg i den faste tida", () => {
+  const legs = [
+    leg("Store Kalvøy", "Valderøya", "13:15:00", "13:35:00"),
+    leg("Standal", "Trandal", "16:05:00", "16:20:00"),
+  ];
+  const during = ferryStatus(legs, 14 * 60, legs);
+  assert.equal(during.text, "Ferja går til Standal utan passasjerar");
+  assert.equal(during.until, 13 * 60 + 35 + OUTER_DEADHEAD_MINUTES);
+  const alongside = ferryStatus(legs, 15 * 60 + 40, legs);
+  assert.equal(alongside.text, "Ferja ligg til kai på Standal");
+  assert.equal(alongside.until, 16 * 60 + 5);
+});
+
+test("kortare hol enn tomturen varer heile holet", () => {
+  const legs = [
+    leg("Store Kalvøy", "Valderøya", "11:10:00", "11:30:00"),
+    leg("Standal", "Trandal", "12:20:00", "12:35:00"),
+  ];
+  const status = ferryStatus(legs, 12 * 60, legs);
+  assert.equal(status.underway, true);
+  assert.equal(status.until, 12 * 60 + 20);
 });
 
 test("quayPlace strippar ferjekai", () => {

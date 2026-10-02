@@ -2,7 +2,7 @@
 
 Statisk oversikt over **trafikkmeldingar frå Fjord1** og **seglingsplanen** for Hjørundfjorden. Korleis kvar kjede blir henta, sjekka og sett saman, står i [docs/korleis-appen-verkar.md](docs/korleis-appen-verkar.md). Til vanleg viser sida rute **1136** Standal–Trandal–Sæbø–Skår–Valderøya–Store Kalvøy. Når Fjord1 innstiller 1136 (eller innfører kombirute), byter sida tabell automatisk.
 
-Sida viser heile dagen som ei samanhengande tidslinje med alle anløpa i rekkjefølgje, og ei **No**-linje som fortel om ferja ligg til kai eller er på veg. Under dagen kan du velje **frå** og **til** (t.d. alle turar til Trandal, eller berre Standal→Trandal) og byte retning med pila mellom vala. Korrespondanse ligg i ei eiga nedtrekksliste. Posisjonen er i utgangspunktet rekna ut frå den aktive tabellen. Når Entur sender køyretøyposisjon for 1136 eller 1135, visest den som sanntid. Etter siste passasjertur (t.d. onsdag på Valderøya) reknar sida med at ferja går tilbake til Standal utan passasjerar og ligg der over natta — den turen står ikkje i Entur.
+Sida viser heile dagen som ei samanhengande tidslinje med alle anløpa i rekkjefølgje, og ei **No**-linje som fortel om ferja ligg til kai eller er på veg. Under dagen kan du velje **frå** og **til** (t.d. alle turar til Trandal, eller berre Standal→Trandal) og byte retning med pila mellom vala. Korrespondanse ligg i ei eiga nedtrekksliste. Posisjonen er i utgangspunktet rekna ut frå den aktive tabellen. Når Entur sender køyretøyposisjon for 1136 eller 1135, visest den som sanntid. Etter siste passasjertur (t.d. onsdag på Valderøya) reknar sida med at ferja går tilbake til Standal utan passasjerar (om lag to timar, deretter til kai) og ligg der over natta — den turen står ikkje i Entur.
 
 Rutetabellane for 1136 og 1135 blir lasta ned frå Entur og lagra i `data/ruter.json`. Dei blir berre henta på nytt når innhaldet faktisk er endra. Kombinasjonsruta ligg ikkje i Entur; ho er transkribert frå FRAM-PDF til `data/kombirute.json`. Rutetabellen kjem frå lokale JSON-filer; nettlesaren kallar Entur berre for valfri køyretøyposisjon (CORS er open). Trafikkmeldingar kjem frå Fjord1 når GitHub-kopien er gammal, elles frå `data/trafikkmeldinger.json`.
 
@@ -79,7 +79,7 @@ python3 scripts/fetch_ruter.py
 python3 scripts/fetch_korrespondanse.py
 ```
 
-eller køyr GitHub Action **Oppdater rutetabell** manuelt. Det er ingen dagleg/automatisk nedlasting mot Entur.
+eller la GitHub Action **Oppdater rutetabell** gå. Ho køyrer kvar natt på `main` (`20 4 * * *` UTC) og kan òg startast manuelt. Fila blir berre skriven når tabellen er endra.
 
 - Kombirute: når FRAM legg ut ny PDF, oppdater URL-en i `scripts/build_kombirute.py` og køyr:
 

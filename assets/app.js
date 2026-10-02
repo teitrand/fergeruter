@@ -7,7 +7,7 @@ import {
   setLang,
   t,
   weekdays,
-} from "./i18n.js?v=63";
+} from "./i18n.js?v=65";
 
 const MESSAGES_URL = "data/trafikkmeldinger.json";
 const SIGNAL_LOG_URL = "data/signalturar.json";
@@ -1404,7 +1404,66 @@ function activeMode() {
   return routeOverride() || activePlan().mode || "1136";
 }
 
+/** Påskesøndag, anonym gregoriansk utrekning (Meeus). */
+function easterSundayIso(year) {
+  const a = year % 19;
+  const b = Math.floor(year / 100);
+  const c = year % 100;
+  const d = Math.floor(b / 4);
+  const e = b % 4;
+  const f = Math.floor((b + 8) / 25);
+  const g = Math.floor((b - f + 1) / 3);
+  const h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4);
+  const k = c % 4;
+  const l = (32 + 2 * e + 2 * i - h - k) % 7;
+  const m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const month = Math.floor((h + l - 7 * m + 114) / 31);
+  const day = ((h + l - 7 * m + 114) % 31) + 1;
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+function isoShift(iso, days) {
+  const date = new Date(`${iso}T12:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+const publicHolidayYears = new Map();
+
+/**
+ * Offisielle norske høgtidsdagar som ikkje alltid er søndag.
+ * Påskesøndag og pinsedag er alltid søndag og trengst ikkje her.
+ */
+function publicHolidays(year) {
+  const cached = publicHolidayYears.get(year);
+  if (cached) return cached;
+  const easter = easterSundayIso(year);
+  const set = new Set([
+    `${year}-01-01`,
+    `${year}-05-01`,
+    `${year}-05-17`,
+    `${year}-12-25`,
+    `${year}-12-26`,
+    isoShift(easter, -3),
+    isoShift(easter, -2),
+    isoShift(easter, 1),
+    isoShift(easter, 39),
+    isoShift(easter, 50),
+  ]);
+  publicHolidayYears.set(year, set);
+  return set;
+}
+
+function isNorwegianPublicHoliday(iso) {
+  const year = Number(String(iso || "").slice(0, 4));
+  if (!Number.isFinite(year)) return false;
+  return publicHolidays(year).has(iso);
+}
+
 function dayType(iso) {
+  // FRAM-PDF for kombiruta: «Søndagsruter på andre helge- og høgtidsdagar».
+  if (isNorwegianPublicHoliday(iso)) return "sunday";
   const dow = new Date(`${iso}T12:00:00Z`).getUTCDay();
   if (dow === 0) return "sunday";
   if (dow === 6) return "saturday";
@@ -1879,6 +1938,30 @@ function catalogKeys(leg) {
   return ["*"];
 }
 
+/** Valderøya og Store Kalvøy. Tomtur til eller frå Hjørundfjorden står ikkje i tabellen. */
+const OUTER_QUAYS = new Set(["Valderøya", "Store Kalvøy"]);
+
+/**
+ * Tomtur Valderøya/Store Kalvøy ↔ Hjørundfjorden.
+ * AIS for M/F Kvernes (MMSI 257297400, feb–mars 2026) viser om lag 110–125 min
+ * (målt 109, 110, 114, 117, 117, 120, 125, 126 og 134; nattur 114 min).
+ * Fast 120 min, så «på veg» ikkje fyller heile holet. Resten ligg ferja til kai.
+ */
+const OUTER_DEADHEAD_MINUTES = 120;
+
+function isOuterQuay(quay) {
+  return OUTER_QUAYS.has(quayPlace(quay));
+}
+
+/** Fast seglingstid når eine kaia er ytre (Valderøya/Store Kalvøy) og den andre ikkje. */
+function outerDeadheadMinutes(fromQuay, toQuay) {
+  const from = quayPlace(fromQuay);
+  const to = quayPlace(toQuay);
+  if (!from || !to || from === to) return null;
+  if (isOuterQuay(from) === isOuterQuay(to)) return null;
+  return OUTER_DEADHEAD_MINUTES;
+}
+
 /** Kortaste hol mellom to kaier i tabellen, t.d. Valderøya 12:30 → Standal 14:40. */
 function minDeadheadMinutes(allLegs, fromQuay, toQuay) {
   const byDate = new Map();
@@ -1914,7 +1997,7 @@ function crossingMinutes(allLegs, fromQuay, toQuay) {
     const minutes = clockMinutes(leg.arrival) - clockMinutes(leg.departure);
     if (minutes > 0 && (shortest == null || minutes < shortest)) shortest = minutes;
   }
-  return shortest;
+  return shortest ?? outerDeadheadMinutes(from, to);
 }
 
 function parseVehicleMonitoring(data) {
@@ -1999,7 +2082,8 @@ function liveStatus(live) {
 }
 
 function overnightStatus(last, home, now, allLegs) {
-  const deadhead = minDeadheadMinutes(allLegs, last.to, home);
+  const deadhead =
+    crossingMinutes(allLegs, last.to, home) ?? minDeadheadMinutes(allLegs, last.to, home);
   const since = now - clockMinutes(last.arrival);
   if (deadhead != null && since < deadhead) {
     const start = clockMinutes(last.arrival);
@@ -4808,6 +4892,7 @@ export {
   sortMessagesForRoute,
   messagesFingerprint,
   minDeadheadMinutes,
+  OUTER_DEADHEAD_MINUTES,
   modeFromText,
   nextArrivalAt,
   nextDepartureFrom,
