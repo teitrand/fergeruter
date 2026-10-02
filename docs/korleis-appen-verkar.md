@@ -129,7 +129,7 @@ Skriven av `scripts/log_signalturar.py` kvart 30. minutt, cron `*/30 4-21 * * *`
 }
 ```
 
-`status` er `booked` eller `skipped`. Sju dagar medrekna i dag. Eldre datoar blir sletta. Ein tur som først er `skipped` blir aldri skriven om til `booked`. `booked` kan bli `skipped` om eit seinare svar viser avlysing.
+`status` er `booked` eller `skipped`. `observedAt` er når loggen fyrst skreiv statusen, ikkje når nokon ringde. `skippedAt` kjem om ein tur som var `booked` seinare blir avlyst. Sju dagar medrekna i dag. Eldre datoar blir sletta. Ein tur som først er `skipped` blir aldri skriven om til `booked`. `booked` kan bli `skipped` om eit seinare svar viser avlysing. `observedAt` blir ståande.
 
 Entur har berre driftsdagen. Dagar før loggen starta kan ikkje fyllast inn. Første observasjon som betyr noko er etter tingefristen, og berre om turen faktisk ligg i `estimatedCalls`. At turen manglar i feeden er ikkje bevis på at ho var bestilt (avlysinga dett ut etter ei stund, og fullførte turar dett òg ut).
 
@@ -249,6 +249,8 @@ For **i dag**, etter fristen (`avgang − minutesBefore`):
    - turen var hugsa slik tidlegare i økta → bestilt, òg om eit seinare svar ikkje lenger har kallet.
    - ankomst er passert og ingen av punkta over stemmer → **ikkje** bestilt. Då står «På signal». Mangelen på avlysing etter at kallet har dette ut er ikkje bevis.
    - ankomst er ikkje passert → bestilt. Fram til ankomst er «ikkje i avlyst-lista etter fristen» nok, fordi turen enno skal liggje i feeden.
+
+Eit trykk på avgangen opnar eit vindauge. Der står korleis signalturen verkar, telefonnummeret, og om vi reknar turen som bestilt. Teksten seier at Entur ikkje oppgjev når bestillinga kom inn, berre at turen ikkje var avlyst etter fristen. Om loggen har `observedAt`, visest det tidspunktet som «vi registrerte det fyrste gong». Vindauget seier òg at den som tinga kan gjere om, og at Entur då kan avlyse, så ein bør ringje sjølv om ein vil vere sikker.
 
 Dette er grunnen til at 06:45 fredag 2. oktober stod som «På signal» / «Gått» medan 07:05 stod som «Bestilt signaltur». 07:05 hadde ikkje komme fram enno, så regelen før ankomst trekte. 06:45 hadde ankomst 07:00, loggen for 2. oktober var tom (cron hadde ikkje skrive morgonturen enno), og den gamle regelen kravde logg etter ankomst. No held økta på merkelappen når Entur har synt turen utan avlysing etter fristen.
 
