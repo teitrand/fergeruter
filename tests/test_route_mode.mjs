@@ -603,6 +603,28 @@ test("Leknes til Standal byter ferje på Sæbø i normal rute", () => {
   const events = buildEvents(legs, null).filter((event) => event.kind === "dep");
   assert.ok(events.some((event) => event.leg.from === "Leknes"));
   assert.ok(events.some((event) => event.leg.to === "Standal"));
+  assert.equal(events.find((event) => event.leg.from === "Leknes").onward, false);
+  const onward = events.filter((event) => event.leg.from !== "Leknes");
+  assert.ok(onward.length > 0);
+  assert.ok(onward.every((event) => event.onward));
+  const waits = buildEvents(legs, null).filter((event) => event.kind === "wait");
+  assert.ok(waits.length > 0);
+  assert.ok(waits.every((event) => event.onward));
+});
+
+test("direkte avgang frå filteret er ikkje innrykka", () => {
+  setTestState({
+    routes: ruter,
+    kombirute: kombi,
+    date: WEEKDAY,
+    routeChoice: "1136",
+    messages: { messages: [] },
+    fromFilter: "Standal",
+    toFilter: "Trandal",
+  });
+  const events = buildEvents(legsForPlaceFilter(WEEKDAY), null).filter((event) => event.kind === "dep");
+  assert.ok(events.length > 0);
+  assert.ok(events.every((event) => event.leg.from === "Standal" && event.onward === false));
 });
 
 test("kombirute Standal til Skår ventar på Sæbø utan Leknes-pendel", () => {
