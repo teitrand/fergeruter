@@ -115,6 +115,7 @@ I Plausible-panelet ser du:
 | `Route 1136` / `Route 1135` | Byte fergestrekning (klikk). Sjå òg `route` på alle vitjingar |
 | `Messages local` / `route` | Filter på trafikkmeldingar |
 | `Show past` / `Hide past` | Vis eller skjul tidlegare anløp |
+| `Departure detail` | Trykk på ein avgang for å sjå detaljar (`signal`: `yes` / `no`) |
 | `Install app` / `App installed` | Installer-knappen (`how`: `native` eller `help`), og når Chrome/Edge faktisk har lagt til appen |
 | `Feedback yes` / `Feedback no` | Tommel opp/ned i tilbakemeldingsruta |
 | `Feedback message` | Nokon sender ei skriftleg melding |

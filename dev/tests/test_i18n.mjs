@@ -10,7 +10,7 @@ import {
   stringKeys,
   stringsFor,
   t,
-} from "../assets/i18n.js?v=60";
+} from "../assets/i18n.js?v=61";
 
 function leg(from, to, departure, arrival, dates = ["2026-08-26"]) {
   return { from, to, departure, arrival, activeDates: dates };
@@ -67,6 +67,8 @@ test("seglingstekst har destinasjon i alle språk", () => {
   assert.equal(t("conn.transferNote", { dest: "Skår", margin: 5 }), "Bytte på Sæbø mot Skår. Rekna med 5 min til å gå over.");
   assert.equal(t("signal.onRequest"), "På signal");
   assert.equal(t("signal.booked"), "Bestilt signaltur");
+  assert.match(t("signal.caveat"), /gjere om/);
+  assert.match(t("signal.bookedHow"), /ikkje når bestillinga kom inn/);
   assert.equal(t("signal.callAria", { phone: "916 69 340" }), "Ring ferja 916 69 340");
   setLang("en");
   assert.equal(t("signal.callAria", { phone: "916 69 340" }), "Call the ferry 916 69 340");
