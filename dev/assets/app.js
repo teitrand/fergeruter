@@ -7,7 +7,7 @@ import {
   setLang,
   t,
   weekdays,
-} from "./i18n.js?v=59";
+} from "./i18n.js?v=60";
 
 const MESSAGES_URL = "data/trafikkmeldinger.json";
 const SIGNAL_LOG_URL = "data/signalturar.json";
@@ -126,6 +126,10 @@ const state = {
   cancelledJourneys: new Set(),
   /** Når vi sist fekk svar frå Entur om avlysingar. 0 = ikkje spurt enno. */
   cancellationsFetchedAt: 0,
+  /** Turar som var med i siste avlysingssvar, avlyst eller ikkje. */
+  seenJourneys: new Set(),
+  /** Sett etter fristen når turen faktisk låg i Entur utan avlysing. Vert ståande ut dagen. */
+  confirmedBooked: new Set(),
   signalLog: null,
 };
 
@@ -1297,22 +1301,43 @@ function phoneIcon() {
   return svg;
 }
 
+function fetchMinutes(fetchedAt) {
+  const fetched = osloParts(new Date(fetchedAt));
+  return Number(fetched.hour) * 60 + Number(fetched.minute);
+}
+
+/** Turen låg i Entur utan avlysing, og svaret kom etter tingefristen. */
+function signalSeenBooked(leg) {
+  const id = serviceJourneyId(leg?.id);
+  if (!id || !leg?.signal) return false;
+  if (state.confirmedBooked.has(id)) return true;
+  const fetchedAt = state.cancellationsFetchedAt;
+  if (!fetchedAt || osloIsoFromMs(fetchedAt) !== todayIso()) return false;
+  if (!state.seenJourneys.has(id) || journeyCancelled(leg)) return false;
+  const deadline = bookingDeadline(leg);
+  return deadline != null && fetchMinutes(fetchedAt) >= deadline;
+}
+
 function signalIsBooked(leg, now = nowMinutes()) {
   if (!leg?.signal) return false;
   if (signalLogStatus(leg) === "skipped") return false;
   if (!isToday()) return signalLogStatus(leg) === "booked";
-  const fetchedAt = state.cancellationsFetchedAt;
-  if (!fetchedAt || osloIsoFromMs(fetchedAt) !== todayIso()) {
-    return signalLogStatus(leg) === "booked";
-  }
-  if (journeyCancelled(leg)) return false;
   if (signalVerdict(leg, state.live, now) === "skipped") return false;
+  if (signalLogStatus(leg) === "booked") return true;
+  const fetchedAt = state.cancellationsFetchedAt;
+  if (!fetchedAt || osloIsoFromMs(fetchedAt) !== todayIso()) return false;
+  if (journeyCancelled(leg)) return false;
   const deadline = bookingDeadline(leg);
   if (deadline == null) return false;
-  const fetched = osloParts(new Date(fetchedAt));
-  const fetchedMinutes = Number(fetched.hour) * 60 + Number(fetched.minute);
+  const fetchedMinutes = fetchMinutes(fetchedAt);
   if (fetchedMinutes < deadline) return false;
-  if (leg.arrival && now >= clockMinutes(leg.arrival)) return signalLogStatus(leg) === "booked";
+  const id = serviceJourneyId(leg.id);
+  if (id && state.confirmedBooked.has(id)) return true;
+  if (id && state.seenJourneys.has(id)) {
+    state.confirmedBooked.add(id);
+    return true;
+  }
+  if (leg.arrival && now >= clockMinutes(leg.arrival)) return false;
   return true;
 }
 
@@ -1571,19 +1596,33 @@ function cancellationQuery(stops) {
   return `query Cancelled($start: DateTime!) { ${fields} }`;
 }
 
-function cancelledJourneyIds(payload) {
+function callsFromCancellationPayload(payload) {
   const data = payload?.data && typeof payload.data === "object" ? payload.data : payload;
-  const ids = new Set();
-  if (!data || typeof data !== "object") return ids;
+  if (!data || typeof data !== "object") return [];
   const groups = Array.isArray(data) ? data : Object.values(data);
+  const calls = [];
   for (const group of groups) {
-    const calls = Array.isArray(group) ? group : group?.estimatedCalls;
-    if (!Array.isArray(calls)) continue;
-    for (const call of calls) {
-      if (!call?.cancellation) continue;
-      const id = serviceJourneyId(call.serviceJourney?.id || call.id);
-      if (id) ids.add(id);
-    }
+    const list = Array.isArray(group) ? group : group?.estimatedCalls;
+    if (Array.isArray(list)) calls.push(...list);
+  }
+  return calls;
+}
+
+function cancelledJourneyIds(payload) {
+  const ids = new Set();
+  for (const call of callsFromCancellationPayload(payload)) {
+    if (!call?.cancellation) continue;
+    const id = serviceJourneyId(call.serviceJourney?.id || call.id);
+    if (id) ids.add(id);
+  }
+  return ids;
+}
+
+function seenJourneyIds(payload) {
+  const ids = new Set();
+  for (const call of callsFromCancellationPayload(payload)) {
+    const id = serviceJourneyId(call.serviceJourney?.id || call.id);
+    if (id) ids.add(id);
   }
   return ids;
 }
@@ -1727,7 +1766,10 @@ function signalVerdict(leg, live = state.live, now = nowMinutes(), legs = null) 
     if (left === false) return "skipped";
     return null;
   }
-  if (clockMinutes(monitored.departure) > clockMinutes(leg.departure)) return "skipped";
+  if (clockMinutes(monitored.departure) > clockMinutes(leg.departure)) {
+    if (signalSeenBooked(leg)) return null;
+    return "skipped";
+  }
   if (
     monitored.signal &&
     leftOrigin(live, monitored) === false &&
@@ -4053,7 +4095,7 @@ function liveBlockedUntil() {
 
 async function fetchCancellations() {
   const stops = cancellationStops();
-  if (!stops.length) return new Set();
+  if (!stops.length) return { cancelled: new Set(), seen: new Set() };
   const response = await fetch(ENTUR_JOURNEY_URL, {
     method: "POST",
     headers: {
@@ -4069,13 +4111,34 @@ async function fetchCancellations() {
   if (!response.ok) throw new Error(response.statusText);
   const payload = await response.json();
   if (payload?.errors && !payload.data) throw new Error("Entur");
-  return cancelledJourneyIds(payload);
+  return {
+    cancelled: cancelledJourneyIds(payload),
+    seen: seenJourneyIds(payload),
+  };
+}
+
+function rememberSeenBookings() {
+  const fetchedAt = state.cancellationsFetchedAt;
+  if (!fetchedAt || osloIsoFromMs(fetchedAt) !== todayIso()) return;
+  const fetchedMinutes = fetchMinutes(fetchedAt);
+  for (const leg of legsForDate(todayIso())) {
+    if (!leg?.signal) continue;
+    const id = serviceJourneyId(leg.id);
+    if (!id || !state.seenJourneys.has(id) || state.cancelledJourneys.has(id)) continue;
+    const deadline = bookingDeadline(leg);
+    if (deadline == null || fetchedMinutes < deadline) continue;
+    state.confirmedBooked.add(id);
+  }
+  for (const id of state.cancelledJourneys) state.confirmedBooked.delete(id);
 }
 
 async function loadCancellations() {
   try {
-    state.cancelledJourneys = await fetchCancellations();
+    const { cancelled, seen } = await fetchCancellations();
+    state.cancelledJourneys = cancelled;
+    state.seenJourneys = seen;
     state.cancellationsFetchedAt = Date.now();
+    rememberSeenBookings();
   } catch (error) {
     console.error(error);
   }
@@ -4474,6 +4537,8 @@ function resetTestState() {
   state.liveBlockedUntil = 0;
   state.cancelledJourneys = new Set();
   state.cancellationsFetchedAt = 0;
+  state.seenJourneys = new Set();
+  state.confirmedBooked = new Set();
   state.signalLog = null;
   lastLiveStructureKey = null;
   fjord1GraphqlBlocked = false;
@@ -4522,6 +4587,7 @@ export {
   isCancelledDeparture,
   cancelledSailingsFromText,
   cancelledJourneyIds,
+  seenJourneyIds,
   journeyCancelled,
   osloDayStartIso,
   classifyMessage,

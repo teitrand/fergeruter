@@ -19,6 +19,7 @@ import {
   signalIsBooked,
   signalLogStatus,
   cancelledJourneyIds,
+  seenJourneyIds,
   osloDayStartIso,
   matchesLegPlaces,
   matchesStop,
@@ -39,7 +40,7 @@ import {
   shouldFetchLive,
   serviceWindowMinutes,
 } from "../assets/app.js";
-import { setLang } from "../assets/i18n.js?v=59";
+import { setLang } from "../assets/i18n.js?v=60";
 
 beforeEach(() => {
   setLang("nn");
@@ -420,6 +421,56 @@ test("signaltur som ikkje er avlyst etter fristen er bestilt", () => {
     cancellationsFetchedAt: start + (12 * 60 + 30) * 60 * 1000,
   });
   assert.equal(signalIsBooked(trip, 13 * 60 + 20), false);
+});
+
+test("gått signaltur som Entur har sett utan avlysing blir ståande som bestilt", () => {
+  const id = "MOR:ServiceJourney:1136_102_9150000047474169";
+  const trip = signalLeg("Standal", "Trandal", "06:45:00", "07:00:00", id);
+  const start = Date.parse(osloDayStartIso(todayIso()));
+  setTestState({
+    cancelledJourneys: new Set(),
+    seenJourneys: new Set([id]),
+    cancellationsFetchedAt: start + (6 * 60 + 50) * 60 * 1000,
+  });
+  assert.equal(signalIsBooked(trip, 7 * 60 + 6), true);
+  setTestState({ seenJourneys: new Set() });
+  assert.equal(signalIsBooked(trip, 7 * 60 + 6), true);
+});
+
+test("retur i sanntid gjer ikkje ein sett uttur om til ikkje utført", () => {
+  const outId = "MOR:ServiceJourney:1136_102_9150000047474169";
+  const backId = "MOR:ServiceJourney:1136_101_9150000046366323";
+  const out = signalLeg("Standal", "Trandal", "06:45:00", "07:00:00", outId);
+  const back = signalLeg("Trandal", "Standal", "07:05:00", "07:20:00", backId);
+  const start = Date.parse(osloDayStartIso(todayIso()));
+  const live = freshLive({
+    journeyRef: backId,
+    originAimed: `${todayIso()}T07:05:00+02:00`,
+    atStop: false,
+    stopName: "Standal",
+    actualDeparture: `${todayIso()}T07:06:00+02:00`,
+    latitude: 62.263,
+    longitude: 6.46,
+    destination: "Standal",
+  });
+  setTestState({
+    live,
+    seenJourneys: new Set([outId, backId]),
+    cancellationsFetchedAt: start + (6 * 60 + 50) * 60 * 1000,
+  });
+  assert.equal(signalVerdict(out, live, 7 * 60 + 6, [out, back]), null);
+  assert.equal(signalIsBooked(out, 7 * 60 + 6), true);
+});
+
+test("svar frå før fristen gjer ikkje ein gått signaltur bestilt", () => {
+  const id = "MOR:ServiceJourney:1136_102_9150000047474169";
+  const trip = signalLeg("Standal", "Trandal", "06:45:00", "07:00:00", id);
+  const start = Date.parse(osloDayStartIso(todayIso()));
+  setTestState({
+    seenJourneys: new Set([id]),
+    cancellationsFetchedAt: start + 5 * 60 * 60 * 1000,
+  });
+  assert.equal(signalIsBooked(trip, 7 * 60 + 6), false);
 });
 
 test("avlyst signaltur blir ikkje ståande som på veg til Standal", () => {
