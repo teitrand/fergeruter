@@ -1319,6 +1319,26 @@ test("signaltur ringjer rett ferje, tel:+47", () => {
   assert.equal(telHref(signalPhone(after)), "tel:+4791669340");
 });
 
+test("avlyste morgonsignalturar: ferja ligg på Trandal når tomturen er framme", () => {
+  setTestState({
+    routes: ruter,
+    kombirute: kombi,
+    date: "2026-10-02",
+    routeChoice: "1136",
+    messages: { messages: [] },
+  });
+  const day = legsForDate("2026-10-02");
+  const skipped = new Set(["08:35:00", "08:55:00", "09:20:00"]);
+  const running = day.filter((leg) => !(leg.signal && skipped.has(leg.departure)));
+  const during = ferryStatus(running, 8 * 60 + 40, day);
+  assert.equal(during.text, "Ferja går til Trandal utan passasjerar");
+  assert.equal(during.underway, true);
+  const alongside = ferryStatus(running, 8 * 60 + 57, day);
+  assert.equal(alongside.text, "Ferja ligg til kai på Trandal");
+  assert.equal(alongside.underway, undefined);
+  assert.equal(alongside.until, 9 * 60 + 45);
+});
+
 test("kombirute er éi samanhengande rute utan tomflytting", () => {
   useKombi();
   for (const iso of Object.values(KOMBI_DATES)) {
