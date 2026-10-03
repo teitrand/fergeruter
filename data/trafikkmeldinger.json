@@ -1,7 +1,27 @@
 {
   "source": "https://www.fjord1.no/trafikkmeldingar",
-  "fetchedAt": "2026-10-03T14:50:26.061753+00:00",
+  "fetchedAt": "2026-10-03T18:18:37.739914+00:00",
   "messages": [
+    {
+      "id": "RG9tYWluQ29udGVudDoyMTkxODkxMw==",
+      "heading": "Stårheim-Isane",
+      "text": "Rute 1038 Stårheim - Isane: Det er ordinær kapasitet for ADR-last i sambandet. Mvh Fjord1 på vegner av Skyss.",
+      "publishedAt": "2026-10-03T20:03:41+02:00",
+      "validFrom": "2026-10-03T18:03:41+00:00",
+      "validTo": "2026-10-04T18:02:50+00:00",
+      "countyNumber": 14,
+      "connectionNumber": 814,
+      "important": false,
+      "severity": "capacity",
+      "isRoute1136": false,
+      "isLocal": false,
+      "isRouteControl": false,
+      "routeMode": "1136",
+      "routeWindow": null,
+      "activateAt": null,
+      "vessel": null,
+      "routeSwitch": null
+    },
     {
       "id": "RG9tYWluQ29udGVudDoyMTkxNjA4MA==",
       "heading": "Rysjedalsvika-Rutledal-Krakhella",
