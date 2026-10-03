@@ -1,7 +1,27 @@
 {
   "source": "https://www.fjord1.no/trafikkmeldingar",
-  "fetchedAt": "2026-10-03T00:36:39.642194+00:00",
+  "fetchedAt": "2026-10-03T05:40:54.618926+00:00",
   "messages": [
+    {
+      "id": "RG9tYWluQ29udGVudDoyMTkxMjUwNg==",
+      "heading": "Oldeide-Måløy",
+      "text": "Rute 1039 Måløy - Oldeide: På grunn av dårlig vær og kai ombygging er ruten inntil videre innstilt. Mvh Fjord1 på vegner av Skyss.",
+      "publishedAt": "2026-10-03T06:48:56+02:00",
+      "validFrom": "2026-10-03T04:48:56+00:00",
+      "validTo": "2026-10-04T04:48:31+00:00",
+      "countyNumber": 14,
+      "connectionNumber": 669,
+      "important": false,
+      "severity": "cancelled",
+      "isRoute1136": false,
+      "isLocal": false,
+      "isRouteControl": false,
+      "routeMode": "1136",
+      "routeWindow": null,
+      "activateAt": null,
+      "vessel": null,
+      "routeSwitch": null
+    },
     {
       "id": "RG9tYWluQ29udGVudDoyMTkwODczMQ==",
       "heading": "Mortavika-Arsvågen",
