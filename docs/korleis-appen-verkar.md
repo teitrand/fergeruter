@@ -243,8 +243,9 @@ For **i dag**, etter fristen (`avgang − minutesBefore`):
 
 1. Loggen seier `skipped` → ikkje bestilt.
 2. Sanntid seier at denne turen ikkje la frå kai, eller at ein seinare tur er den som blir køyrd, → ikkje bestilt («Ikkje utført»).
-3. Loggen seier `booked` → bestilt.
-4. Siste Entur-svar er frå i dag, turen er ikkje avlyst, og svaret kom etter fristen:
+3. Før avgang, og vi har fersk posisjon: turen er ikkje bestilt om ferja ikkje er ved frå-kaia og VM ikkje følgjer denne turen. At ferja ligg på Standal, eller er undervegs på ein annan tur, gjer ikkje Trandal–Sæbø bestilt. Når ferja er komen til frå-kaia, gjeld reglane under.
+4. Loggen seier `booked` → bestilt.
+5. Siste Entur-svar er frå i dag, turen er ikkje avlyst, og svaret kom etter fristen:
    - turen låg i svaret (`seenJourneys`) → bestilt. Id-en blir hugsa i `confirmedBooked` ut økta.
    - turen var hugsa slik tidlegare i økta → bestilt, òg om eit seinare svar ikkje lenger har kallet.
    - ankomst er passert og ingen av punkta over stemmer → **ikkje** bestilt. Då står «På signal». Mangelen på avlysing etter at kallet har dette ut er ikkje bevis.
@@ -279,7 +280,7 @@ For **ein annan dag** finst ikkje dagens avlysingsmengd. Berre loggen: `booked` 
 4. Mellom ankomst og neste avgang på same kai: «ligg til kai». Opphald på minst 20 minutt er liggetid (matpause), med eigen tekst.
 5. Mellom ankomst og neste avgang på ein annan kai, og tabellen ikkje er kombi: tomflytting. Ho varer den kortaste planlagde overfarten mellom dei kaiane. Tomtur mellom Valderøya/Store Kalvøy og ein kai i Hjørundfjorden har inga direkte linje; den varer 120 minutt. Deretter ligg ferja til kai på neste kai (Standal på veg inn, Valderøya før passasjeravgangen på veg ut) til avgangen. Er holet kortare enn overfarten, varer tomturen heile holet. Er overfarten ukjend, varer tomturen òg heile holet.
 6. Etter siste ankomst: ferdig på den kaia om det er heimkai eller kombi. Elles tomtur heim med same overfart som i punkt 5 (Valderøya/Store Kalvøy → Standal: 120 minutt), deretter ligg ho til kai på Standal over natta. Manglar både overfart og hol i tabellen, seier vi at ho går heim og ligg der over natta, utan eit oppfunne klokkeslett.
-7. Om VM er fersk: signaltur som har lagt frå kai overstyrer med destinasjon og forseinking. Signaltur som ikkje har lagt frå kai overstyrer med «ikkje utført». Vanleg rute får forseinking lagt på tabellteksten.
+7. Om VM er fersk: ligg ferja innanfor 250 m frå ein kai, seier vi at ho ligg der, òg om tabellklokka enno seier «på veg». Signaltur som har lagt frå kai og ikkje er ved kai, overstyrer med destinasjon og forseinking. Signaltur som ikkje har lagt frå kai overstyrer med «ikkje utført». Vanleg rute undervegs får forseinking lagt på tabellteksten. Er det fleire kjøyretøy i VM-svaret, bruker vi den med nyast `RecordedAtTime`.
 
 Filtra frå/til endrar kva rader som visest, ikkje kvar ferja er. Reise med mellomstopp følgjer same ferje. Skår→Standal går via Sæbø/Trandal. Leknes→Standal i vanleg rute byter ferje på Sæbø og får ventetid. Korrespondanse blir merkt på avgang og ankomst, ikkje som eigne rader. Fyrste avgang i reisa står i hovudlinja. Seinare bein og venting på knutepunktet får klassen `stop-onward` og er innrykka, så dei ikkje ser ut som avgangar frå startkaien.
 
@@ -345,7 +346,7 @@ Det som må halde:
 - Tabellbyte frå meldingstekst, inkludert delvis innstilling, nynorsk dato, og at 1049 ikkje styrer 1136
 - Signaltur som ligg til kai etter avgang er ikkje utført. Signaltur som har lagt frå kai er på veg, med forseinking
 - Avlyst kveldssignaltur 20:00/20:20 gjer ikkje «på veg mot Standal» når ferja ligg der
-- Etter fristen og eit Entur-svar utan avlysing: bestilt. Før fristen, eller utan svar: ikkje bestilt
+- Etter fristen og eit Entur-svar utan avlysing: bestilt, med mindre ferja ligg ved ein annan kai. Før fristen, eller utan svar: ikkje bestilt
 - Etter ankomst: bestilt berre om loggen seier det, eller turen var sett i feeden etter fristen
 - Logg `skipped` blir ikkje bestilt att, heller ikkje om Entur har gløymt avlysinga
 - Loggen viser bestilt og ikkje utført på ein tidlegare dato

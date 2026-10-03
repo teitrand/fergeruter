@@ -42,7 +42,7 @@ import {
   shouldFetchLive,
   serviceWindowMinutes,
 } from "../assets/app.js";
-import { setLang } from "../assets/i18n.js?v=65";
+import { setLang } from "../assets/i18n.js?v=66";
 
 beforeEach(() => {
   setLang("nn");
@@ -310,6 +310,55 @@ test("parseVehicleMonitoring kuttar destinasjonslista til neste kai", () => {
   assert.equal(live.delayMinutes, 1);
 });
 
+test("parseVehicleMonitoring vel den ferskaste av fleire aktivitetar", () => {
+  const live = parseVehicleMonitoring({
+    Siri: {
+      ServiceDelivery: {
+        VehicleMonitoringDelivery: [
+          {
+            VehicleActivity: [
+              {
+                RecordedAtTime: "2026-10-03T07:56:15+02:00",
+                ValidUntilTime: "2026-10-03T07:58:15+02:00",
+                MonitoredVehicleJourney: {
+                  DestinationName: [{ value: "Trandal" }],
+                  FramedVehicleJourneyRef: {
+                    DatedVehicleJourneyRef: "MOR:ServiceJourney:1136_old",
+                  },
+                  VehicleLocation: { Latitude: 62.260997, Longitude: 6.500688 },
+                  MonitoredCall: {
+                    VehicleAtStop: true,
+                    StopPointName: [{ value: "Trandal ferjekai" }],
+                  },
+                },
+              },
+              {
+                RecordedAtTime: "2026-10-03T08:02:51+02:00",
+                ValidUntilTime: "2026-10-03T08:04:51+02:00",
+                MonitoredVehicleJourney: {
+                  DestinationName: [{ value: "Sæbø Skår" }],
+                  FramedVehicleJourneyRef: {
+                    DatedVehicleJourneyRef: "MOR:ServiceJourney:1136_new",
+                  },
+                  VehicleLocation: { Latitude: 62.25, Longitude: 6.49 },
+                  MonitoredCall: {
+                    VehicleAtStop: false,
+                    StopPointName: [{ value: "Trandal ferjekai" }],
+                    ActualDepartureTime: "2026-10-03T07:59:58+02:00",
+                  },
+                },
+              },
+            ],
+          },
+        ],
+      },
+    },
+  });
+  assert.equal(live.journeyRef, "MOR:ServiceJourney:1136_new");
+  assert.equal(live.destination, "Sæbø");
+  assert.equal(live.actualDeparture, "2026-10-03T07:59:58+02:00");
+});
+
 const signalJourney = "MOR:ServiceJourney:1136_102_9150000047474169";
 
 function signalLeg(from, to, departure, arrival, id = signalJourney) {
@@ -518,6 +567,117 @@ test("signaltur som ikkje er avlyst etter fristen er bestilt", () => {
     cancellationsFetchedAt: start + (12 * 60 + 30) * 60 * 1000,
   });
   assert.equal(signalIsBooked(trip, 13 * 60 + 20), false);
+});
+
+test("signaltur er ikkje bestilt medan ferja ligg ved ein annan kai", () => {
+  const id = "MOR:ServiceJourney:1136_603_trandal";
+  const trip = signalLeg("Trandal", "Sæbø", "08:00:00", "08:30:00", id);
+  const start = Date.parse(osloDayStartIso(todayIso()));
+  setTestState({
+    cancelledJourneys: new Set(),
+    seenJourneys: new Set([id]),
+    cancellationsFetchedAt: start + (7 * 60 + 47) * 60 * 1000,
+    live: freshLive({
+      journeyRef: "MOR:ServiceJourney:1136_601",
+      originAimed: `${todayIso()}T07:40:00+02:00`,
+      atStop: true,
+      stopName: "Standal",
+      actualDeparture: "",
+      latitude: 62.266216,
+      longitude: 6.423177,
+      delayMinutes: 0,
+      destination: "Trandal",
+    }),
+    signalLog: {
+      days: {
+        [todayIso()]: [
+          { id, from: "Trandal", to: "Sæbø", departure: "08:00:00", status: "booked" },
+        ],
+      },
+    },
+  });
+  assert.equal(signalIsBooked(trip, 7 * 60 + 47), false);
+});
+
+test("signaltur er bestilt når ferja er komen til frå-kaia", () => {
+  const id = "MOR:ServiceJourney:1136_603_trandal";
+  const trip = signalLeg("Trandal", "Sæbø", "08:00:00", "08:30:00", id);
+  const start = Date.parse(osloDayStartIso(todayIso()));
+  setTestState({
+    cancelledJourneys: new Set(),
+    seenJourneys: new Set([id]),
+    cancellationsFetchedAt: start + (7 * 60 + 52) * 60 * 1000,
+    live: freshLive({
+      journeyRef: "MOR:ServiceJourney:1136_601",
+      originAimed: `${todayIso()}T07:40:00+02:00`,
+      atStop: true,
+      stopName: "Trandal",
+      actualDeparture: `${todayIso()}T07:39:55+02:00`,
+      latitude: 62.260997,
+      longitude: 6.500688,
+      delayMinutes: 0,
+      destination: "Trandal",
+    }),
+  });
+  assert.equal(signalIsBooked(trip, 7 * 60 + 52), true);
+  const laterId = "MOR:ServiceJourney:1136_605_skar";
+  const later = signalLeg("Sæbø", "Skår", "08:35:00", "08:55:00", laterId);
+  setTestState({
+    seenJourneys: new Set([id, laterId]),
+    live: freshLive({
+      journeyRef: id,
+      originAimed: `${todayIso()}T08:00:00+02:00`,
+      atStop: false,
+      stopName: "Sæbø",
+      actualDeparture: `${todayIso()}T07:59:58+02:00`,
+      latitude: 62.25,
+      longitude: 6.49,
+      delayMinutes: 0,
+      destination: "Sæbø",
+    }),
+  });
+  assert.equal(signalIsBooked(later, 8 * 60 + 11), false);
+});
+
+test("ferja som er framme ligg til kai, ikkje på veg", () => {
+  const legs = [
+    {
+      id: "MOR:ServiceJourney:1136_601#0",
+      ...leg("Standal", "Trandal", "07:40:00", "08:00:00"),
+    },
+  ];
+  setTestState({
+    live: freshLive({
+      journeyRef: "MOR:ServiceJourney:1136_601",
+      originAimed: `${todayIso()}T07:40:00+02:00`,
+      atStop: true,
+      stopName: "Trandal",
+      actualDeparture: `${todayIso()}T07:39:55+02:00`,
+      latitude: 62.260997,
+      longitude: 6.500688,
+      delayMinutes: 0,
+      destination: "Trandal",
+    }),
+  });
+  const arrived = currentStatus(legs, 7 * 60 + 52);
+  assert.match(arrived.text, /ligg til kai på Trandal/);
+  assert.equal(arrived.underway, undefined);
+  setTestState({
+    live: freshLive({
+      journeyRef: "MOR:ServiceJourney:1136_601",
+      originAimed: `${todayIso()}T07:40:00+02:00`,
+      atStop: true,
+      stopName: "Standal",
+      actualDeparture: "",
+      latitude: 62.266216,
+      longitude: 6.423177,
+      delayMinutes: 0,
+      destination: "Trandal",
+    }),
+  });
+  const waiting = currentStatus(legs, 7 * 60 + 47);
+  assert.match(waiting.text, /ligg til kai på Standal/);
+  assert.doesNotMatch(waiting.text, /på veg/);
 });
 
 test("gått signaltur som Entur har sett utan avlysing blir ståande som bestilt", () => {
