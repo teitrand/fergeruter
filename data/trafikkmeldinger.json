@@ -1,6 +1,6 @@
 {
   "source": "https://www.fjord1.no/trafikkmeldingar",
-  "fetchedAt": "2026-10-03T18:18:37.739914+00:00",
+  "fetchedAt": "2026-10-03T21:23:03.749372+00:00",
   "messages": [
     {
       "id": "RG9tYWluQ29udGVudDoyMTkxODkxMw==",
@@ -203,7 +203,7 @@
       "routeSwitch": null
     },
     {
-      "id": "RG9tYWluQ29udGVudDoyMTkwNDUzOA==",
+      "id": "RG9tYWluQ29udGVudDoyMTkyMDU3Mw==",
       "heading": "Drag - Kjøpsvik",
       "text": "Rute 201108 Drag - Kjøpsvik: Grunna transport av farleg last vert det redusert kapasitet (maks. 12 passasjerar) på avgang frå Kjøpsvik kl. 18:00",
       "publishedAt": "2026-10-02T12:42:32+02:00",
