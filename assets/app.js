@@ -7,7 +7,7 @@ import {
   setLang,
   t,
   weekdays,
-} from "./i18n.js?v=65";
+} from "./i18n.js?v=66";
 
 const MESSAGES_URL = "data/trafikkmeldinger.json";
 const SIGNAL_LOG_URL = "data/signalturar.json";
@@ -1318,11 +1318,45 @@ function signalSeenBooked(leg) {
   return deadline != null && fetchMinutes(fetchedAt) >= deadline;
 }
 
+/**
+ * Kaien ferja ligg ved, om posisjonen er innanfor kai-radius.
+ * Tom streng når ho er undervegs eller vi ikkje har koordinat.
+ */
+function vesselQuay(live) {
+  if (!live) return "";
+  let bestName = "";
+  let bestDist = Infinity;
+  for (const name of Object.keys(QUAY_COORDS)) {
+    const dist = distanceToQuay(live, name);
+    if (dist == null || dist > QUAY_RADIUS_M || dist >= bestDist) continue;
+    bestDist = dist;
+    bestName = name;
+  }
+  if (bestName) return bestName;
+  if (live.atStop === true) return quayPlace(live.stopName);
+  return "";
+}
+
+/**
+ * Før avgang: «ikkje avlyst» er ikkje bestilt om ferja ikkje er ved frå-kaia
+ * og VM ikkje følgjer denne turen. Undervegs på ein annan tur tel ikkje.
+ */
+function signalAwayFromOrigin(leg, live = state.live, now = nowMinutes()) {
+  if (!leg?.signal || !isLiveFresh(live)) return false;
+  if (now >= clockMinutes(leg.departure)) return false;
+  const monitored = legForLive(legsForDate(todayIso()), live);
+  if (monitored && sameLeg(monitored, leg)) return false;
+  const here = vesselQuay(live);
+  if (here && here === quayPlace(leg.from)) return false;
+  return true;
+}
+
 function signalIsBooked(leg, now = nowMinutes()) {
   if (!leg?.signal) return false;
   if (signalLogStatus(leg) === "skipped") return false;
   if (!isToday()) return signalLogStatus(leg) === "booked";
   if (signalVerdict(leg, state.live, now) === "skipped") return false;
+  if (signalAwayFromOrigin(leg, state.live, now)) return false;
   if (signalLogStatus(leg) === "booked") return true;
   const fetchedAt = state.cancellationsFetchedAt;
   if (!fetchedAt || osloIsoFromMs(fetchedAt) !== todayIso()) return false;
@@ -2000,6 +2034,12 @@ function crossingMinutes(allLegs, fromQuay, toQuay) {
   return shortest ?? outerDeadheadMinutes(from, to);
 }
 
+function activityInstant(activity) {
+  const raw = activity?.RecordedAtTime || activity?.ValidUntilTime;
+  const ms = raw ? Date.parse(raw) : NaN;
+  return Number.isFinite(ms) ? ms : 0;
+}
+
 function parseVehicleMonitoring(data) {
   const deliveries = data?.Siri?.ServiceDelivery?.VehicleMonitoringDelivery;
   const list = Array.isArray(deliveries) ? deliveries : deliveries ? [deliveries] : [];
@@ -2010,7 +2050,9 @@ function parseVehicleMonitoring(data) {
     activities.push(...(Array.isArray(items) ? items : [items]));
   }
   if (!activities.length) return null;
-  const activity = activities[0];
+  const activity = activities
+    .slice()
+    .sort((a, b) => activityInstant(b) - activityInstant(a))[0];
   const journey = activity.MonitoredVehicleJourney || {};
   const location = journey.VehicleLocation || {};
   const call = journey.MonitoredCall || {};
@@ -2218,20 +2260,36 @@ function ferryStatus(legs, now = nowMinutes(), allLegs = null) {
   return null;
 }
 
+function mooredAtOrigin(leg, live = state.live) {
+  if (!leg || !isLiveFresh(live)) return false;
+  const here = vesselQuay(live);
+  return Boolean(here) && here === quayPlace(leg.from);
+}
+
+function mooredStatus(quay, live, now) {
+  const base = t("status.mooredAt", { quay });
+  return { at: now, ...withSanntid(base, live) };
+}
+
 function currentStatus(legs, now = nowMinutes()) {
   const planned = ferryStatus(runningLegs(legs), now);
   const live = isLiveFresh(state.live) ? state.live : null;
   if (!live) return planned;
   const monitored = legForLive(legs, live);
-  if (monitored?.signal && leftOrigin(live, monitored) === true) {
-    return signalRunningStatus(monitored, live, now);
-  }
+  const here = vesselQuay(live);
   if (
     monitored?.signal &&
     leftOrigin(live, monitored) === false &&
     now >= clockMinutes(monitored.departure)
   ) {
     return signalSkippedStatus(monitored, now);
+  }
+  // Tabellklokka seier «på veg» heilt til ankomst. Posisjonen vinn når ferja ligg ved kai.
+  if (here && (planned?.underway || (monitored?.signal && leftOrigin(live, monitored) === true))) {
+    return mooredStatus(here, live, now);
+  }
+  if (monitored?.signal && leftOrigin(live, monitored) === true) {
+    return signalRunningStatus(monitored, live, now);
   }
   if (planned && delayApplies(live, monitored)) {
     const base = (planned.short || planned.text || "").replace(/\.$/, "");
@@ -3039,7 +3097,8 @@ function departureRow(leg, past, connections, journey = null) {
     if (arrConn) body.append(el("span", "stop-note stop-conn", arrConn));
   }
   row.append(body);
-  const departed = isToday() && hasPassed(leg.departure);
+  const alongside = mooredAtOrigin(leg);
+  const departed = isToday() && hasPassed(leg.departure) && !alongside;
   const remaining = cancelled
     ? t("sailing.cancelled")
     : verdict === "skipped"
@@ -3053,7 +3112,9 @@ function departureRow(leg, past, connections, journey = null) {
           : "";
   const remainingNode = el("span", "stop-state", remaining);
   if (verdict === "skipped") remainingNode.dataset.signal = "skipped";
-  else if (isToday() && !cancelled) remainingNode.dataset.countdown = leg.departure;
+  else if (alongside) {
+    remainingNode.dataset.alongside = leg.departure;
+  } else if (isToday() && !cancelled) remainingNode.dataset.countdown = leg.departure;
   row.append(remainingNode);
   row.addEventListener("click", (event) => {
     if (event.target.closest("a, button")) return;
@@ -3830,9 +3891,14 @@ function patchNowProgress() {
 
 function patchLiveClock() {
   patchNowProgress();
-  document.querySelectorAll("[data-countdown], [data-signal]").forEach((node) => {
+  document.querySelectorAll("[data-countdown], [data-signal], [data-alongside]").forEach((node) => {
     if (node.dataset.signal === "skipped") {
       node.textContent = t("signal.notRunning");
+      return;
+    }
+    if (node.dataset.alongside) {
+      const time = node.dataset.alongside;
+      node.textContent = time && isToday() ? countdown(time) : "";
       return;
     }
     const time = node.dataset.countdown;
