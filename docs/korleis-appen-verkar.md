@@ -111,6 +111,8 @@ Jobben køyrer kvart 5. minutt på `main` (`.github/workflows/update-trafikkmeld
 
 Skriven av `scripts/log_signalturar.py` kvart 30. minutt, cron `*/30 4-21 * * *` i UTC (06:00–23:30 norsk sommertid), berre på `main`. Workflow: `.github/workflows/log-signalturar.yml`.
 
+`updatedAt` er hjarteslaget. Skriptet skriv det kvar gong, så eit commit betyr at sjekken køyrde. GitHub køyrer ikkje cron på minuttet. Mellom 04:00 og 22:40 UTC er loggen for sein om det er meir enn 70 minutt sidan siste skriving. Alderen blir rekna frå `updatedAt`, eller frå 04:00 UTC same dag om nattpausen er lengre, så den fyrste morgonkøyringa ikkje blir raud berre fordi jobben stod stille om natta. Etter 22:40 UTC er det planlagt pause. Når loggen er for sein, viser statuslinja ein åtvaring. Observasjonar som alt er gjort i tide tel framleis. Når jobben endeleg køyrer, skriv ho loggen som vanleg, og deretter feilar workflowen om førre `updatedAt` var for gammal.
+
 ```json
 {
   "keptDays": 7,
@@ -250,6 +252,8 @@ For **i dag**, etter fristen (`avgang − minutesBefore`):
    - turen var ikkje i svaret → **ikkje** bestilt. «Ikkje avlyst» åleine er ikkje bevis, og folk blir ståande att om vi gjettar.
    - svaret kom etter ankomst → **ikkje** bestilt, same grunn som i loggen.
 
+Om hjarteslaget i loggen er for seint (sjå `updatedAt` under `data/signalturar.json`), seier statuslinja frå. Vi merkjer ikkje ein tur bestilt berre fordi sjekken manglar. Ein observasjon som alt kom før ankomst tel likevel, og eit ferskt Entur-svar i nettlesaren tel òg.
+
 Eit trykk på avgangen opnar eit vindauge. Der står korleis signalturen verkar, telefonnummeret, og om vi reknar turen som bestilt. Teksten seier at Entur ikkje oppgjev når bestillinga kom inn, berre at turen ikkje var avlyst etter fristen. Om loggen har `observedAt`, visest det tidspunktet som «vi registrerte det fyrste gong». Vindauget seier òg at den som tinga kan gjere om, og at Entur då kan avlyse, så ein bør ringje sjølv om ein vil vere sikker.
 
 Økta held på merkelappen når Entur har synt turen utan avlysing etter fristen og før ankomst. Eit svar som berre seier «ikkje avlyst», utan at turen låg i feeden, blir ikkje grøn etikett.
@@ -349,6 +353,7 @@ Det som må halde:
 - Etter ankomst: bestilt berre om loggen seier det, eller turen var sett i feeden etter fristen
 - Logg `skipped` blir ikkje bestilt att, heller ikkje om Entur har gløymt avlysinga
 - Loggen viser bestilt og ikkje utført på ein tidlegare dato
+- Signallogg eldre enn 70 minutt mellom 04:00 og 22:40 UTC er for sein. Utanfor vindauget, og rett etter 04:00 når førre køyring var kvelden før, er ho ikkje for sein
 - Kombirute-transkripsjonen stemmer med byggaren
 - Høgtidsdag i kombirute bruker søndagstabellen
 - Tomtur Valderøya/Store Kalvøy ↔ Hjørundfjorden varer 120 minutt, deretter kai
@@ -363,6 +368,6 @@ Det som må halde:
 5. Poll SIRI VM i rutevindauget. Stol på posisjon berre i 3 minutt. Rekn avgang frå `leftOrigin`.
 6. Poll GraphQL-avlysingar for dagen. Ta avlyste bein ut av posisjonsrekninga. Signaltur som er avlyst er «Ikkje utført».
 7. Etter tingefristen: grøn «Bestilt signaltur» berre etter reglane i avsnitt 7. Hugs sett tur ut økta. Ikkje gjett bestilt etter ankomst berre fordi kallet manglar.
-8. Cron på `main` som skriv `signalturar.json` i sju dagar. `skipped` er sticky. Turar som ikkje er i feeden blir ikkje logga.
+8. Cron på `main` som skriv `signalturar.json` i sju dagar. `skipped` er sticky. Turar som ikkje er i feeden blir ikkje logga. Etter commit: feil om førre `updatedAt` var meir enn 70 minutt gammalt inne i vaktvindauget.
 9. Service worker som i avsnitt 9, med eige cachenamn på `/dev/`.
 10. Sjekk med testane i avsnitt 11 før produksjon. Slepp via `dev`, ikkje med feature-PR mot `main`.

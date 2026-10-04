@@ -7,7 +7,7 @@ import {
   setLang,
   t,
   weekdays,
-} from "./i18n.js?v=67";
+} from "./i18n.js?v=68";
 
 const MESSAGES_URL = "data/trafikkmeldinger.json";
 const SIGNAL_LOG_URL = "data/signalturar.json";
@@ -32,6 +32,15 @@ const STOP_PLACES = {
 };
 const HOME_QUAY = "Standal";
 const LIVE_MAX_AGE_MS = 3 * 60 * 1000;
+/**
+ * Signalloggen skal skrivast kvart 30. minutt, cron 04:00–21:30 UTC.
+ * 70 minutt er eitt uteblitt køyrd pluss litt kø. Etter det seier vi frå.
+ * Vindauget varer til 22:40 UTC, så den siste lovlege forseinkinga òg blir fanga.
+ * Nattpausen tel ikkje: alderen blir rekna frå 04:00 UTC om det er nyare enn updatedAt.
+ */
+const SIGNAL_LOG_MAX_AGE_MS = 70 * 60 * 1000;
+const SIGNAL_LOG_WATCH_START_UTC = 4 * 60;
+const SIGNAL_LOG_WATCH_END_UTC = 22 * 60 + 40;
 const FEEDBACK_MAIL = "teitrand@hotmail.com";
 const FEEDBACK_GITHUB = "https://github.com/teitrand/fergeruter/issues/new";
 const KOMBI_PDF =
@@ -1852,11 +1861,23 @@ function isInUnrunSignalTail(legs, stuck, leg) {
   return true;
 }
 
-/**
- * «running» når signalturen har lagt frå kai.
- * «skipped» når avgangstida er passert og ferja framleis ligg der,
- * eller ein seinare tur er den som faktisk blir køyrd.
- */
+/** Cron skal ha skrive loggen i dette UTC-vindauget. Natta er planlagt pause. */
+function signalLogWatchActive(nowMs = Date.now()) {
+  const now = new Date(nowMs);
+  const minutes = now.getUTCHours() * 60 + now.getUTCMinutes();
+  return minutes >= SIGNAL_LOG_WATCH_START_UTC && minutes <= SIGNAL_LOG_WATCH_END_UTC;
+}
+
+/** True når bakgrunnsjobben skulle ha køyrt, men loggen er for gammal. */
+function signalLogStale(nowMs = Date.now(), log = state.signalLog) {
+  if (!signalLogWatchActive(nowMs)) return false;
+  const updated = Date.parse(log?.updatedAt || "");
+  if (!Number.isFinite(updated)) return true;
+  const now = new Date(nowMs);
+  const windowStart = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 4, 0, 0);
+  return nowMs - Math.max(updated, windowStart) > SIGNAL_LOG_MAX_AGE_MS;
+}
+
 function signalLogEntry(leg, date = selectedDate()) {
   const trips = state.signalLog?.days?.[date];
   const list = Array.isArray(trips) ? trips : trips?.trips;
@@ -1877,6 +1898,11 @@ function signalLogStatus(leg, date = selectedDate()) {
   return null;
 }
 
+/**
+ * «running» når signalturen har lagt frå kai.
+ * «skipped» når avgangstida er passert og ferja framleis ligg der,
+ * eller ein seinare tur er den som faktisk blir køyrd.
+ */
 function signalVerdict(leg, live = state.live, now = nowMinutes(), legs = null) {
   if (!leg?.signal) return null;
   if (!isToday()) return signalLogStatus(leg) === "skipped" ? "skipped" : null;
@@ -3776,8 +3802,17 @@ function renderLedeStatus() {
     );
   }
   lede.hidden = false;
-  lede.textContent = `${parts.join(". ")}.`;
+  lede.replaceChildren(document.createTextNode(`${parts.join(". ")}.`));
+  appendSignalLogWarning(lede, legs);
   renderPositionNote();
+}
+
+function appendSignalLogWarning(lede, legs) {
+  if (!signalLogStale() || !(legs || []).some((leg) => leg.signal)) return;
+  const when = state.signalLog?.updatedAt ? formatDateTime(state.signalLog.updatedAt) : "";
+  const text = when ? t("signal.logLate", { when }) : t("signal.logMissing");
+  lede.append(document.createTextNode(" "));
+  lede.append(el("span", "lede-warn", text));
 }
 
 function renderPositionNote() {
@@ -4893,6 +4928,7 @@ export {
   signalObservedAtQuay,
   signalIsBooked,
   signalLogStatus,
+  signalLogStale,
   signalLogUrl,
   departureDetail,
   delayMinutes,

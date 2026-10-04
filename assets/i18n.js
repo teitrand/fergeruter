@@ -192,6 +192,10 @@ const STRINGS = {
     "signal.skippedHow": "Entur avlyste turen. Det skjer når ingen har tinga innan fristen kl. {time}.",
     "signal.skippedWhen": "Vi såg avlysinga fyrste gong {when}.",
     "signal.caveat": "Sjølv om turen står som bestilt, kan den som tinga gjere om. Då kan Entur avlyse turen. Ring og ting sjølv om du vil vere sikker.",
+    "signal.logLate":
+      "Sjekken av signalturar har ikkje køyrt sidan {when}. Vi merkjer ikkje ein tur som bestilt før han er sett i tide. Ring om du vil vere sikker.",
+    "signal.logMissing":
+      "Sjekken av signalturar har ikkje køyrt. Vi merkjer ikkje ein tur som bestilt før han er sett i tide. Ring om du vil vere sikker.",
     "detail.title": "{time} {from} → {to}",
     "detail.close": "Lukk",
     "detail.open": "Detaljar om avgangen {time} frå {from} til {to}",
@@ -406,6 +410,10 @@ const STRINGS = {
     "signal.skippedHow": "Entur cancelled the sailing. That happens when nobody booked by {time}.",
     "signal.skippedWhen": "We first saw the cancellation at {when}.",
     "signal.caveat": "Even if the sailing is shown as booked, the person who booked can change their mind. Entur may then cancel it. Call and book yourself if you want to be sure.",
+    "signal.logLate":
+      "The signal-trip check has not run since {when}. A sailing is not marked as booked until it has been seen in time. Call if you need to be sure.",
+    "signal.logMissing":
+      "The signal-trip check has not run. A sailing is not marked as booked until it has been seen in time. Call if you need to be sure.",
     "detail.title": "{time} {from} → {to}",
     "detail.close": "Close",
     "detail.open": "Details for the {time} departure from {from} to {to}",
@@ -623,6 +631,10 @@ const STRINGS = {
     "signal.skippedHow": "Entur hat die Fahrt abgesagt. Das passiert, wenn niemand bis {time} angemeldet hat.",
     "signal.skippedWhen": "Wir haben die Absage zuerst um {when} gesehen.",
     "signal.caveat": "Auch wenn die Fahrt als angemeldet angezeigt wird, kann die Person es sich anders überlegen. Entur kann die Fahrt dann absagen. Rufen Sie selbst an, wenn Sie sicher sein wollen.",
+    "signal.logLate":
+      "Die Prüfung der Bedarfsfahrten ist seit {when} nicht gelaufen. Eine Fahrt wird nicht als angemeldet markiert, bevor sie rechtzeitig gesehen wurde. Rufen Sie an, wenn Sie sicher sein wollen.",
+    "signal.logMissing":
+      "Die Prüfung der Bedarfsfahrten ist nicht gelaufen. Eine Fahrt wird nicht als angemeldet markiert, bevor sie rechtzeitig gesehen wurde. Rufen Sie an, wenn Sie sicher sein wollen.",
     "detail.title": "{time} {from} → {to}",
     "detail.close": "Schließen",
     "detail.open": "Details zur Abfahrt {time} von {from} nach {to}",
