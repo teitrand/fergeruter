@@ -63,6 +63,10 @@ def observe_signal_trips(legs, now_minutes, cancelled_ids, seen_ids):
         if journey in cancelled_ids:
             status = "skipped"
         elif journey in seen_ids:
+            # Avlysinga dett ut etter ankomst. Då ser ein utinga ut som ein tinga tur.
+            limit = leg.get("arrival") or leg.get("departure")
+            if limit and now_minutes > clock_minutes(limit):
+                continue
             status = "booked"
         else:
             continue
