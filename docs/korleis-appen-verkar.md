@@ -233,7 +233,7 @@ To mengder blir lagra:
 - `cancelledJourneys`: `cancellation: true`
 - `seenJourneys`: alle id-ar i svaret
 
-Service journey-id blir brukt på fleire datoar. Avlysingsmengda gjeld berre i dag. Ein vanleg tur som er avlyst i dag får «Innstilt». Ein signaltur som er avlyst får «Ikkje utført», ikkje «Innstilt». Avlyste bein blir tekne ut av `runningLegs`, så «No»-linja ikkje seier at ferja er på veg på ein tur som ikkje går.
+Service journey-id blir brukt på fleire datoar. Avlysingsmengda gjeld berre i dag. Ein vanleg tur som er avlyst i dag får «Innstilt». Ein signaltur som er avlyst får «Ikkje utført», ikkje «Innstilt». Setninga «Ferja har ikkje lagt frå kai» kjem berre når sanntid viser at ho framleis ligg ved frå-kaien etter avgangstid. Avlysing hos Entur før avgang, utan den posisjonen, er ikkje det same. Avlyste bein blir tekne ut av `runningLegs`, så «No»-linja ikkje seier at ferja er på veg på ein tur som ikkje går.
 
 ### Når etiketten er «Bestilt signaltur»
 
@@ -343,7 +343,7 @@ Python-testar lastar skript med `importlib` frå filsti. `unittest discover` har
 Det som må halde:
 
 - Tabellbyte frå meldingstekst, inkludert delvis innstilling, nynorsk dato, og at 1049 ikkje styrer 1136
-- Signaltur som ligg til kai etter avgang er ikkje utført. Signaltur som har lagt frå kai er på veg, med forseinking
+- Signaltur som ligg til kai etter avgang er ikkje utført. Signaltur som har lagt frå kai er på veg, med forseinking. Avlyst signaltur før avgang får «Ikkje utført» utan «har ikkje lagt frå kai»
 - Avlyst kveldssignaltur 20:00/20:20 gjer ikkje «på veg mot Standal» når ferja ligg der
 - Etter fristen og eit Entur-svar utan avlysing: bestilt. Før fristen, eller utan svar: ikkje bestilt
 - Etter ankomst: bestilt berre om loggen seier det, eller turen var sett i feeden etter fristen

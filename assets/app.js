@@ -7,7 +7,7 @@ import {
   setLang,
   t,
   weekdays,
-} from "./i18n.js?v=65";
+} from "./i18n.js?v=66";
 
 const MESSAGES_URL = "data/trafikkmeldinger.json";
 const SIGNAL_LOG_URL = "data/signalturar.json";
@@ -1877,6 +1877,24 @@ function signalVerdict(leg, live = state.live, now = nowMinutes(), legs = null) 
   return null;
 }
 
+/**
+ * Sanntid seier at ferja framleis ligg ved kaien denne turen skulle gått frå.
+ * Avlysing hos Entur åleine er ikkje det same: då veit vi ikkje om ho ligg der.
+ */
+function signalObservedAtQuay(leg, live = state.live, now = nowMinutes(), legs = null) {
+  if (!leg?.signal || !isToday() || !isLiveFresh(live)) return false;
+  if (now < clockMinutes(leg.departure)) return false;
+  const dayLegs = legs || legsForDate(todayIso());
+  const monitored = legForLive(dayLegs, live);
+  if (!monitored) return false;
+  if (sameLeg(monitored, leg)) return leftOrigin(live, monitored) === false;
+  return (
+    Boolean(monitored.signal) &&
+    leftOrigin(live, monitored) === false &&
+    isInUnrunSignalTail(dayLegs, monitored, leg)
+  );
+}
+
 function signalSkippedStatus(leg, now) {
   const short = t("signal.notRunningShort", { from: leg.from });
   const detail = t("signal.notRunningText", {
@@ -3032,7 +3050,7 @@ function departureRow(leg, past, connections, journey = null) {
     if (via) body.append(el("span", "stop-note stop-conn", via));
     const note = signalNote(leg, isToday());
     if (note) body.append(note);
-    if (verdict === "skipped") body.append(el("span", "stop-note", t("signal.stillAtQuay")));
+    if (signalObservedAtQuay(leg)) body.append(el("span", "stop-note", t("signal.stillAtQuay")));
     const depConn = connectionNote(connections, "dep", leg);
     if (depConn) body.append(el("span", "stop-note stop-conn", depConn));
     const arrConn = connectionNote(connections, "arr", leg);
@@ -4835,6 +4853,7 @@ export {
   currentStatus,
   dayType,
   signalVerdict,
+  signalObservedAtQuay,
   signalIsBooked,
   signalLogStatus,
   signalLogUrl,
