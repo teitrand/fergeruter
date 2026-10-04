@@ -20,6 +20,7 @@ import {
   signalIsBooked,
   departureDetail,
   signalLogStatus,
+  signalLogStale,
   cancelledJourneyIds,
   seenJourneyIds,
   osloDayStartIso,
@@ -43,7 +44,7 @@ import {
   shouldFetchLive,
   serviceWindowMinutes,
 } from "../assets/app.js";
-import { setLang } from "../assets/i18n.js?v=67";
+import { setLang } from "../assets/i18n.js?v=68";
 
 beforeEach(() => {
   setLang("nn");
@@ -611,6 +612,56 @@ test("detaljane seier at bestilt ikkje er tidspunktet nokon ringde", () => {
 test("før fristen veit detaljane ikkje om turen er tinga", () => {
   const trip = signalLeg("Standal", "Trandal", "13:00:00", "13:15:00");
   assert.equal(departureDetail(trip, 11 * 60).phase, "open");
+});
+
+test("signalloggen er for sein berre i vaktvindauget", () => {
+  const at = (iso) => Date.parse(iso);
+  assert.equal(
+    signalLogStale(at("2026-10-04T10:00:00Z"), { updatedAt: "2026-10-04T09:40:00Z" }),
+    false
+  );
+  assert.equal(
+    signalLogStale(at("2026-10-04T10:00:00Z"), { updatedAt: "2026-10-04T08:00:00Z" }),
+    true
+  );
+  assert.equal(
+    signalLogStale(at("2026-10-04T02:00:00Z"), { updatedAt: "2026-10-03T21:30:00Z" }),
+    false
+  );
+  assert.equal(signalLogStale(at("2026-10-04T10:00:00Z"), {}), true);
+  assert.equal(signalLogStale(at("2026-10-04T10:00:00Z"), { updatedAt: "" }), true);
+  assert.equal(
+    signalLogStale(at("2026-10-04T04:30:00Z"), { updatedAt: "2026-10-03T21:30:00Z" }),
+    false
+  );
+  assert.equal(
+    signalLogStale(at("2026-10-04T05:15:00Z"), { updatedAt: "2026-10-03T21:30:00Z" }),
+    true
+  );
+});
+
+test("ein observasjon i tide tel sjølv om hjarteslaget seinare er for gammalt", () => {
+  const id = "MOR:ServiceJourney:1136_102_9150000047474169";
+  const trip = signalLeg("Standal", "Trandal", "06:45:00", "07:00:00", id);
+  setTestState({
+    signalLog: {
+      updatedAt: "2026-10-04T06:50:00+02:00",
+      days: {
+        [todayIso()]: [
+          {
+            id,
+            from: "Standal",
+            to: "Trandal",
+            departure: "06:45:00",
+            status: "booked",
+            observedAt: `${todayIso()}T06:50:00+02:00`,
+          },
+        ],
+      },
+    },
+  });
+  assert.equal(signalIsBooked(trip, 12 * 60), true);
+  assert.equal(signalLogStale(Date.parse("2026-10-04T10:00:00Z")), true);
 });
 
 test("logg og Entur-svar etter ankomst gjer ikkje turen bestilt", () => {
