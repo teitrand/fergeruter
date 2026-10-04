@@ -7,7 +7,7 @@ import {
   setLang,
   t,
   weekdays,
-} from "./i18n.js?v=66";
+} from "./i18n.js?v=67";
 
 const MESSAGES_URL = "data/trafikkmeldinger.json";
 const SIGNAL_LOG_URL = "data/signalturar.json";
@@ -1306,7 +1306,39 @@ function fetchMinutes(fetchedAt) {
   return Number(fetched.hour) * 60 + Number(fetched.minute);
 }
 
-/** Turen låg i Entur utan avlysing, og svaret kom etter tingefristen. */
+/** Etter ankomst dett avlysinga ut av Entur. Seinare svar kan ikkje bevise at turen var tinga. */
+function bookingEvidenceUntil(leg) {
+  if (leg?.arrival) return clockMinutes(leg.arrival);
+  if (leg?.departure) return clockMinutes(leg.departure);
+  return null;
+}
+
+function sightingProvesBooking(leg, atMinutes) {
+  const until = bookingEvidenceUntil(leg);
+  if (until == null || atMinutes == null) return false;
+  return atMinutes <= until;
+}
+
+function observationMinutes(iso) {
+  if (!iso) return null;
+  const ms = Date.parse(iso);
+  if (!Number.isFinite(ms)) return null;
+  const parts = osloParts(new Date(ms));
+  return Number(parts.hour) * 60 + Number(parts.minute);
+}
+
+/**
+ * Loggen seier bestilt berre om vi såg det før ankomst.
+ * Ein observasjon utan klokkeslett er frå før dette kravet, og blir ståande.
+ */
+function signalLogBookedCounts(leg) {
+  if (signalLogStatus(leg) !== "booked") return false;
+  const seen = observationMinutes(signalLogEntry(leg)?.observedAt);
+  if (seen == null) return true;
+  return sightingProvesBooking(leg, seen);
+}
+
+/** Turen låg i Entur utan avlysing, og svaret kom etter tingefristen, før ankomst. */
 function signalSeenBooked(leg) {
   const id = serviceJourneyId(leg?.id);
   if (!id || !leg?.signal) return false;
@@ -1315,15 +1347,20 @@ function signalSeenBooked(leg) {
   if (!fetchedAt || osloIsoFromMs(fetchedAt) !== todayIso()) return false;
   if (!state.seenJourneys.has(id) || journeyCancelled(leg)) return false;
   const deadline = bookingDeadline(leg);
-  return deadline != null && fetchMinutes(fetchedAt) >= deadline;
+  const fetchedMinutes = fetchMinutes(fetchedAt);
+  return (
+    deadline != null &&
+    fetchedMinutes >= deadline &&
+    sightingProvesBooking(leg, fetchedMinutes)
+  );
 }
 
 function signalIsBooked(leg, now = nowMinutes()) {
   if (!leg?.signal) return false;
   if (signalLogStatus(leg) === "skipped") return false;
-  if (!isToday()) return signalLogStatus(leg) === "booked";
+  if (!isToday()) return signalLogBookedCounts(leg);
   if (signalVerdict(leg, state.live, now) === "skipped") return false;
-  if (signalLogStatus(leg) === "booked") return true;
+  if (signalLogBookedCounts(leg)) return true;
   const fetchedAt = state.cancellationsFetchedAt;
   if (!fetchedAt || osloIsoFromMs(fetchedAt) !== todayIso()) return false;
   if (journeyCancelled(leg)) return false;
@@ -1333,12 +1370,11 @@ function signalIsBooked(leg, now = nowMinutes()) {
   if (fetchedMinutes < deadline) return false;
   const id = serviceJourneyId(leg.id);
   if (id && state.confirmedBooked.has(id)) return true;
-  if (id && state.seenJourneys.has(id)) {
+  if (id && state.seenJourneys.has(id) && sightingProvesBooking(leg, fetchedMinutes)) {
     state.confirmedBooked.add(id);
     return true;
   }
-  if (leg.arrival && now >= clockMinutes(leg.arrival)) return false;
-  return true;
+  return false;
 }
 
 /**
@@ -4398,6 +4434,7 @@ function rememberSeenBookings() {
     if (!id || !state.seenJourneys.has(id) || state.cancelledJourneys.has(id)) continue;
     const deadline = bookingDeadline(leg);
     if (deadline == null || fetchedMinutes < deadline) continue;
+    if (!sightingProvesBooking(leg, fetchedMinutes)) continue;
     state.confirmedBooked.add(id);
   }
   for (const id of state.cancelledJourneys) state.confirmedBooked.delete(id);

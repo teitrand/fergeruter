@@ -43,7 +43,7 @@ import {
   shouldFetchLive,
   serviceWindowMinutes,
 } from "../assets/app.js";
-import { setLang } from "../assets/i18n.js?v=66";
+import { setLang } from "../assets/i18n.js?v=67";
 
 beforeEach(() => {
   setLang("nn");
@@ -496,7 +496,7 @@ test("logga ikkje utført blir køyrd dersom ferja likevel har lagt frå kai", (
   assert.equal(signalIsBooked(trip, 20 * 60 + 10), false);
 });
 
-test("signaltur som ikkje er avlyst etter fristen er bestilt", () => {
+test("signaltur som ikkje er avlyst etter fristen er bestilt berre om han låg i svaret", () => {
   const id = "MOR:ServiceJourney:1136_booked";
   const trip = signalLeg("Standal", "Trandal", "13:00:00", "13:15:00", id);
   const start = Date.parse(osloDayStartIso(todayIso()));
@@ -504,18 +504,37 @@ test("signaltur som ikkje er avlyst etter fristen er bestilt", () => {
     cancelledJourneys: new Set(),
     cancellationsFetchedAt: start + (12 * 60 + 30) * 60 * 1000,
   });
-  assert.equal(signalIsBooked(trip, 12 * 60 + 30), true);
-  setTestState({ cancellationsFetchedAt: start + 11 * 60 * 60 * 1000 });
-  assert.equal(signalIsBooked(trip, 12 * 60 + 30), false);
-  setTestState({
-    cancelledJourneys: new Set([id]),
-    cancellationsFetchedAt: start + (12 * 60 + 30) * 60 * 1000,
-  });
-  assert.equal(signalIsBooked(trip, 12 * 60 + 30), false);
-  setTestState({ cancelledJourneys: new Set(), cancellationsFetchedAt: 0 });
   assert.equal(signalIsBooked(trip, 12 * 60 + 30), false);
   setTestState({
     cancelledJourneys: new Set(),
+    seenJourneys: new Set([id]),
+    cancellationsFetchedAt: start + (12 * 60 + 30) * 60 * 1000,
+  });
+  assert.equal(signalIsBooked(trip, 12 * 60 + 30), true);
+  setTestState({
+    seenJourneys: new Set(),
+    confirmedBooked: new Set(),
+    cancellationsFetchedAt: start + 11 * 60 * 60 * 1000,
+  });
+  assert.equal(signalIsBooked(trip, 12 * 60 + 30), false);
+  setTestState({
+    cancelledJourneys: new Set([id]),
+    seenJourneys: new Set([id]),
+    confirmedBooked: new Set(),
+    cancellationsFetchedAt: start + (12 * 60 + 30) * 60 * 1000,
+  });
+  assert.equal(signalIsBooked(trip, 12 * 60 + 30), false);
+  setTestState({
+    cancelledJourneys: new Set(),
+    seenJourneys: new Set(),
+    confirmedBooked: new Set(),
+    cancellationsFetchedAt: 0,
+  });
+  assert.equal(signalIsBooked(trip, 12 * 60 + 30), false);
+  setTestState({
+    cancelledJourneys: new Set(),
+    seenJourneys: new Set(),
+    confirmedBooked: new Set(),
     cancellationsFetchedAt: start + (12 * 60 + 30) * 60 * 1000,
   });
   assert.equal(signalIsBooked(trip, 13 * 60 + 20), false);
@@ -592,6 +611,39 @@ test("detaljane seier at bestilt ikkje er tidspunktet nokon ringde", () => {
 test("før fristen veit detaljane ikkje om turen er tinga", () => {
   const trip = signalLeg("Standal", "Trandal", "13:00:00", "13:15:00");
   assert.equal(departureDetail(trip, 11 * 60).phase, "open");
+});
+
+test("logg og Entur-svar etter ankomst gjer ikkje turen bestilt", () => {
+  const id = "MOR:ServiceJourney:1136_707_9150000046319059";
+  const trip = signalLeg("Sæbø", "Skår", "10:50:00", "11:10:00", id);
+  const start = Date.parse(osloDayStartIso(todayIso()));
+  setTestState({
+    cancelledJourneys: new Set(),
+    seenJourneys: new Set([id]),
+    cancellationsFetchedAt: start + (12 * 60 + 19) * 60 * 1000,
+    signalLog: {
+      days: {
+        [todayIso()]: [
+          {
+            id,
+            from: "Sæbø",
+            to: "Skår",
+            departure: "10:50:00",
+            status: "booked",
+            observedAt: `${todayIso()}T12:19:00+02:00`,
+          },
+        ],
+      },
+    },
+  });
+  assert.equal(signalIsBooked(trip, 12 * 60 + 19), false);
+  const early = signalLeg("Skår", "Sæbø", "11:20:00", "11:40:00", "MOR:ServiceJourney:1136_702");
+  setTestState({
+    cancelledJourneys: new Set(),
+    seenJourneys: new Set(["MOR:ServiceJourney:1136_702"]),
+    cancellationsFetchedAt: start + (10 * 60 + 25) * 60 * 1000,
+  });
+  assert.equal(signalIsBooked(early, 10 * 60 + 25), true);
 });
 
 test("svar frå før fristen gjer ikkje ein gått signaltur bestilt", () => {
