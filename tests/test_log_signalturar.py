@@ -23,12 +23,15 @@ OSLO = ZoneInfo("Europe/Oslo")
 
 
 def leg(journey, departure, minutes_before=60):
+    hours, minutes, seconds = departure.split(":")
+    arrival_minutes = int(hours) * 60 + int(minutes) + 15
+    arrival = f"{arrival_minutes // 60:02d}:{arrival_minutes % 60:02d}:{seconds}"
     return {
         "id": f"{journey}#0",
         "from": "Standal",
         "to": "Trandal",
         "departure": departure,
-        "arrival": "13:15:00",
+        "arrival": arrival,
         "signal": {"minutesBefore": minutes_before},
         "activeDates": ["2026-10-01"],
     }
@@ -120,6 +123,29 @@ class SignalLogTests(unittest.TestCase):
         self.assertEqual(payload["keptDays"], 7)
         self.assertEqual(payload["days"]["2026-10-01"][0]["status"], "skipped")
         self.assertNotIn("2026-09-01", payload["days"])
+
+    def test_observasjon_etter_ankomst_blir_ikkje_gjetta_bestilt(self):
+        late = observe_signal_trips(
+            [leg("MOR:ServiceJourney:1136_a", "13:00:00")],
+            now_minutes=14 * 60,
+            cancelled_ids=set(),
+            seen_ids={"MOR:ServiceJourney:1136_a"},
+        )
+        self.assertEqual(late, [])
+        still_cancelled = observe_signal_trips(
+            [leg("MOR:ServiceJourney:1136_a", "13:00:00")],
+            now_minutes=14 * 60,
+            cancelled_ids={"MOR:ServiceJourney:1136_a"},
+            seen_ids={"MOR:ServiceJourney:1136_a"},
+        )
+        self.assertEqual(still_cancelled[0]["status"], "skipped")
+        in_time = observe_signal_trips(
+            [leg("MOR:ServiceJourney:1136_a", "13:00:00")],
+            now_minutes=13 * 60,
+            cancelled_ids=set(),
+            seen_ids={"MOR:ServiceJourney:1136_a"},
+        )
+        self.assertEqual(in_time[0]["status"], "booked")
 
     def test_tur_som_har_dette_ut_av_feeden_blir_ikkje_gjetta_bestilt(self):
         trips = observe_signal_trips(

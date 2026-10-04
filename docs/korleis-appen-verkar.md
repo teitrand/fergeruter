@@ -233,7 +233,7 @@ To mengder blir lagra:
 - `cancelledJourneys`: `cancellation: true`
 - `seenJourneys`: alle id-ar i svaret
 
-Service journey-id blir brukt på fleire datoar. Avlysingsmengda gjeld berre i dag. Ein vanleg tur som er avlyst i dag får «Innstilt». Ein signaltur som er avlyst får «Ikkje utført», ikkje «Innstilt». Avlyste bein blir tekne ut av `runningLegs`, så «No»-linja ikkje seier at ferja er på veg på ein tur som ikkje går.
+Service journey-id blir brukt på fleire datoar. Avlysingsmengda gjeld berre i dag. Ein vanleg tur som er avlyst i dag får «Innstilt». Ein signaltur som er avlyst får «Ikkje utført», ikkje «Innstilt». Setninga «Ferja har ikkje lagt frå kai» kjem berre når sanntid viser at ho framleis ligg ved frå-kaien etter avgangstid. Avlysing hos Entur før avgang, utan den posisjonen, er ikkje det same. Avlyste bein blir tekne ut av `runningLegs`, så «No»-linja ikkje seier at ferja er på veg på ein tur som ikkje går.
 
 ### Når etiketten er «Bestilt signaltur»
 
@@ -243,18 +243,18 @@ For **i dag**, etter fristen (`avgang − minutesBefore`):
 
 1. Loggen seier `skipped` → ikkje bestilt.
 2. Sanntid seier at denne turen ikkje la frå kai, eller at ein seinare tur er den som blir køyrd, → ikkje bestilt («Ikkje utført»).
-3. Loggen seier `booked` → bestilt.
-4. Siste Entur-svar er frå i dag, turen er ikkje avlyst, og svaret kom etter fristen:
+3. Loggen seier `booked`, og `observedAt` er før ankomst (eller manglar, på gamle rader) → bestilt. Ein logg som fyrst såg turen etter ankomst tel ikkje: då har Entur gløymt avlysinga, og ein utur ser ut som ein tinga tur.
+4. Siste Entur-svar er frå i dag, kom etter fristen og før ankomst, og turen låg i svaret utan avlysing:
    - turen låg i svaret (`seenJourneys`) → bestilt. Id-en blir hugsa i `confirmedBooked` ut økta.
    - turen var hugsa slik tidlegare i økta → bestilt, òg om eit seinare svar ikkje lenger har kallet.
-   - ankomst er passert og ingen av punkta over stemmer → **ikkje** bestilt. Då står «På signal». Mangelen på avlysing etter at kallet har dette ut er ikkje bevis.
-   - ankomst er ikkje passert → bestilt. Fram til ankomst er «ikkje i avlyst-lista etter fristen» nok, fordi turen enno skal liggje i feeden.
+   - turen var ikkje i svaret → **ikkje** bestilt. «Ikkje avlyst» åleine er ikkje bevis, og folk blir ståande att om vi gjettar.
+   - svaret kom etter ankomst → **ikkje** bestilt, same grunn som i loggen.
 
 Eit trykk på avgangen opnar eit vindauge. Der står korleis signalturen verkar, telefonnummeret, og om vi reknar turen som bestilt. Teksten seier at Entur ikkje oppgjev når bestillinga kom inn, berre at turen ikkje var avlyst etter fristen. Om loggen har `observedAt`, visest det tidspunktet som «vi registrerte det fyrste gong». Vindauget seier òg at den som tinga kan gjere om, og at Entur då kan avlyse, så ein bør ringje sjølv om ein vil vere sikker.
 
-Dette er grunnen til at 06:45 fredag 2. oktober stod som «På signal» / «Gått» medan 07:05 stod som «Bestilt signaltur». 07:05 hadde ikkje komme fram enno, så regelen før ankomst trekte. 06:45 hadde ankomst 07:00, loggen for 2. oktober var tom (cron hadde ikkje skrive morgonturen enno), og den gamle regelen kravde logg etter ankomst. No held økta på merkelappen når Entur har synt turen utan avlysing etter fristen.
+Økta held på merkelappen når Entur har synt turen utan avlysing etter fristen og før ankomst. Eit svar som berre seier «ikkje avlyst», utan at turen låg i feeden, blir ikkje grøn etikett.
 
-For **ein annan dag** finst ikkje dagens avlysingsmengd. Berre loggen: `booked` → grøn etikett og «Gått», `skipped` → «Ikkje utført», ingenting → «På signal» utan påstand om at turen gjekk.
+For **ein annan dag** finst ikkje dagens avlysingsmengd. Berre loggen: `booked` med observasjon før ankomst → grøn etikett og «Gått», `skipped` → «Ikkje utført», ingenting eller ein for sein `booked` → «På signal» utan påstand om at turen gjekk.
 
 ### Når «No»-linja seier at signalturen går
 
@@ -343,9 +343,9 @@ Python-testar lastar skript med `importlib` frå filsti. `unittest discover` har
 Det som må halde:
 
 - Tabellbyte frå meldingstekst, inkludert delvis innstilling, nynorsk dato, og at 1049 ikkje styrer 1136
-- Signaltur som ligg til kai etter avgang er ikkje utført. Signaltur som har lagt frå kai er på veg, med forseinking
+- Signaltur som ligg til kai etter avgang er ikkje utført. Signaltur som har lagt frå kai er på veg, med forseinking. Avlyst signaltur før avgang får «Ikkje utført» utan «har ikkje lagt frå kai»
 - Avlyst kveldssignaltur 20:00/20:20 gjer ikkje «på veg mot Standal» når ferja ligg der
-- Etter fristen og eit Entur-svar utan avlysing: bestilt. Før fristen, eller utan svar: ikkje bestilt
+- Etter fristen, før ankomst, og turen låg i Entur utan avlysing: bestilt. Ikkje i svaret, svar etter ankomst, før fristen, eller utan svar: ikkje bestilt
 - Etter ankomst: bestilt berre om loggen seier det, eller turen var sett i feeden etter fristen
 - Logg `skipped` blir ikkje bestilt att, heller ikkje om Entur har gløymt avlysinga
 - Loggen viser bestilt og ikkje utført på ein tidlegare dato
