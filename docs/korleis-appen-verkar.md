@@ -18,7 +18,7 @@ To samband, éi ferje om gongen:
 
 Kaien Lekneset hos Entur blir normalisert til Leknes.
 
-Heimkai er fyrste `from` i dagen, i praksis Standal. Etter siste passasjertur reknar sida med at ferja går tom tilbake til Standal. Tomtur mellom Valderøya/Store Kalvøy og Hjørundfjorden tek 120 minutt (AIS, om lag 110–125), deretter ligg ho til kai. Den tomturen står ikkje i Entur.
+Heimkai er fyrste `from` i dagen, i praksis Standal. Ferja flyttar seg ikkje utan passasjerar mellom kaiene i Hjørundfjorden. Den einaste tomturen er mellom Valderøya/Store Kalvøy og Hjørundfjorden, 120 minutt (AIS, om lag 110–125), deretter ligg ho til kai. Den turen står ikkje i Entur. Etter siste passasjertur på Valderøya eller Store Kalvøy går ho slik heim til Standal. Endar dagen på ein kai i fjorden, ligg ho der.
 
 Fartya som er namngjevne i meldingar og kombirute er M/F Geiranger (916 69 321) og M/F Kvernes (916 69 340, MMSI 257297400). Signaltur-telefonen i ruteheftet er 91 66 93 40.
 
@@ -252,20 +252,23 @@ For **i dag**, etter fristen (`avgang − minutesBefore`):
    - turen var ikkje i svaret → **ikkje** bestilt. «Ikkje avlyst» åleine er ikkje bevis, og folk blir ståande att om vi gjettar.
    - svaret kom etter ankomst → **ikkje** bestilt, same grunn som i loggen.
 
+Etter fristen, utan dette beviset, er turen usikker. Då er statusen den same som om ho ikkje var bestilt: «Ikkje utført», og ho blir teken ut av rekninga av kvar ferja er. Før fristen står det framleis «På signal». Vi skriv ikkje at Entur har avlyst turen når vi berre manglar bevis.
+
 Om hjarteslaget i loggen er for seint (sjå `updatedAt` under `data/signalturar.json`), seier statuslinja frå. Vi merkjer ikkje ein tur bestilt berre fordi sjekken manglar. Ein observasjon som alt kom før ankomst tel likevel, og eit ferskt Entur-svar i nettlesaren tel òg.
 
 Eit trykk på avgangen opnar eit vindauge. Der står korleis signalturen verkar, telefonnummeret, og om vi reknar turen som bestilt. Teksten seier at Entur ikkje oppgjev når bestillinga kom inn, berre at turen ikkje var avlyst etter fristen. Om loggen har `observedAt`, visest det tidspunktet som «vi registrerte det fyrste gong». Vindauget seier òg at den som tinga kan gjere om, og at Entur då kan avlyse, så ein bør ringje sjølv om ein vil vere sikker.
 
 Økta held på merkelappen når Entur har synt turen utan avlysing etter fristen og før ankomst. Eit svar som berre seier «ikkje avlyst», utan at turen låg i feeden, blir ikkje grøn etikett.
 
-For **ein annan dag** finst ikkje dagens avlysingsmengd. Berre loggen: `booked` med observasjon før ankomst → grøn etikett og «Gått», `skipped` → «Ikkje utført», ingenting eller ein for sein `booked` → «På signal» utan påstand om at turen gjekk.
+For **ein annan dag** finst ikkje dagens avlysingsmengd. Berre loggen: `booked` med observasjon før ankomst → grøn etikett og «Gått», alt anna → «Ikkje utført». Usikkert blir ikkje «På signal» og ikkje «Gått».
 
 ### Når «No»-linja seier at signalturen går
 
 `signalVerdict`:
 
-- annan dag: `skipped` berre om loggen seier det
+- annan dag: `skipped` når loggen ikkje har ein `booked` som tel. `booked` med observasjon i tide (eller utan klokkeslett, på gamle rader) blir ståande
 - i dag, fersk posisjon, same tur, har lagt frå kai → `running` (òg om Entur har avlyst, dersom båten faktisk gjekk)
+- etter fristen utan bevis på bestilling → `skipped`. Det gjeld òg før avgang
 - avlyst i dag, eller logg `skipped`, og posisjonen ikkje viser avgang → `skipped`
 - etter avgangstid, fersk posisjon, framleis på startkaien → `skipped`
 - ein seinare tur er den VM følgjer → denne signalturen er `skipped`, med mindre ho alt er sett som bestilt (loggen, eller ho låg i feeden utan avlysing etter fristen). Returen 07:05 skal ikkje gjere utturen 06:45 om til «Ikkje utført»
@@ -281,8 +284,8 @@ For **ein annan dag** finst ikkje dagens avlysingsmengd. Berre loggen: `booked` 
 2. Før fyrste avgang: ligg på frå-kaia.
 3. Mellom avgang og ankomst: «på veg mot {kai}». Framdrift er lineær mellom klokkesletta.
 4. Mellom ankomst og neste avgang på same kai: «ligg til kai». Opphald på minst 20 minutt er liggetid (matpause), med eigen tekst.
-5. Mellom ankomst og neste avgang på ein annan kai, og tabellen ikkje er kombi: tomflytting. Ho varer den kortaste planlagde overfarten mellom dei kaiane. Tomtur mellom Valderøya/Store Kalvøy og ein kai i Hjørundfjorden har inga direkte linje; den varer 120 minutt. Deretter ligg ferja til kai på neste kai (Standal på veg inn, Valderøya før passasjeravgangen på veg ut) til avgangen. Er holet kortare enn overfarten, varer tomturen heile holet. Er overfarten ukjend, varer tomturen òg heile holet.
-6. Etter siste ankomst: ferdig på den kaia om det er heimkai eller kombi. Elles tomtur heim med same overfart som i punkt 5 (Valderøya/Store Kalvøy → Standal: 120 minutt), deretter ligg ho til kai på Standal over natta. Manglar både overfart og hol i tabellen, seier vi at ho går heim og ligg der over natta, utan eit oppfunne klokkeslett.
+5. Mellom ankomst og neste avgang på ein annan kai: tomflytting berre mellom Valderøya/Store Kalvøy og Hjørundfjorden, 120 minutt. Deretter ligg ferja til kai på neste kai (Standal på veg inn, Valderøya før passasjeravgangen på veg ut) til avgangen. Er holet kortare enn 120 minutt, varer tomturen heile holet. Eit hol mellom Standal, Trandal, Sæbø og Skår er ikkje tomtur. Ferja ligg på kaia ho sist kom til.
+6. Etter siste ankomst: ferdig på den kaia om det er heimkai eller kombi. Frå Valderøya eller Store Kalvøy: tomtur heim i 120 minutt, deretter kai på Standal. Frå ein kai i fjorden: ferdig der, utan tomtur heim.
 7. Om VM er fersk: signaltur som har lagt frå kai overstyrer med destinasjon og forseinking. Signaltur som ikkje har lagt frå kai overstyrer med «ikkje utført». Vanleg rute får forseinking lagt på tabellteksten.
 
 Filtra frå/til endrar kva rader som visest, ikkje kvar ferja er. Reise med mellomstopp følgjer same ferje. Skår→Standal går via Sæbø/Trandal. Leknes→Standal i vanleg rute byter ferje på Sæbø og får ventetid. Korrespondanse blir merkt på avgang og ankomst, ikkje som eigne rader. Fyrste avgang i reisa står i hovudlinja. Seinare bein og venting på knutepunktet får klassen `stop-onward` og er innrykka, så dei ikkje ser ut som avgangar frå startkaien.
@@ -356,7 +359,8 @@ Det som må halde:
 - Signallogg eldre enn 70 minutt mellom 04:00 og 22:40 UTC er for sein. Utanfor vindauget, og rett etter 04:00 når førre køyring var kvelden før, er ho ikkje for sein
 - Kombirute-transkripsjonen stemmer med byggaren
 - Høgtidsdag i kombirute bruker søndagstabellen
-- Tomtur Valderøya/Store Kalvøy ↔ Hjørundfjorden varer 120 minutt, deretter kai
+- Tomtur berre Valderøya/Store Kalvøy ↔ Hjørundfjorden, 120 minutt, deretter kai. Hol inne i fjorden er kai
+- Etter tingefristen utan bevis på bestilling: «Ikkje utført», og turen flyttar ikkje ferja
 - Cache-versjonen i SW, HTML og JS er den same
 
 ## 12. Byggje opp att
