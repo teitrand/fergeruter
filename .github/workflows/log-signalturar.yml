@@ -1,39 +1,47 @@
 name: Logg signalturar
 
+# Éi køyring loggar gjennom vaktvindauget og startar seg sjølv på nytt før
+# GitHub sitt 6-timarstak. Cron er berre reserve om den løkka har døydd.
+#
+# Start, etter at denne fila ligg på main: Actions → Logg signalturar →
+# Run workflow, grein main, éin gong. La vidareførings-flagget stå av.
+# Stopp: avbryt den køyrande jobben. Cron kan vekke ho att, så slå av
+# workflowen om ho skal vere stoppa.
+
 on:
   schedule:
-    # Annankvar halvtime gjennom driftsdøgnet. Entur har berre dagen i dag,
-    # så statusen må skrivast ned før avlysinga dett ut av feeden.
+    # Reserve-startar. GitHub kan utsetje eller hoppe over cron.
     - cron: "*/30 4-21 * * *"
   workflow_dispatch:
+    inputs:
+      handoff:
+        description: "Sett av løkka sjølv ved vidareførings. La stå av ved manuell start."
+        required: false
+        default: false
+        type: boolean
 
 permissions:
+  actions: write
   contents: write
 
 jobs:
   log:
-    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    timeout-minutes: 360
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Les førre oppdatering
-        run: |
-          python -c "import json, pathlib; p = pathlib.Path('data/signalturar.json'); print((json.loads(p.read_text()).get('updatedAt') or '') if p.exists() else '')" > /tmp/signal-log-prev.txt
-      - name: Skriv signaltur-loggen
-        run: python scripts/log_signalturar.py
-      - name: Commit dersom noko er endra
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/signalturar.json
-          if git diff --staged --quiet; then
-            echo "Ingen endringar"
-          else
-            git commit -m "data: logg signalturar"
-            git push
-          fi
-      - name: Feil om førre køyring ikkje var i tide
-        run: python scripts/log_signalturar.py --require-recent "$(cat /tmp/signal-log-prev.txt)"
+      - name: Logg i løkke
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          RUN_ID: ${{ github.run_id }}
+          HANDOFF: ${{ github.event.inputs.handoff }}
+        run: python -u scripts/signaltur_loop.py

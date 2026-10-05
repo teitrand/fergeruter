@@ -72,6 +72,7 @@ Pages kjem framleis frå `main` (legacy). Testhosten blir derfor kopiert inn som
 ## Oppdatering
 
 - Trafikkmeldingar: GitHub Actions kvart 5. minutt på `main` (tettaste GitHub tillèt; køyringane kan verte forseinka). Fila blir **ikkje** skriven om meldingane er dei same. Nettlesaren sjekkar fila kvart 3. minutt medan sida er open. Er kopien eldre enn 8 minutt, sjekkar ho Fjord1 direkte og viser nye meldingar med ein gong.
+- Signalturar: GitHub Actions på `main` skriv `data/signalturar.json` minst kvart 30. minutt mellom 04:00 og 22:40 UTC. Éi løkke held jobben i gang i om lag 5,5 timar og startar seg sjølv på nytt. Cron er berre reserve. Etter at dette er på `main`: Actions → **Logg signalturar** → Run workflow, grein `main`, éin gong. For å stoppe: avbryt køyringa, og slå av workflowen om cron ikkje skal starte han att.
 - Rutetabell 1136+1135 og korrespondansar (inkl. 133): last ned att **berre når tabellen er endra**. Nettlesaren viser sist lagra tabell med ein gong og oppdaterer i bakgrunnen:
 
 ```bash

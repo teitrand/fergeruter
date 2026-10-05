@@ -15,9 +15,9 @@ ENTUR_URL = "https://api.entur.io/journey-planner/v3/graphql"
 ENTUR_CLIENT = "teitrand-fergeruter"
 KEPT_DAYS = 7
 OSLO = ZoneInfo("Europe/Oslo")
-# Cron `*/30 4-21 * * *` UTC. 70 minutt er eitt uteblitt køyrd pluss litt kø.
-# Vaktvindauget varer til 22:40, så den siste lovlege forseinkinga blir fanga.
-# Nattpausen tel ikkje med i alderen.
+# Vaktvindauget er 04:00–22:40 UTC. 70 minutt er eitt uteblitt køyrd pluss litt kø.
+# Nattpausen tel ikkje med i alderen. Løkka varslar om updatedAt er for gammal,
+# men ho sluttar ikkje å logge av den grunn.
 SIGNAL_LOG_MAX_AGE = timedelta(minutes=70)
 SIGNAL_LOG_WATCH_START = 4 * 60
 SIGNAL_LOG_WATCH_END = 22 * 60 + 40

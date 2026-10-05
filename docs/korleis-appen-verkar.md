@@ -109,9 +109,15 @@ Jobben køyrer kvart 5. minutt på `main` (`.github/workflows/update-trafikkmeld
 
 ### `data/signalturar.json`
 
-Skriven av `scripts/log_signalturar.py` kvart 30. minutt, cron `*/30 4-21 * * *` i UTC (06:00–23:30 norsk sommertid), berre på `main`. Workflow: `.github/workflows/log-signalturar.yml`.
+Skriven av `scripts/log_signalturar.py` minst kvart 30. minutt mellom 04:00 og 22:40 UTC, berre på `main`. Workflow: `.github/workflows/log-signalturar.yml`. Skriptet som held løkka i gang er `scripts/signaltur_loop.py`.
 
-`updatedAt` er hjarteslaget. Skriptet skriv det kvar gong, så eit commit betyr at sjekken køyrde. GitHub køyrer ikkje cron på minuttet. Mellom 04:00 og 22:40 UTC er loggen for sein om det er meir enn 70 minutt sidan siste skriving. Alderen blir rekna frå `updatedAt`, eller frå 04:00 UTC same dag om nattpausen er lengre, så den fyrste morgonkøyringa ikkje blir raud berre fordi jobben stod stille om natta. Etter 22:40 UTC er det planlagt pause. Når loggen er for sein, viser statuslinja ein åtvaring. Observasjonar som alt er gjort i tide tel framleis. Når jobben endeleg køyrer, skriv ho loggen som vanleg, og deretter feilar workflowen om førre `updatedAt` var for gammal.
+Éi køyring varer opptil 5 timar og 30 minutt. GitHub stoppar ein jobb etter 6 timar, så løkka avsluttar før det og startar seg sjølv på nytt med `workflow_dispatch` (`gh workflow run` og den innebygde `GITHUB_TOKEN`, ingen eigen løyndom). Mellom kvar logging søv ho. Utanfor vindauget søv ho til 04:00 UTC om det er tid att i jobben. Er morgonen for langt unna, søv ho til ho er nær taket og startar då neste køyring. Repoet er offentleg, så minutta er gratis.
+
+Cron `*/30 4-21 * * *` er berre ein reserve-startar om løkka har døydd. Ser cron-køyringa at ei løkke alt går, avsluttar ho med ein gong. Ei køyring som har stått som `in_progress` i over 6 timar blir rekna som daud, så ho ikkje blokkerer ein ny start. Feilar sjølve oppslaget, held logginga fram. Push til `main` kan tape kappløpet mot andre jobbar. Då blir committen rebasa og prøvd på nytt. Kollisjon i `signalturar.json` blir kasta, og loggen blir skriven på nytt oppå siste `main`.
+
+Fyrste start, etter at workflowen ligg på `main`: Actions → **Logg signalturar** → Run workflow, grein `main`, éin gong. La vidareførings-flagget stå av. For å stoppe: avbryt den køyrande jobben. Ho startar ikkje neste køyring når ho blir avbroten. Cron kan likevel starte ein ny løkke seinare. Skal ho vere stoppa, slå av workflowen (Actions → Logg signalturar → Disable workflow).
+
+`updatedAt` er hjarteslaget. Skriptet skriv det kvar gong, så eit commit betyr at sjekken køyrde. Mellom 04:00 og 22:40 UTC er loggen for sein om det er meir enn 70 minutt sidan siste skriving. Alderen blir rekna frå `updatedAt`, eller frå 04:00 UTC same dag om nattpausen er lengre, så den fyrste morgonkøyringa ikkje blir sein berre fordi jobben stod stille om natta. Etter 22:40 UTC er det planlagt pause. Når loggen er for sein, viser statuslinja ein åtvaring. Observasjonar som alt er gjort i tide tel framleis. Ein sein `updatedAt` stoppar ikkje løkka: ho varslar og skriv loggen likevel.
 
 ```json
 {
@@ -372,6 +378,6 @@ Det som må halde:
 5. Poll SIRI VM i rutevindauget. Stol på posisjon berre i 3 minutt. Rekn avgang frå `leftOrigin`.
 6. Poll GraphQL-avlysingar for dagen. Ta avlyste bein ut av posisjonsrekninga. Signaltur som er avlyst er «Ikkje utført».
 7. Etter tingefristen: grøn «Bestilt signaltur» berre etter reglane i avsnitt 7. Hugs sett tur ut økta. Ikkje gjett bestilt etter ankomst berre fordi kallet manglar.
-8. Cron på `main` som skriv `signalturar.json` i sju dagar. `skipped` er sticky. Turar som ikkje er i feeden blir ikkje logga. Etter commit: feil om førre `updatedAt` var meir enn 70 minutt gammalt inne i vaktvindauget.
+8. Løkke på `main` som skriv `signalturar.json` i sju dagar, minst kvart 30. minutt mellom 04:00 og 22:40 UTC, og startar seg sjølv på nytt før 6-timarstaket. Cron er reserve. `skipped` er sticky. Turar som ikkje er i feeden blir ikkje logga. Ein sein `updatedAt` varslar, men stoppar ikkje løkka.
 9. Service worker som i avsnitt 9, med eige cachenamn på `/dev/`.
 10. Sjekk med testane i avsnitt 11 før produksjon. Slepp via `dev`, ikkje med feature-PR mot `main`.
