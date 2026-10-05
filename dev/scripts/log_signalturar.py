@@ -63,12 +63,53 @@ def _after_arrival(leg, now_minutes):
     return bool(limit) and now_minutes > clock_minutes(limit)
 
 
+# Uttur som berre køyrer så ein retur kan gå, ligg tett på returen.
+POSITIONING_GAP_MINUTES = 45
+
+
+def _return_has_booking(leg, now_minutes, cancelled_ids, seen_ids, actual_departures):
+    """Returen er bestilt, eller har gått, slik at utturen kan vere posisjonering."""
+    journey = service_journey_id(leg.get("id"))
+    if not journey or journey in cancelled_ids or journey not in seen_ids:
+        return False
+    if not _after_arrival(leg, now_minutes):
+        return True
+    return bool(actual_departures.get(journey))
+
+
+def _positioning_for_booked_return(leg, legs, now_minutes, cancelled_ids, seen_ids, actual_departures):
+    """Tom uttur så ein seinare bestilt retur kan gå.
+
+    Faktisk avgangstid åleine er ikkje bevis på bestilling for den turen.
+    """
+    arrived = clock_minutes(leg.get("arrival") or leg.get("departure") or "00:00")
+    departed = clock_minutes(leg.get("departure") or "00:00")
+    nearest = None
+    for other in legs:
+        if other is leg or not other.get("signal"):
+            continue
+        if other.get("from") != leg.get("to") or other.get("to") != leg.get("from"):
+            continue
+        other_dep = clock_minutes(other.get("departure") or "99:99")
+        if other_dep <= departed:
+            continue
+        gap = other_dep - arrived
+        if gap < 0 or gap > POSITIONING_GAP_MINUTES:
+            continue
+        if nearest is not None and other_dep >= clock_minutes(nearest.get("departure") or "99:99"):
+            continue
+        if _return_has_booking(other, now_minutes, cancelled_ids, seen_ids, actual_departures):
+            nearest = other
+    return nearest is not None
+
+
 def observe_signal_trips(legs, now_minutes, cancelled_ids, seen_ids, actual_departures=None):
     """Alle signalturar i dag som har passert fristen, òg dei eit hol hoppa over.
 
     Etter ankomst er eit kall utan avlysing ikkje bevis: avlysinga dett ut, og
-    ein utur ser ut som ein tinga tur. `actualDepartureTime` frå Entur er bevis
-    på at turen gjekk, og blir då observasjonstida.
+    ein utur ser ut som ein tinga tur. `actualDepartureTime` frå Entur viser at
+    turen gjekk. Det er bestilling, unntatt når turen er ein tom uttur for ein
+    seinare bestilt retur. Då er statusen `gått`: ferja segla, utan bevis på tinging.
     """
     actual_departures = actual_departures or {}
     observations = []
@@ -81,13 +122,28 @@ def observe_signal_trips(legs, now_minutes, cancelled_ids, seen_ids, actual_depa
             continue
         evidence_at = None
         if journey in cancelled_ids:
-            status = "skipped"
+            if _after_arrival(leg, now_minutes):
+                evidence_at = actual_departures.get(journey)
+            if evidence_at and _positioning_for_booked_return(
+                leg, legs, now_minutes, cancelled_ids, seen_ids, actual_departures
+            ):
+                status = "gått"
+            else:
+                status = "skipped"
+                evidence_at = None
         elif journey in seen_ids:
             if _after_arrival(leg, now_minutes):
                 evidence_at = actual_departures.get(journey)
                 if not evidence_at:
                     continue
-            status = "booked"
+                if _positioning_for_booked_return(
+                    leg, legs, now_minutes, cancelled_ids, seen_ids, actual_departures
+                ):
+                    status = "gått"
+                else:
+                    status = "booked"
+            else:
+                status = "booked"
         else:
             continue
         record = {
@@ -115,7 +171,12 @@ def apply_observations(existing, observations, observed_at=None):
             continue
         prev = by_id.get(journey)
         status = obs["status"]
-        if prev and prev.get("status") == "skipped":
+        # `gått` betyr at ferja segla utan bestillingsbevis. Det vinn over ein
+        # seinare avlysing, og blir ikkje skrive om til bestilt. Ein tur som
+        # alt er bestilt, blir ståande. Avlyst blir ikkje bestilt.
+        if prev and prev.get("status") == "gått":
+            status = "gått"
+        elif prev and prev.get("status") == "skipped" and status != "gått":
             status = "skipped"
         elif prev and prev.get("status") == "booked" and status != "skipped":
             status = "booked"

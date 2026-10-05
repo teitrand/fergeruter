@@ -247,8 +247,9 @@ class WorkflowContractTests(unittest.TestCase):
             encoding="utf-8"
         )
         self.assertIn('cron: "7,37 4-21 * * *"', text)
-        self.assertIn('cron: "7 22 * * *"', text)
-        self.assertIn('crons = ["7,37 4-21 * * *", "7 22 * * *"]', wrangler)
+        self.assertNotIn('cron: "7 22 * * *"', text)
+        self.assertIn('crons = ["7,37 4-21 * * *"]', wrangler)
+        self.assertNotIn("7 22", wrangler)
         self.assertNotIn("*/30 4-21", text)
         self.assertNotIn("4-22", text)
         self.assertNotIn("4-22", wrangler)

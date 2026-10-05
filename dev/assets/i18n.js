@@ -189,6 +189,8 @@ const STRINGS = {
     "signal.observed": "Vi registrerte det fyrste gong {when}.",
     "signal.openHow": "Fristen er kl. {time}. Før den tid veit vi ikkje om nokon har tinga.",
     "signal.unknownHow": "Vi har ikkje sett hos Entur om turen vart tinga innan fristen kl. {time}.",
+    "signal.sailedHow":
+      "Ferja gjekk turen, men vi såg ikkje at nokon hadde tinga. Det kan vere ein tomtur så ein seinare bestilt retur kan gå.",
     "signal.skippedHow": "Entur avlyste turen. Det skjer når ingen har tinga innan fristen kl. {time}.",
     "signal.skippedWhen": "Vi såg avlysinga fyrste gong {when}.",
     "signal.caveat": "Sjølv om turen står som bestilt, kan den som tinga gjere om. Då kan Entur avlyse turen. Ring og ting sjølv om du vil vere sikker.",
@@ -407,6 +409,8 @@ const STRINGS = {
     "signal.observed": "We first recorded this at {when}.",
     "signal.openHow": "The deadline is {time}. Before then we do not know if anyone has booked.",
     "signal.unknownHow": "We have not seen in Entur whether this sailing was booked by {time}.",
+    "signal.sailedHow":
+      "The ferry sailed, but we did not see that anyone had booked. It may be an empty run so a later booked return can go.",
     "signal.skippedHow": "Entur cancelled the sailing. That happens when nobody booked by {time}.",
     "signal.skippedWhen": "We first saw the cancellation at {when}.",
     "signal.caveat": "Even if the sailing is shown as booked, the person who booked can change their mind. Entur may then cancel it. Call and book yourself if you want to be sure.",
@@ -628,6 +632,8 @@ const STRINGS = {
     "signal.observed": "Wir haben das zuerst um {when} erfasst.",
     "signal.openHow": "Die Frist ist {time}. Vorher wissen wir nicht, ob jemand angemeldet hat.",
     "signal.unknownHow": "Wir haben bei Entur nicht gesehen, ob die Fahrt bis {time} angemeldet wurde.",
+    "signal.sailedHow":
+      "Die Fähre ist gefahren, aber wir haben nicht gesehen, dass jemand angemeldet hatte. Es kann eine Leerfahrt sein, damit eine spätere angemeldete Rückfahrt fahren kann.",
     "signal.skippedHow": "Entur hat die Fahrt abgesagt. Das passiert, wenn niemand bis {time} angemeldet hat.",
     "signal.skippedWhen": "Wir haben die Absage zuerst um {when} gesehen.",
     "signal.caveat": "Auch wenn die Fahrt als angemeldet angezeigt wird, kann die Person es sich anders überlegen. Entur kann die Fahrt dann absagen. Rufen Sie selbst an, wenn Sie sicher sein wollen.",
