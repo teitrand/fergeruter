@@ -44,7 +44,7 @@ import {
   shouldFetchLive,
   serviceWindowMinutes,
 } from "../assets/app.js";
-import { setLang } from "../assets/i18n.js?v=71";
+import { setLang } from "../assets/i18n.js?v=72";
 
 beforeEach(() => {
   setLang("nn");

@@ -2,14 +2,19 @@ name: Oppdater trafikkmeldingar
 
 on:
   schedule:
-    # Fem minutt er det tettaste GitHub tillèt. Køyringane kan bli forseinka
-    # ved høg last, så dette er "så nær sanntid som Actions kjem".
+    # Reserve. GitHub køyrer sjeldan */5 (ofte berre nokre gonger i døgnet).
+    # Fersk veg: Cloudflare-workeren cloudflare/trafikkmeldinger/ (CORS-JSON,
+    # pluss workflow_dispatch kvart 10. minutt når GITHUB_TOKEN er sett).
     - cron: "*/5 * * * *"
   workflow_dispatch:
   push:
     paths:
       - "scripts/fetch_trafikkmeldinger.py"
       - ".github/workflows/update-trafikkmeldinger.yml"
+
+concurrency:
+  group: update-trafikkmeldinger
+  cancel-in-progress: false
 
 permissions:
   contents: write

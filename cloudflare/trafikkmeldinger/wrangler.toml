@@ -1,0 +1,10 @@
+name = "fergeruter-trafikkmeldinger"
+main = "src/index.js"
+compatibility_date = "2026-10-05"
+workers_dev = true
+
+# Kvart 10. minutt, UTC. Startar update-trafikkmeldinger.yml på main.
+# GitHub sin eigen */5-cron er berre reserve og blir ofte ikkje køyrd.
+# HTTP-endepunktet er det nettlesaren bruker. Cronen treng GITHUB_TOKEN.
+[triggers]
+crons = ["*/10 * * * *"]

@@ -14,9 +14,9 @@ function isMessagesJson(url) {
 }
 
 test("rutetabell-JSON brukar stale-while-revalidate, meldingar og skall brukar network-first", () => {
-  assert.match(sw, /fergeruter-dev-v71/);
+  assert.match(sw, /fergeruter-dev-v72/);
   assert.match(sw, /signalturar\.json/);
-  assert.match(sw, /i18n\.js\?v=71/);
+  assert.match(sw, /i18n\.js\?v=72/);
   assert.match(sw, /function isTimetableJson/);
   assert.match(sw, /function isMessagesJson/);
   assert.match(sw, /staleWhileRevalidate\(request,\s*\{\s*notify: true/);
@@ -41,8 +41,13 @@ test("berre rute, kombi og korrespondanse tel som rutetabell", () => {
 test("trafikkmeldingar blir revaliderte utan cache-buster, rutetabellen ikkje", () => {
   assert.match(app, /fetch\(messagesUrl\(\), \{ cache: "no-cache" \}\)/);
   assert.match(app, /fetchFjord1Messages/);
-  assert.match(app, /FJORD1_GRAPHQL_URL/);
+  assert.match(app, /fetchFjord1Api/);
+  assert.match(app, /FJORD1_MESSAGES_API/);
   assert.match(app, /FJORD1_HTML_READER/);
+  assert.doesNotMatch(app, /fjord1\.no\/graphql/);
+  assert.doesNotMatch(app, /FJORD1_GRAPHQL/);
+  const liveFn = app.slice(app.indexOf("async function fetchFjord1Messages"));
+  assert.ok(liveFn.indexOf("fetchFjord1Api") < liveFn.indexOf("fetchFjord1Html"));
   assert.match(app, /MESSAGES_STALE_MS = 8 \* 60 \* 1000/);
   assert.match(app, /fetch\(ROUTES_URL\)/);
   assert.match(app, /TIMETABLE_CACHE_KEY/);
