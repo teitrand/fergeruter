@@ -72,7 +72,7 @@ Pages kjem framleis frå `main` (legacy). Testhosten blir derfor kopiert inn som
 ## Oppdatering
 
 - Trafikkmeldingar: GitHub Actions kvart 5. minutt på `main` (tettaste GitHub tillèt; køyringane kan verte forseinka). Fila blir **ikkje** skriven om meldingane er dei same. Nettlesaren sjekkar fila kvart 3. minutt medan sida er open. Er kopien eldre enn 8 minutt, sjekkar ho Fjord1 direkte og viser nye meldingar med ein gong.
-- Signalturar: GitHub Actions på `main` skriv `data/signalturar.json` minst kvart 30. minutt mellom 04:00 og 22:40 UTC. Éi løkke held jobben i gang i om lag 5,5 timar og startar seg sjølv på nytt. Cron `7,37` i timane 4–22 UTC er vakt og startar løkka om ingen køyring er aktiv. Etter at dette er på `main`: Actions → **Logg signalturar** → Run workflow, grein `main`, éin gong. For å stoppe: avbryt køyringa og slå av workflowen, elles vekker vakta ho att.
+- Signalturar: Cloudflare Worker (`cloudflare/signaltur-cron/`) startar logging på `main` kl. :07 og :37 UTC mellom 04 og 21, pluss 22:07. GitHub Actions skriv `data/signalturar.json` og fyller inn turar frå i dag som Entur enno har. Same cron på GitHub er reserve. Oppsett: `cloudflare/signaltur-cron/README.md`. For å stoppe: slå av cron på workeren og slå av workflowen **Logg signalturar**.
 - Rutetabell 1136+1135 og korrespondansar (inkl. 133): last ned att **berre når tabellen er endra**. Nettlesaren viser sist lagra tabell med ein gong og oppdaterer i bakgrunnen:
 
 ```bash
@@ -131,5 +131,5 @@ Nedst på sida ligg **Gje tilbakemelding**. Brukarane kan svare ja/nei (anonymt)
 
 ```bash
 python3 -m unittest discover -s tests -v
-node --test --test-concurrency=1 tests/test_status.mjs tests/test_i18n.mjs tests/test_plausible.mjs tests/test_route_mode.mjs tests/test_sw.mjs
+node --test --test-concurrency=1 tests/test_status.mjs tests/test_i18n.mjs tests/test_plausible.mjs tests/test_route_mode.mjs tests/test_sw.mjs tests/test_signaltur_cron.mjs
 ```

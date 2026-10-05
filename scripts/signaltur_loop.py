@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
-"""Hald signaltur-loggen i live utan å stole på at GitHub startar cron i tide.
+"""Skriv signaltur-loggen éin gong og push til main.
 
-Éi køyring loggar minst kvart 30. minutt mellom 04:00 og 22:40 UTC, søv
-mellom rundane, og varer opptil 5 timar og 30 minutt. Før ho sluttar, startar
-ho seg sjølv på nytt med `workflow_dispatch`. Cron på :07 og :37 er vakt:
-ho startar løkka på nytt om ingen køyring er aktiv.
+Cloudflare-workeren er klokka. GitHub-cron på same minutt er reserve.
+Er loggen skriven dei siste 20 minutta, hoppar jobben over, så dei to
+ikkje skriv dobbelt. Ein sein `updatedAt` blir varsla, og logginga held fram.
 """
 
 from __future__ import annotations
@@ -18,18 +17,9 @@ import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-LOG_INTERVAL = timedelta(minutes=30)
-LOOP_BUDGET = timedelta(hours=5, minutes=30)
-# GitHub drep jobben etter 6 timar. Eldre køyringar er ein daud rest.
-JOB_LIMIT = timedelta(hours=6)
-# Vakta skal ikkje starte ei ny løkke medan ei anna ventar på løpar.
-ACTIVE_STATUSES = {"in_progress", "queued", "waiting", "pending", "requested"}
-# Løkka vidarefører seg ved LOOP_BUDGET. Ein forelder er då eldre enn dette,
-# så barnet ikkje går av fordi forelderen enno står som in_progress.
-HANDOFF_AGE = timedelta(hours=5)
+FRESH_SKIP = timedelta(minutes=20)
 LOG_REL = Path("data/signalturar.json")
 ROOT = Path(__file__).resolve().parents[1]
-WORKFLOW_FILE = "log-signalturar.yml"
 COMMIT_MESSAGE = "data: logg signalturar"
 
 _LOGGER = None
@@ -57,54 +47,6 @@ def as_utc(moment):
     return moment.astimezone(timezone.utc)
 
 
-def in_window(moment):
-    return logger().log_check_expected(moment)
-
-
-def next_window_start(moment):
-    utc = as_utc(moment)
-    hour, minute = divmod(logger().SIGNAL_LOG_WATCH_START, 60)
-    start = utc.replace(hour=hour, minute=minute, second=0, microsecond=0)
-    if utc < start:
-        return start
-    return start + timedelta(days=1)
-
-
-class Plan:
-    def __init__(self, action, sleep_seconds=0):
-        self.action = action
-        self.sleep_seconds = sleep_seconds
-
-    def __repr__(self):
-        return f"Plan({self.action!r}, {self.sleep_seconds!r})"
-
-
-def plan(now, started, last_log, budget=LOOP_BUDGET):
-    """Neste steg: logg, søv, eller start neste køyrd."""
-    now = as_utc(now)
-    started = as_utc(started)
-    deadline = started + budget
-    if now >= deadline:
-        return Plan("handoff")
-
-    if in_window(now):
-        due = last_log is None or now - as_utc(last_log) >= LOG_INTERVAL
-        if due:
-            return Plan("log")
-        wake = as_utc(last_log) + LOG_INTERVAL
-        if wake >= deadline:
-            return Plan("handoff")
-        return Plan("sleep", (wake - now).total_seconds())
-
-    nxt = next_window_start(now)
-    if nxt <= deadline:
-        return Plan("sleep", (nxt - now).total_seconds())
-    remaining = (deadline - now).total_seconds()
-    if remaining <= 1:
-        return Plan("handoff")
-    return Plan("sleep", remaining)
-
-
 def parse_time(value):
     if not value or not isinstance(value, str):
         return None
@@ -117,55 +59,11 @@ def parse_time(value):
     return parsed.astimezone(timezone.utc)
 
 
-def run_age(run, now):
-    if run.get("status") == "in_progress":
-        started = parse_time(run.get("startedAt")) or parse_time(run.get("createdAt"))
-    else:
-        started = parse_time(run.get("createdAt")) or parse_time(run.get("startedAt"))
-    if started is None:
-        return None
-    return as_utc(now) - started
-
-
-def should_exit_as_duplicate(event, handoff, runs, now, self_id):
-    """True berre når ei verkeleg løkke alt går eller ventar på løpar.
-
-    Cron-vakta skal vike, og dermed ikkje starte ei dobbel løkke. Vidareførings-
-    køyret skal ikkje vike for forelderen, som enno er in_progress dei siste
-    minutta. Køyringar eldre enn jobbtaket, ferdige køyringar, og svar vi ikkje
-    kan lese, blokkerer ikkje. Då kan vakta starte løkka på nytt.
-    """
-    self_id = str(self_id or "")
-    if event == "schedule":
-        limit = JOB_LIMIT
-    elif handoff:
-        limit = HANDOFF_AGE
-    else:
-        limit = JOB_LIMIT
-    for run in runs or []:
-        if str(run.get("databaseId", "")) == self_id and self_id:
-            continue
-        branch = run.get("headBranch")
-        if branch not in (None, "", "main"):
-            continue
-        if run.get("status") not in ACTIVE_STATUSES:
-            continue
-        age = run_age(run, now)
-        if age is None:
-            continue
-        if age < limit:
-            return True
-    return False
-
-
-def gate_decision(event, handoff, self_id, fetch, now):
-    try:
-        runs = fetch()
-    except Exception as exc:
-        return "continue", exc
-    if should_exit_as_duplicate(event, handoff, runs, now, self_id):
-        return "exit", None
-    return "continue", None
+def log_is_fresh(previous, moment, window=FRESH_SKIP):
+    parsed = parse_time(previous)
+    if parsed is None:
+        return False
+    return as_utc(moment) - parsed < window
 
 
 def env_flag(name):
@@ -231,17 +129,22 @@ def stage_and_commit(cwd):
     return True
 
 
-def publish_log(cwd, run_logger, attempts=5, sleep_fn=None, now=None):
+def publish_log(cwd, run_logger, attempts=5, sleep_fn=None, now=None, skip_if_fresh=False):
     """Hent main, logg, commit og push. Rebase ved kappløp, skriv om ved kollisjon.
 
-    Ein sein `updatedAt` blir varsla og logginga held fram.
+    Ein sein `updatedAt` blir varsla og logginga held fram. Er loggen fersk
+    og `skip_if_fresh` er sett, blir loggeren ikkje køyrt.
     """
     if sleep_fn is None:
         sleep_fn = time.sleep
     ensure_identity(cwd)
     prepare_worktree(cwd)
     moment = as_utc(now or datetime.now(timezone.utc))
-    late = logger().log_is_late(read_updated_at(cwd), moment)
+    previous = read_updated_at(cwd)
+    if skip_if_fresh and log_is_fresh(previous, moment):
+        say("Loggen er fersk. Hoppar over.")
+        return "fresh", False
+    late = logger().log_is_late(previous, moment)
     if late:
         say("::warning title=Signallogg::Signalloggen var for gammal. Logginga held fram.")
     proc = run_logger()
@@ -271,129 +174,22 @@ def publish_log(cwd, run_logger, attempts=5, sleep_fn=None, now=None):
     return "push-failed", late
 
 
-def production_sleep(seconds):
-    remaining = seconds
-    while remaining > 0:
-        chunk = min(remaining, 300)
-        minutes = max(1, round(remaining / 60))
-        say(f"Søv, om lag {minutes} minutt att.")
-        time.sleep(chunk)
-        remaining -= chunk
-
-
 def run_production_logger():
     script = ROOT / "scripts" / "log_signalturar.py"
     return subprocess.run([sys.executable, str(script)], cwd=ROOT, check=False)
 
 
-def dispatch_next():
-    cmd = [
-        "gh",
-        "workflow",
-        "run",
-        WORKFLOW_FILE,
-        "--ref",
-        "main",
-        "-f",
-        "handoff=true",
-    ]
-    for attempt in range(1, 4):
-        proc = subprocess.run(cmd, check=False, text=True, capture_output=True)
-        if proc.returncode == 0:
-            say("Starta neste løkke.")
-            return True
-        detail = (proc.stderr or proc.stdout or "").strip()
-        say(f"Fekk ikkje starta neste løkke (forsøk {attempt}): {detail}")
-        time.sleep(min(2**attempt, 10))
-    return False
-
-
-def run_loop(*, started, now_fn, sleep_fn, log_fn, handoff_fn, budget=LOOP_BUDGET):
-    """Logg til budsjettet er brukt. SystemExit i loggesteg stoppar ikkje løkka."""
-    last_log = None
-    while True:
-        now = as_utc(now_fn())
-        decision = plan(now, started, last_log, budget)
-        if decision.action == "handoff":
-            try:
-                return bool(handoff_fn())
-            except (Exception, SystemExit) as exc:
-                say(f"Vidareføringsfeil: {exc}")
-                return False
-        if decision.action == "log":
-            scheduled = now
-            try:
-                log_fn()
-            except (Exception, SystemExit) as exc:
-                say(f"Loggesteg feila ({exc}). Logginga held fram.")
-            last_log = scheduled
-            continue
-        if decision.sleep_seconds <= 0:
-            try:
-                return bool(handoff_fn())
-            except (Exception, SystemExit) as exc:
-                say(f"Vidareføringsfeil: {exc}")
-                return False
-        sleep_fn(decision.sleep_seconds)
-
-
-def fetch_recent_runs():
-    proc = subprocess.run(
-        [
-            "gh",
-            "run",
-            "list",
-            "--workflow",
-            WORKFLOW_FILE,
-            "--json",
-            "databaseId,status,startedAt,createdAt,headBranch,event",
-            "--limit",
-            "30",
-        ],
-        check=False,
-        text=True,
-        capture_output=True,
-    )
-    if proc.returncode != 0:
-        detail = (proc.stderr or proc.stdout or "").strip()
-        raise RuntimeError(detail or "gh feila")
-    data = json.loads(proc.stdout or "[]")
-    if not isinstance(data, list):
-        raise RuntimeError("uventa svar frå gh")
-    return data
-
-
 def main():
-    event = os.environ.get("EVENT_NAME", "")
-    handoff = env_flag("HANDOFF")
-    self_id = os.environ.get("RUN_ID", "")
-    say(f"Signaltur-løkke startar (event={event or 'ukjend'}, handoff={handoff}).")
-    decision, error = gate_decision(
-        event,
-        handoff,
-        self_id,
-        fetch_recent_runs,
-        datetime.now(timezone.utc),
+    force = env_flag("FORCE")
+    say(f"Loggar signalturar (force={force}).")
+    result, _late = publish_log(
+        ROOT,
+        run_production_logger,
+        skip_if_fresh=not force,
     )
-    if error is not None:
-        say(f"Klarte ikkje å sjå om ei løkke alt går ({error}). Logginga held fram.")
-    if decision == "exit":
-        say("Ei anna løkke køyrer allereie. Avsluttar.")
+    if result in {"pushed", "unchanged", "fresh"}:
         return 0
-
-    started = datetime.now(timezone.utc)
-
-    def log_fn():
-        publish_log(ROOT, run_production_logger)
-
-    ok = run_loop(
-        started=started,
-        now_fn=lambda: datetime.now(timezone.utc),
-        sleep_fn=production_sleep,
-        log_fn=log_fn,
-        handoff_fn=dispatch_next,
-    )
-    return 0 if ok else 1
+    return 1
 
 
 if __name__ == "__main__":

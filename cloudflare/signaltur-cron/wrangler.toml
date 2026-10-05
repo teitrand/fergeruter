@@ -1,0 +1,7 @@
+name = "fergeruter-signaltur-cron"
+main = "src/index.js"
+compatibility_date = "2026-10-05"
+
+# UTC. :07 og :37 frå 04 til 21, pluss 22:07. Ikkje :00/:30.
+[triggers]
+crons = ["7,37 4-21 * * *", "7 22 * * *"]

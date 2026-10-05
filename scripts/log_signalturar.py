@@ -16,8 +16,8 @@ ENTUR_CLIENT = "teitrand-fergeruter"
 KEPT_DAYS = 7
 OSLO = ZoneInfo("Europe/Oslo")
 # Vaktvindauget er 04:00–22:40 UTC. 70 minutt er eitt uteblitt køyrd pluss litt kø.
-# Nattpausen tel ikkje med i alderen. Løkka varslar om updatedAt er for gammal,
-# men ho sluttar ikkje å logge av den grunn.
+# Nattpausen tel ikkje med i alderen. Ein sein updatedAt blir varsla, men
+# jobben sluttar ikkje å logge av den grunn.
 SIGNAL_LOG_MAX_AGE = timedelta(minutes=70)
 SIGNAL_LOG_WATCH_START = 4 * 60
 SIGNAL_LOG_WATCH_END = 22 * 60 + 40

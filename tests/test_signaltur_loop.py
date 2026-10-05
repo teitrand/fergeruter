@@ -22,39 +22,6 @@ def at(*parts):
     return datetime(*parts, tzinfo=UTC)
 
 
-def run_in(started, budget=None):
-    state = {"now": started, "logs": [], "sleeps": [], "handoffs": 0, "errors": 0}
-
-    def now_fn():
-        return state["now"]
-
-    def sleep_fn(seconds):
-        state["sleeps"].append(seconds)
-        state["now"] += timedelta(seconds=seconds)
-
-    def log_fn():
-        state["logs"].append(state["now"])
-        if state.get("fail_first") and len(state["logs"]) == 1:
-            raise SystemExit(1)
-
-    def handoff_fn():
-        state["handoffs"] += 1
-        return True
-
-    kwargs = dict(
-        started=started,
-        now_fn=now_fn,
-        sleep_fn=sleep_fn,
-        log_fn=log_fn,
-        handoff_fn=handoff_fn,
-    )
-    if budget is not None:
-        kwargs["budget"] = budget
-    ok = mod.run_loop(**kwargs)
-    state["ok"] = ok
-    return state
-
-
 def run_git(cwd, *args, check=True):
     proc = subprocess.run(
         ["git", *args],
@@ -80,237 +47,18 @@ def write_log(cwd, updated):
     path.write_text(json.dumps({"updatedAt": updated}) + "\n", encoding="utf-8")
 
 
-class PlanTests(unittest.TestCase):
-    def test_vaktvindauget_er_0400_til_2240(self):
-        def decision(moment):
-            return mod.plan(moment, moment, None).action
+class FreshnessTests(unittest.TestCase):
+    def test_ti_minutt_er_fersk(self):
+        previous = "2026-10-05T09:50:00Z"
+        self.assertTrue(mod.log_is_fresh(previous, at(2026, 10, 5, 10, 0)))
 
-        self.assertEqual(decision(at(2026, 10, 5, 3, 59)), "sleep")
-        self.assertEqual(decision(at(2026, 10, 5, 4, 0)), "log")
-        self.assertEqual(decision(at(2026, 10, 5, 22, 40)), "log")
-        self.assertEqual(decision(at(2026, 10, 5, 22, 41)), "sleep")
+    def test_tjue_minutt_er_ikkje_fersk(self):
+        previous = "2026-10-05T09:40:00Z"
+        self.assertFalse(mod.log_is_fresh(previous, at(2026, 10, 5, 10, 0)))
 
-    def test_søv_tretti_minutt_mellom_logging(self):
-        started = at(2026, 10, 5, 8, 0)
-        now = at(2026, 10, 5, 10, 0, 10)
-        decision = mod.plan(now, started, at(2026, 10, 5, 10, 0, 0))
-        self.assertEqual(decision.action, "sleep")
-        self.assertAlmostEqual(decision.sleep_seconds, 30 * 60 - 10, places=0)
-
-    def test_loggar_att_etter_tretti_minutt(self):
-        started = at(2026, 10, 5, 8, 0)
-        now = at(2026, 10, 5, 10, 30)
-        self.assertEqual(mod.plan(now, started, at(2026, 10, 5, 10, 0)).action, "log")
-
-    def test_vidarefører_når_neste_logg_er_etter_taket(self):
-        started = at(2026, 10, 5, 4, 0)
-        now = at(2026, 10, 5, 9, 0, 5)
-        decision = mod.plan(now, started, at(2026, 10, 5, 9, 0, 0))
-        self.assertEqual(decision.action, "handoff")
-
-    def test_loggar_sjølv_nær_taket(self):
-        started = at(2026, 10, 5, 4, 0)
-        self.assertEqual(mod.plan(at(2026, 10, 5, 9, 29), started, None).action, "log")
-
-    def test_taket_er_vidareførings(self):
-        started = at(2026, 10, 5, 4, 0)
-        now = started + mod.LOOP_BUDGET
-        self.assertEqual(mod.plan(now, started, None).action, "handoff")
-
-    def test_natt_søv_til_0400_om_budsjettet_rekk(self):
-        started = at(2026, 10, 5, 23, 0)
-        decision = mod.plan(started, started, None)
-        self.assertEqual(decision.action, "sleep")
-        self.assertEqual(decision.sleep_seconds, 5 * 3600)
-
-    def test_natt_utan_tid_til_morgon_søv_til_taket(self):
-        started = at(2026, 10, 5, 20, 0)
-        now = at(2026, 10, 5, 22, 50)
-        decision = mod.plan(now, started, at(2026, 10, 5, 22, 30))
-        self.assertEqual(decision.action, "sleep")
-        self.assertEqual(int(decision.sleep_seconds), 2 * 3600 + 40 * 60)
-
-    def test_rett_etter_vindauget_søv_til_morgon(self):
-        started = at(2026, 10, 5, 22, 41)
-        decision = mod.plan(started, started, None)
-        self.assertEqual(decision.action, "sleep")
-        self.assertEqual(int(decision.sleep_seconds), 5 * 3600 + 19 * 60)
-
-
-class LoopTests(unittest.TestCase):
-    def test_dag_loggar_kvart_halvtime_og_vidarefører(self):
-        state = run_in(at(2026, 10, 5, 4, 0))
-        self.assertTrue(state["ok"])
-        self.assertEqual(state["handoffs"], 1)
-        self.assertEqual(state["logs"][0], at(2026, 10, 5, 4, 0))
-        self.assertEqual(state["logs"][-1], at(2026, 10, 5, 9, 0))
-        self.assertEqual(len(state["logs"]), 11)
-        gaps = [
-            state["logs"][i + 1] - state["logs"][i] for i in range(len(state["logs"]) - 1)
-        ]
-        self.assertTrue(all(gap == timedelta(minutes=30) for gap in gaps))
-
-    def test_sein_loggesteg_stoppar_ikkje_loekka(self):
-        started = at(2026, 10, 5, 4, 0)
-        state = {"now": started, "logs": 0}
-
-        def log_fn():
-            state["logs"] += 1
-            if state["logs"] == 1:
-                raise SystemExit(1)
-
-        ok = mod.run_loop(
-            started=started,
-            now_fn=lambda: state["now"],
-            sleep_fn=lambda seconds: state.__setitem__(
-                "now", state["now"] + timedelta(seconds=seconds)
-            ),
-            log_fn=log_fn,
-            handoff_fn=lambda: True,
-        )
-        self.assertTrue(ok)
-        self.assertGreater(state["logs"], 1)
-
-    def test_kveld_søv_til_taket_før_vidareførings(self):
-        state = run_in(at(2026, 10, 5, 20, 0))
-        self.assertEqual(
-            state["logs"],
-            [
-                at(2026, 10, 5, 20, 0),
-                at(2026, 10, 5, 20, 30),
-                at(2026, 10, 5, 21, 0),
-                at(2026, 10, 5, 21, 30),
-                at(2026, 10, 5, 22, 0),
-                at(2026, 10, 5, 22, 30),
-            ],
-        )
-        self.assertEqual(state["now"], at(2026, 10, 6, 1, 30))
-        self.assertEqual(state["handoffs"], 1)
-
-    def test_nattstart_søv_til_0400_og_loggar(self):
-        state = run_in(at(2026, 10, 5, 23, 0))
-        self.assertEqual(state["logs"], [at(2026, 10, 6, 4, 0)])
-        self.assertEqual(state["handoffs"], 1)
-        self.assertEqual(state["now"], at(2026, 10, 6, 4, 0))
-
-
-def active(age, now, database_id=2, branch="main", status="in_progress", started=True):
-    moment = now - age
-    payload = {
-        "databaseId": database_id,
-        "status": status,
-        "headBranch": branch,
-        "event": "workflow_dispatch",
-    }
-    if started:
-        payload["startedAt"] = moment.isoformat()
-    else:
-        payload["createdAt"] = moment.isoformat()
-    return payload
-
-
-class GateTests(unittest.TestCase):
-    def setUp(self):
-        self.now = at(2026, 10, 5, 12, 0)
-
-    def test_cron_vik_for_levande_loekke(self):
-        runs = [active(timedelta(hours=2), self.now)]
-        self.assertTrue(
-            mod.should_exit_as_duplicate("schedule", False, runs, self.now, self_id=1)
-        )
-
-    def test_cron_vik_for_forelder_som_er_i_ferd_med_å_vidareføre(self):
-        runs = [active(timedelta(hours=5, minutes=30), self.now)]
-        self.assertTrue(
-            mod.should_exit_as_duplicate("schedule", False, runs, self.now, self_id=1)
-        )
-
-    def test_cron_held_fram_om_resten_er_eldre_enn_jobbtaket(self):
-        runs = [active(timedelta(hours=6, minutes=30), self.now)]
-        self.assertFalse(
-            mod.should_exit_as_duplicate("schedule", False, runs, self.now, self_id=1)
-        )
-
-    def test_vidareførings_held_fram_sjølv_om_forelderen_står(self):
-        runs = [active(timedelta(hours=5, minutes=30), self.now)]
-        self.assertFalse(
-            mod.should_exit_as_duplicate("workflow_dispatch", True, runs, self.now, self_id=9)
-        )
-
-    def test_vidareførings_vik_for_ei_ung_loekke(self):
-        runs = [active(timedelta(hours=1), self.now)]
-        self.assertTrue(
-            mod.should_exit_as_duplicate("workflow_dispatch", True, runs, self.now, self_id=9)
-        )
-
-    def test_manuell_start_vik_om_ei_loekke_går(self):
-        runs = [active(timedelta(minutes=20), self.now)]
-        self.assertTrue(
-            mod.should_exit_as_duplicate("workflow_dispatch", False, runs, self.now, self_id=3)
-        )
-
-    def test_manuell_start_held_fram_om_resten_er_daud(self):
-        runs = [active(timedelta(hours=7), self.now, started=False)]
-        self.assertFalse(
-            mod.should_exit_as_duplicate("workflow_dispatch", False, runs, self.now, self_id=3)
-        )
-
-    def test_eige_køyrd_blokkerer_ikkje(self):
-        runs = [active(timedelta(minutes=5), self.now, database_id=5)]
-        self.assertFalse(
-            mod.should_exit_as_duplicate("schedule", False, runs, self.now, self_id="5")
-        )
-
-    def test_uleseleg_tid_blokkerer_ikkje(self):
-        runs = [
-            {
-                "databaseId": 2,
-                "status": "in_progress",
-                "headBranch": "main",
-                "startedAt": "ikkje-ei-tid",
-            }
-        ]
-        self.assertFalse(
-            mod.should_exit_as_duplicate("schedule", False, runs, self.now, self_id=1)
-        )
-
-    def test_oppslag_som_feilar_held_fram(self):
-        def fetch():
-            raise RuntimeError("gh nede")
-
-        decision, error = mod.gate_decision("schedule", False, "1", fetch, self.now)
-        self.assertEqual(decision, "continue")
-        self.assertIsInstance(error, RuntimeError)
-
-    def test_vakt_vik_for_ei_køyring_i_ko(self):
-        runs = [active(timedelta(minutes=2), self.now, status="queued", started=False)]
-        self.assertTrue(
-            mod.should_exit_as_duplicate("schedule", False, runs, self.now, self_id=1)
-        )
-
-    def test_gammal_ko_blokkerer_ikkje_vakta(self):
-        runs = [active(timedelta(hours=7), self.now, status="queued", started=False)]
-        self.assertFalse(
-            mod.should_exit_as_duplicate("schedule", False, runs, self.now, self_id=1)
-        )
-
-    def test_ferdig_køyring_blokkerer_ikkje_vakta(self):
-        runs = [active(timedelta(minutes=5), self.now, status="completed")]
-        self.assertFalse(
-            mod.should_exit_as_duplicate("schedule", False, runs, self.now, self_id=1)
-        )
-
-    def test_vidareførings_vik_for_ung_vakt_i_ko(self):
-        runs = [active(timedelta(minutes=1), self.now, status="queued", started=False)]
-        self.assertTrue(
-            mod.should_exit_as_duplicate("workflow_dispatch", True, runs, self.now, self_id=9)
-        )
-
-    def test_anna_grein_blokkerer_ikkje(self):
-        runs = [active(timedelta(minutes=10), self.now, branch="dev")]
-        self.assertFalse(
-            mod.should_exit_as_duplicate("schedule", False, runs, self.now, self_id=1)
-        )
+    def test_uleseleg_tid_er_ikkje_fersk(self):
+        self.assertFalse(mod.log_is_fresh("", at(2026, 10, 5, 10, 0)))
+        self.assertFalse(mod.log_is_fresh("ikkje", at(2026, 10, 5, 10, 0)))
 
 
 class PublishTests(unittest.TestCase):
@@ -436,25 +184,91 @@ class PublishTests(unittest.TestCase):
         after = run_git(self.origin, "rev-parse", "main").stdout.strip()
         self.assertEqual(before, after)
 
+    def test_fersk_logg_blir_hoppa_over(self):
+        def run_logger():
+            write_log(self.worker, "skal ikkje inn")
+            return None
+
+        before = run_git(self.origin, "rev-parse", "main").stdout.strip()
+        result, late = mod.publish_log(
+            self.worker,
+            run_logger,
+            now=at(2026, 10, 5, 10, 0),
+            sleep_fn=lambda _seconds: None,
+            skip_if_fresh=True,
+        )
+        self.assertEqual(result, "fresh")
+        self.assertFalse(late)
+        after = run_git(self.origin, "rev-parse", "main").stdout.strip()
+        self.assertEqual(before, after)
+        self.assertEqual(self.published()["updatedAt"], "2026-10-05T09:50:00Z")
+
+    def test_gammal_logg_blir_pusha_med_hopp(self):
+        def run_logger():
+            write_log(self.worker, "2026-10-05T12:00:00Z")
+            return None
+
+        result, late = mod.publish_log(
+            self.worker,
+            run_logger,
+            now=at(2026, 10, 5, 12, 0),
+            sleep_fn=lambda _seconds: None,
+            skip_if_fresh=True,
+        )
+        self.assertEqual(result, "pushed")
+        self.assertTrue(late)
+        self.assertEqual(self.published()["updatedAt"], "2026-10-05T12:00:00Z")
+
+    def test_force_skriv_fersk_logg(self):
+        def run_logger():
+            write_log(self.worker, "2026-10-05T10:05:00Z")
+            return None
+
+        result, late = mod.publish_log(
+            self.worker,
+            run_logger,
+            now=at(2026, 10, 5, 10, 0),
+            sleep_fn=lambda _seconds: None,
+            skip_if_fresh=False,
+        )
+        self.assertEqual(result, "pushed")
+        self.assertFalse(late)
+        self.assertEqual(self.published()["updatedAt"], "2026-10-05T10:05:00Z")
+
 
 class WorkflowContractTests(unittest.TestCase):
-    def test_workflow_held_cron_og_kan_starte_seg_sjølv(self):
+    def test_worker_er_klokka_og_github_cron_er_reserve(self):
         text = (ROOT / ".github" / "workflows" / "log-signalturar.yml").read_text(encoding="utf-8")
         script = SCRIPT.read_text(encoding="utf-8")
-        self.assertIn('cron: "7,37 4-22 * * *"', text)
+        wrangler = (ROOT / "cloudflare" / "signaltur-cron" / "wrangler.toml").read_text(
+            encoding="utf-8"
+        )
+        worker = (ROOT / "cloudflare" / "signaltur-cron" / "src" / "index.js").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn('cron: "7,37 4-21 * * *"', text)
+        self.assertIn('cron: "7 22 * * *"', text)
+        self.assertIn('crons = ["7,37 4-21 * * *", "7 22 * * *"]', wrangler)
         self.assertNotIn("*/30 4-21", text)
+        self.assertNotIn("4-22", text)
+        self.assertNotIn("4-22", wrangler)
         self.assertIn("workflow_dispatch:", text)
-        self.assertIn("actions: write", text)
+        self.assertIn("concurrency:", text)
+        self.assertIn("group: log-signalturar", text)
+        self.assertIn("cancel-in-progress: false", text)
         self.assertIn("contents: write", text)
-        self.assertIn("timeout-minutes: 360", text)
-        self.assertIn("github.token", text)
+        self.assertNotIn("actions: write", text)
+        self.assertNotIn("timeout-minutes: 360", text)
         self.assertIn("scripts/signaltur_loop.py", text)
         self.assertNotIn("--require-recent", text)
         self.assertIn("refs/heads/main", text)
-        self.assertIn('"workflow"', script)
-        self.assertIn('"run"', script)
-        self.assertIn("handoff=true", script)
+        self.assertIn("force:", text)
         self.assertIn("HEAD:main", script)
+        self.assertNotIn("handoff", script)
+        self.assertNotIn("workflow run", script)
+        self.assertIn('ref: "main"', worker)
+        self.assertIn("/repos/teitrand/fergeruter/actions/workflows/log-signalturar.yml/dispatches", worker)
+        self.assertIn("GITHUB_TOKEN", worker)
 
 
 if __name__ == "__main__":
