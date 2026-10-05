@@ -67,24 +67,11 @@ def _after_arrival(leg, now_minutes):
 POSITIONING_GAP_MINUTES = 45
 
 
-def _return_has_booking(leg, now_minutes, cancelled_ids, seen_ids, actual_departures):
-    """Returen er bestilt, eller har gått, slik at utturen kan vere posisjonering."""
-    journey = service_journey_id(leg.get("id"))
-    if not journey or journey in cancelled_ids or journey not in seen_ids:
-        return False
-    if not _after_arrival(leg, now_minutes):
-        return True
-    return bool(actual_departures.get(journey))
-
-
-def _positioning_for_booked_return(leg, legs, now_minutes, cancelled_ids, seen_ids, actual_departures):
-    """Tom uttur så ein seinare bestilt retur kan gå.
-
-    Faktisk avgangstid åleine er ikkje bevis på bestilling for den turen.
-    """
+def _opposite_returns(leg, legs):
+    """Seinare signaltur motsett veg, tett nok til å kunne vere retur etter ein tom uttur."""
     arrived = clock_minutes(leg.get("arrival") or leg.get("departure") or "00:00")
     departed = clock_minutes(leg.get("departure") or "00:00")
-    nearest = None
+    found = []
     for other in legs:
         if other is leg or not other.get("signal"):
             continue
@@ -96,20 +83,55 @@ def _positioning_for_booked_return(leg, legs, now_minutes, cancelled_ids, seen_i
         gap = other_dep - arrived
         if gap < 0 or gap > POSITIONING_GAP_MINUTES:
             continue
-        if nearest is not None and other_dep >= clock_minutes(nearest.get("departure") or "99:99"):
-            continue
-        if _return_has_booking(other, now_minutes, cancelled_ids, seen_ids, actual_departures):
-            nearest = other
-    return nearest is not None
+        found.append(other)
+    return found
+
+
+def _return_has_booking(leg, cancelled_ids, actual_departures):
+    """Returen har faktisk avgang. At kallet berre ligg i feeden er ikkje tinging."""
+    journey = service_journey_id(leg.get("id"))
+    if not journey or journey in cancelled_ids:
+        return False
+    return bool(actual_departures.get(journey))
+
+
+def _return_pending(leg, now_minutes, cancelled_ids, actual_departures):
+    """Returen er enno ikkje avgjord, så utturen kan vere posisjonering."""
+    journey = service_journey_id(leg.get("id"))
+    if not journey or journey in cancelled_ids or actual_departures.get(journey):
+        return False
+    return not _after_arrival(leg, now_minutes)
+
+
+def _positioning_for_booked_return(leg, legs, cancelled_ids, actual_departures):
+    """Tom uttur så ein seinare bestilt retur kan gå.
+
+    Faktisk avgangstid åleine er ikkje bevis på bestilling for den turen.
+    """
+    return any(
+        _return_has_booking(other, cancelled_ids, actual_departures)
+        for other in _opposite_returns(leg, legs)
+    )
+
+
+def _positioning_pending(leg, legs, now_minutes, cancelled_ids, actual_departures):
+    return any(
+        _return_pending(other, now_minutes, cancelled_ids, actual_departures)
+        for other in _opposite_returns(leg, legs)
+    )
 
 
 def observe_signal_trips(legs, now_minutes, cancelled_ids, seen_ids, actual_departures=None):
     """Alle signalturar i dag som har passert fristen, òg dei eit hol hoppa over.
 
-    Etter ankomst er eit kall utan avlysing ikkje bevis: avlysinga dett ut, og
-    ein utur ser ut som ein tinga tur. `actualDepartureTime` frå Entur viser at
-    turen gjekk. Det er bestilling, unntatt når turen er ein tom uttur for ein
-    seinare bestilt retur. Då er statusen `gått`: ferja segla, utan bevis på tinging.
+    `booked` krev faktisk avgang (`actualDepartureTime`). At kallet ligg i
+    feeden utan avlysing etter fristen er ikkje nok: avlysinga kan kome seinare,
+    og då ville turen stå som tinga før han i det heile har gått.
+
+    Etter ankomst er eit kall utan avlysing heller ikkje bevis. Manglar faktisk
+    avgang, blir det ikkje gjetta. Unntaket for `booked` er ein tom uttur for
+    ein seinare retur som sjølv har faktisk avgang. Då er statusen `gått`.
+    Er returen enno ikkje avgjord, blir utturen ikkje skriven som `booked`.
     """
     actual_departures = actual_departures or {}
     observations = []
@@ -120,28 +142,19 @@ def observe_signal_trips(legs, now_minutes, cancelled_ids, seen_ids, actual_depa
         journey = service_journey_id(leg.get("id"))
         if not journey:
             continue
-        evidence_at = None
+        evidence_at = actual_departures.get(journey)
+        positioning = _positioning_for_booked_return(leg, legs, cancelled_ids, actual_departures)
         if journey in cancelled_ids:
-            if _after_arrival(leg, now_minutes):
-                evidence_at = actual_departures.get(journey)
-            if evidence_at and _positioning_for_booked_return(
-                leg, legs, now_minutes, cancelled_ids, seen_ids, actual_departures
-            ):
+            if _after_arrival(leg, now_minutes) and evidence_at and positioning:
                 status = "gått"
             else:
                 status = "skipped"
                 evidence_at = None
-        elif journey in seen_ids:
-            if _after_arrival(leg, now_minutes):
-                evidence_at = actual_departures.get(journey)
-                if not evidence_at:
-                    continue
-                if _positioning_for_booked_return(
-                    leg, legs, now_minutes, cancelled_ids, seen_ids, actual_departures
-                ):
-                    status = "gått"
-                else:
-                    status = "booked"
+        elif journey in seen_ids and evidence_at:
+            if positioning:
+                status = "gått"
+            elif _positioning_pending(leg, legs, now_minutes, cancelled_ids, actual_departures):
+                continue
             else:
                 status = "booked"
         else:
@@ -155,8 +168,37 @@ def observe_signal_trips(legs, now_minutes, cancelled_ids, seen_ids, actual_depa
         }
         if evidence_at:
             record["observedAt"] = evidence_at
+            record["evidence"] = "departed"
         observations.append(record)
     return observations
+
+
+def _departure_evidence(trip):
+    return (trip or {}).get("evidence") == "departed"
+
+
+def retract_unconfirmed_booked(existing, observations):
+    """`booked` utan faktisk avgang skal ikkje bli ståande om neste sjekk ikkje stadfestar.
+
+    Ein seinare avlysing, eller berre at vi ikkje lenger har avgangsbevis, vinn
+    over eit tidlegare `booked` som berre kom av at kallet ikkje var avlyst.
+    """
+    updated = set()
+    for obs in observations or []:
+        journey = service_journey_id(obs.get("id"))
+        if journey:
+            updated.add(journey)
+    kept = []
+    for trip in existing or []:
+        journey = service_journey_id(trip.get("id"))
+        if (
+            trip.get("status") == "booked"
+            and not _departure_evidence(trip)
+            and journey not in updated
+        ):
+            continue
+        kept.append(trip)
+    return kept
 
 
 def apply_observations(existing, observations, observed_at=None):
@@ -172,16 +214,25 @@ def apply_observations(existing, observations, observed_at=None):
         prev = by_id.get(journey)
         status = obs["status"]
         # `gått` betyr at ferja segla utan bestillingsbevis. Det vinn over ein
-        # seinare avlysing, og blir ikkje skrive om til bestilt. Ein tur som
-        # alt er bestilt, blir ståande. Avlyst blir ikkje bestilt.
+        # seinare avlysing, og blir ikkje skrive om til bestilt. Stadfesta
+        # `booked` (faktisk avgang) blir ståande, unntatt om eit seinare svar
+        # viser avlysing. `booked` utan avgangsbevis blir ikkje verande.
+        # Avlyst blir ikkje bestilt.
+        confirmed = _departure_evidence(prev)
         if prev and prev.get("status") == "gått":
             status = "gått"
         elif prev and prev.get("status") == "skipped" and status != "gått":
             status = "skipped"
-        elif prev and prev.get("status") == "booked" and status != "skipped":
+        elif prev and prev.get("status") == "booked" and confirmed and status != "skipped":
             status = "booked"
         record = {**obs, "id": journey, "status": status}
-        observed = (prev or {}).get("observedAt") or obs.get("observedAt") or observed_at
+        record.pop("evidence", None)
+        if status in ("booked", "gått") and (_departure_evidence(obs) or _departure_evidence(prev)):
+            record["evidence"] = "departed"
+        if _departure_evidence(obs) and obs.get("observedAt") and not _departure_evidence(prev):
+            observed = obs["observedAt"]
+        else:
+            observed = (prev or {}).get("observedAt") or obs.get("observedAt") or observed_at
         if observed:
             record["observedAt"] = observed
         if status == "skipped":
@@ -383,9 +434,8 @@ def update_log(
         actual_departures,
     )
     days = dict((existing or {}).get("days") or {})
-    days[date_iso] = apply_observations(
-        days.get(date_iso) or [], observations, local.isoformat()
-    )
+    prior = retract_unconfirmed_booked(days.get(date_iso) or [], observations)
+    days[date_iso] = apply_observations(prior, observations, local.isoformat())
     days = prune_days(days, today, kept_days)
     return {
         "keptDays": kept_days,
