@@ -18,6 +18,7 @@ journey_ids_from_payload = mod.journey_ids_from_payload
 observe_signal_trips = mod.observe_signal_trips
 prune_days = mod.prune_days
 update_log = mod.update_log
+log_is_late = mod.log_is_late
 
 OSLO = ZoneInfo("Europe/Oslo")
 
@@ -177,6 +178,31 @@ class SignalLogTests(unittest.TestCase):
         )
         self.assertEqual(cancelled, {"MOR:ServiceJourney:1136_a"})
         self.assertEqual(seen, {"MOR:ServiceJourney:1136_open", "MOR:ServiceJourney:1136_a"})
+
+
+class SignalLogHeartbeatTests(unittest.TestCase):
+    def test_fersk_logg_er_ikkje_for_sein(self):
+        moment = datetime(2026, 10, 4, 10, 0, tzinfo=ZoneInfo("UTC"))
+        self.assertFalse(log_is_late("2026-10-04T09:40:00Z", moment))
+
+    def test_to_timar_gammal_logg_er_for_sein(self):
+        moment = datetime(2026, 10, 4, 10, 0, tzinfo=ZoneInfo("UTC"))
+        self.assertTrue(log_is_late("2026-10-04T08:00:00Z", moment))
+
+    def test_natt_er_planlagt_pause(self):
+        moment = datetime(2026, 10, 4, 2, 0, tzinfo=ZoneInfo("UTC"))
+        self.assertFalse(log_is_late("2026-10-03T21:30:00Z", moment))
+
+    def test_manglande_hjarteslag_er_for_seint_på_dagen(self):
+        moment = datetime(2026, 10, 4, 10, 0, tzinfo=ZoneInfo("UTC"))
+        self.assertTrue(log_is_late("", moment))
+        self.assertTrue(log_is_late(None, moment))
+
+    def test_morgon_reknar_ikkje_med_nattpausen(self):
+        early = datetime(2026, 10, 4, 4, 30, tzinfo=ZoneInfo("UTC"))
+        self.assertFalse(log_is_late("2026-10-03T21:30:00Z", early))
+        late = datetime(2026, 10, 4, 5, 15, tzinfo=ZoneInfo("UTC"))
+        self.assertTrue(log_is_late("2026-10-03T21:30:00Z", late))
 
 
 if __name__ == "__main__":

@@ -19,6 +19,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Les førre oppdatering
+        run: |
+          python -c "import json, pathlib; p = pathlib.Path('data/signalturar.json'); print((json.loads(p.read_text()).get('updatedAt') or '') if p.exists() else '')" > /tmp/signal-log-prev.txt
       - name: Skriv signaltur-loggen
         run: python scripts/log_signalturar.py
       - name: Commit dersom noko er endra
@@ -32,3 +35,5 @@ jobs:
             git commit -m "data: logg signalturar"
             git push
           fi
+      - name: Feil om førre køyring ikkje var i tide
+        run: python scripts/log_signalturar.py --require-recent "$(cat /tmp/signal-log-prev.txt)"
