@@ -329,6 +329,10 @@ h1, h2, h3 {
   line-height: 1.45;
 }
 
+.lede-warn {
+  color: #f6d98a;
+}
+
 .layout {
   display: grid;
   grid-template-columns: minmax(0, 40rem);

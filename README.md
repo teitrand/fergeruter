@@ -2,7 +2,7 @@
 
 Statisk oversikt over **trafikkmeldingar frå Fjord1** og **seglingsplanen** for Hjørundfjorden. Korleis kvar kjede blir henta, sjekka og sett saman, står i [docs/korleis-appen-verkar.md](docs/korleis-appen-verkar.md). Til vanleg viser sida rute **1136** Standal–Trandal–Sæbø–Skår–Valderøya–Store Kalvøy. Når Fjord1 innstiller 1136 (eller innfører kombirute), byter sida tabell automatisk.
 
-Sida viser heile dagen som ei samanhengande tidslinje med alle anløpa i rekkjefølgje, og ei **No**-linje som fortel om ferja ligg til kai eller er på veg. Under dagen kan du velje **frå** og **til** (t.d. alle turar til Trandal, eller berre Standal→Trandal) og byte retning med pila mellom vala. Korrespondanse ligg i ei eiga nedtrekksliste. Posisjonen er i utgangspunktet rekna ut frå den aktive tabellen. Når Entur sender køyretøyposisjon for 1136 eller 1135, visest den som sanntid. Etter siste passasjertur (t.d. onsdag på Valderøya) reknar sida med at ferja går tilbake til Standal utan passasjerar (om lag to timar, deretter til kai) og ligg der over natta — den turen står ikkje i Entur.
+Sida viser heile dagen som ei samanhengande tidslinje med alle anløpa i rekkjefølgje, og ei **No**-linje som fortel om ferja ligg til kai eller er på veg. Under dagen kan du velje **frå** og **til** (t.d. alle turar til Trandal, eller berre Standal→Trandal) og byte retning med pila mellom vala. Korrespondanse ligg i ei eiga nedtrekksliste. Posisjonen er i utgangspunktet rekna ut frå den aktive tabellen. Når Entur sender køyretøyposisjon for 1136 eller 1135, visest den som sanntid. Etter siste passasjertur på Valderøya eller Store Kalvøy reknar sida med at ferja går tilbake til Standal utan passasjerar (om lag to timar, deretter til kai) og ligg der over natta — den turen står ikkje i Entur. Mellom kaiene i Hjørundfjorden flyttar ho seg ikkje utan passasjerar.
 
 Rutetabellane for 1136 og 1135 blir lasta ned frå Entur og lagra i `data/ruter.json`. Dei blir berre henta på nytt når innhaldet faktisk er endra. Kombinasjonsruta ligg ikkje i Entur; ho er transkribert frå FRAM-PDF til `data/kombirute.json`. Rutetabellen kjem frå lokale JSON-filer; nettlesaren kallar Entur berre for valfri køyretøyposisjon (CORS er open). Trafikkmeldingar kjem frå Fjord1 når GitHub-kopien er gammal, elles frå `data/trafikkmeldinger.json`.
 
@@ -72,6 +72,7 @@ Pages kjem framleis frå `main` (legacy). Testhosten blir derfor kopiert inn som
 ## Oppdatering
 
 - Trafikkmeldingar: GitHub Actions kvart 5. minutt på `main` (tettaste GitHub tillèt; køyringane kan verte forseinka). Fila blir **ikkje** skriven om meldingane er dei same. Nettlesaren sjekkar fila kvart 3. minutt medan sida er open. Er kopien eldre enn 8 minutt, sjekkar ho Fjord1 direkte og viser nye meldingar med ein gong.
+- Signalturar: Cloudflare Worker (`cloudflare/signaltur-cron/`) startar logging på `main` kl. :07 og :37 UTC mellom 04 og 21. Ikkje 22:07 UTC, for det er 00:07 i Oslo i sommartid. Siste slag 21:37 UTC er 23:37 sommertid og 22:37 vintertid, og dekkjer siste signaltur 20:20 (framme 20:35) i båe. GitHub Actions skriv `data/signalturar.json` og fyller inn turar frå i dag som Entur enno har. Same cron på GitHub er reserve. Oppsett: `cloudflare/signaltur-cron/README.md`. For å stoppe: slå av cron på workeren og slå av workflowen **Logg signalturar**.
 - Rutetabell 1136+1135 og korrespondansar (inkl. 133): last ned att **berre når tabellen er endra**. Nettlesaren viser sist lagra tabell med ein gong og oppdaterer i bakgrunnen:
 
 ```bash
@@ -130,5 +131,5 @@ Nedst på sida ligg **Gje tilbakemelding**. Brukarane kan svare ja/nei (anonymt)
 
 ```bash
 python3 -m unittest discover -s tests -v
-node --test --test-concurrency=1 tests/test_status.mjs tests/test_i18n.mjs tests/test_plausible.mjs tests/test_route_mode.mjs tests/test_sw.mjs
+node --test --test-concurrency=1 tests/test_status.mjs tests/test_i18n.mjs tests/test_plausible.mjs tests/test_route_mode.mjs tests/test_sw.mjs tests/test_signaltur_cron.mjs
 ```

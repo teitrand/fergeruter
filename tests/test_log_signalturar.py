@@ -18,17 +18,21 @@ journey_ids_from_payload = mod.journey_ids_from_payload
 observe_signal_trips = mod.observe_signal_trips
 prune_days = mod.prune_days
 update_log = mod.update_log
+log_is_late = mod.log_is_late
 
 OSLO = ZoneInfo("Europe/Oslo")
 
 
 def leg(journey, departure, minutes_before=60):
+    hours, minutes, seconds = departure.split(":")
+    arrival_minutes = int(hours) * 60 + int(minutes) + 15
+    arrival = f"{arrival_minutes // 60:02d}:{arrival_minutes % 60:02d}:{seconds}"
     return {
         "id": f"{journey}#0",
         "from": "Standal",
         "to": "Trandal",
         "departure": departure,
-        "arrival": "13:15:00",
+        "arrival": arrival,
         "signal": {"minutesBefore": minutes_before},
         "activeDates": ["2026-10-01"],
     }
@@ -121,6 +125,29 @@ class SignalLogTests(unittest.TestCase):
         self.assertEqual(payload["days"]["2026-10-01"][0]["status"], "skipped")
         self.assertNotIn("2026-09-01", payload["days"])
 
+    def test_observasjon_etter_ankomst_blir_ikkje_gjetta_bestilt(self):
+        late = observe_signal_trips(
+            [leg("MOR:ServiceJourney:1136_a", "13:00:00")],
+            now_minutes=14 * 60,
+            cancelled_ids=set(),
+            seen_ids={"MOR:ServiceJourney:1136_a"},
+        )
+        self.assertEqual(late, [])
+        still_cancelled = observe_signal_trips(
+            [leg("MOR:ServiceJourney:1136_a", "13:00:00")],
+            now_minutes=14 * 60,
+            cancelled_ids={"MOR:ServiceJourney:1136_a"},
+            seen_ids={"MOR:ServiceJourney:1136_a"},
+        )
+        self.assertEqual(still_cancelled[0]["status"], "skipped")
+        in_time = observe_signal_trips(
+            [leg("MOR:ServiceJourney:1136_a", "13:00:00")],
+            now_minutes=13 * 60,
+            cancelled_ids=set(),
+            seen_ids={"MOR:ServiceJourney:1136_a"},
+        )
+        self.assertEqual(in_time[0]["status"], "booked")
+
     def test_tur_som_har_dette_ut_av_feeden_blir_ikkje_gjetta_bestilt(self):
         trips = observe_signal_trips(
             [leg("MOR:ServiceJourney:1136_a", "13:00:00")],
@@ -151,6 +178,296 @@ class SignalLogTests(unittest.TestCase):
         )
         self.assertEqual(cancelled, {"MOR:ServiceJourney:1136_a"})
         self.assertEqual(seen, {"MOR:ServiceJourney:1136_open", "MOR:ServiceJourney:1136_a"})
+
+    def test_hol_fyller_turar_som_entur_enno_har(self):
+        morning = leg("MOR:ServiceJourney:1136_a", "08:00:00")
+        midday = leg("MOR:ServiceJourney:1136_b", "13:00:00")
+        gone = leg("MOR:ServiceJourney:1136_c", "09:00:00")
+        routes = {"lines": {"1136": {"legs": [morning, midday, gone]}}}
+        moment = datetime(2026, 10, 1, 12, 30, tzinfo=OSLO)
+        payload = update_log(
+            {"days": {}},
+            routes,
+            moment,
+            {"MOR:ServiceJourney:1136_a"},
+            {"MOR:ServiceJourney:1136_a", "MOR:ServiceJourney:1136_b"},
+        )
+        by_id = {trip["id"]: trip for trip in payload["days"]["2026-10-01"]}
+        self.assertEqual(by_id["MOR:ServiceJourney:1136_a"]["status"], "skipped")
+        self.assertEqual(by_id["MOR:ServiceJourney:1136_b"]["status"], "booked")
+        self.assertNotIn("MOR:ServiceJourney:1136_c", by_id)
+
+    def _pair(self):
+        out = leg("MOR:ServiceJourney:1136_out", "06:45:00")
+        out["from"] = "Standal"
+        out["to"] = "Trandal"
+        out["arrival"] = "07:00:00"
+        back = leg("MOR:ServiceJourney:1136_back", "07:05:00")
+        back["from"] = "Trandal"
+        back["to"] = "Standal"
+        back["arrival"] = "07:20:00"
+        return out, back
+
+    def test_tomtur_ut_for_bestilt_retur_er_gått(self):
+        out, back = self._pair()
+        actual = {
+            "MOR:ServiceJourney:1136_out": "2026-10-05T06:46:00+02:00",
+            "MOR:ServiceJourney:1136_back": "2026-10-05T07:06:00+02:00",
+        }
+        seen = set(actual)
+        after_both = observe_signal_trips(
+            [out, back],
+            now_minutes=7 * 60 + 37,
+            cancelled_ids=set(),
+            seen_ids=seen,
+            actual_departures=actual,
+        )
+        by_id = {trip["id"]: trip for trip in after_both}
+        self.assertEqual(by_id["MOR:ServiceJourney:1136_out"]["status"], "gått")
+        self.assertEqual(
+            by_id["MOR:ServiceJourney:1136_out"]["observedAt"],
+            "2026-10-05T06:46:00+02:00",
+        )
+        self.assertEqual(by_id["MOR:ServiceJourney:1136_back"]["status"], "booked")
+        while_return_runs = observe_signal_trips(
+            [out, back],
+            now_minutes=7 * 60 + 10,
+            cancelled_ids=set(),
+            seen_ids=seen,
+            actual_departures=actual,
+        )
+        while_by_id = {trip["id"]: trip for trip in while_return_runs}
+        self.assertEqual(while_by_id["MOR:ServiceJourney:1136_out"]["status"], "gått")
+        self.assertEqual(while_by_id["MOR:ServiceJourney:1136_back"]["status"], "booked")
+
+    def test_uttur_sett_før_ankomst_er_bestilt_sjølv_med_retur(self):
+        out, back = self._pair()
+        trips = observe_signal_trips(
+            [out, back],
+            now_minutes=6 * 60 + 50,
+            cancelled_ids=set(),
+            seen_ids={"MOR:ServiceJourney:1136_out", "MOR:ServiceJourney:1136_back"},
+        )
+        by_id = {trip["id"]: trip for trip in trips}
+        self.assertEqual(by_id["MOR:ServiceJourney:1136_out"]["status"], "booked")
+        self.assertEqual(by_id["MOR:ServiceJourney:1136_back"]["status"], "booked")
+
+    def test_avlyst_retur_gjer_ikkje_uttur_med_avgangstid_til_gått(self):
+        out, back = self._pair()
+        trips = observe_signal_trips(
+            [out, back],
+            now_minutes=8 * 60,
+            cancelled_ids={"MOR:ServiceJourney:1136_back"},
+            seen_ids={"MOR:ServiceJourney:1136_out", "MOR:ServiceJourney:1136_back"},
+            actual_departures={"MOR:ServiceJourney:1136_out": "2026-10-05T06:46:00+02:00"},
+        )
+        by_id = {trip["id"]: trip for trip in trips}
+        self.assertEqual(by_id["MOR:ServiceJourney:1136_out"]["status"], "booked")
+        self.assertEqual(by_id["MOR:ServiceJourney:1136_back"]["status"], "skipped")
+
+    def test_avlyst_tomtur_som_likevel_segla_er_gått(self):
+        out, back = self._pair()
+        trips = observe_signal_trips(
+            [out, back],
+            now_minutes=7 * 60 + 37,
+            cancelled_ids={"MOR:ServiceJourney:1136_out"},
+            seen_ids={"MOR:ServiceJourney:1136_out", "MOR:ServiceJourney:1136_back"},
+            actual_departures={
+                "MOR:ServiceJourney:1136_out": "2026-10-05T06:46:00+02:00",
+                "MOR:ServiceJourney:1136_back": "2026-10-05T07:06:00+02:00",
+            },
+        )
+        by_id = {trip["id"]: trip for trip in trips}
+        self.assertEqual(by_id["MOR:ServiceJourney:1136_out"]["status"], "gått")
+        self.assertEqual(by_id["MOR:ServiceJourney:1136_back"]["status"], "booked")
+
+    def test_gått_blir_ikkje_skriven_om_til_bestilt(self):
+        merged = apply_observations(
+            [
+                {
+                    "id": "MOR:ServiceJourney:1136_out",
+                    "status": "gått",
+                    "departure": "06:45:00",
+                    "observedAt": "2026-10-05T06:46:00+02:00",
+                }
+            ],
+            [
+                {
+                    "id": "MOR:ServiceJourney:1136_out",
+                    "from": "Standal",
+                    "to": "Trandal",
+                    "departure": "06:45:00",
+                    "status": "booked",
+                }
+            ],
+            "2026-10-05T08:07:00+02:00",
+        )
+        self.assertEqual(merged[0]["status"], "gått")
+        self.assertEqual(merged[0]["observedAt"], "2026-10-05T06:46:00+02:00")
+        from_skip = apply_observations(
+            [{"id": "MOR:ServiceJourney:1136_out", "status": "skipped", "departure": "06:45:00"}],
+            [
+                {
+                    "id": "MOR:ServiceJourney:1136_out",
+                    "from": "Standal",
+                    "to": "Trandal",
+                    "departure": "06:45:00",
+                    "status": "gått",
+                    "observedAt": "2026-10-05T06:46:00+02:00",
+                }
+            ],
+        )
+        self.assertEqual(from_skip[0]["status"], "gått")
+
+    def test_gått_tur_blir_logga_når_entur_enno_har_faktisk_avgang(self):
+        journey = "MOR:ServiceJourney:1136_a"
+        routes = {"lines": {"1136": {"legs": [leg(journey, "08:00:00")]}}}
+        moment = datetime(2026, 10, 1, 12, 30, tzinfo=OSLO)
+        actual = "2026-10-01T08:02:00+02:00"
+        payload = update_log(
+            {"days": {}},
+            routes,
+            moment,
+            set(),
+            {journey},
+            actual_departures={journey: actual},
+        )
+        trip = payload["days"]["2026-10-01"][0]
+        self.assertEqual(trip["status"], "booked")
+        self.assertEqual(trip["observedAt"], actual)
+
+    def test_kall_frå_annan_dag_tel_ikkje(self):
+        cancelled, seen = journey_ids_from_payload(
+            {
+                "data": {
+                    "standal": {
+                        "estimatedCalls": [
+                            {
+                                "cancellation": True,
+                                "aimedDepartureTime": "2026-10-04T08:00:00+02:00",
+                                "serviceJourney": {"id": "MOR:ServiceJourney:1136_old"},
+                            },
+                            {
+                                "cancellation": False,
+                                "aimedDepartureTime": "2026-10-05T13:00:00+02:00",
+                                "actualDepartureTime": "2026-10-05T13:01:00+02:00",
+                                "serviceJourney": {"id": "MOR:ServiceJourney:1136_today"},
+                            },
+                        ]
+                    }
+                }
+            },
+            "2026-10-05",
+        )
+        self.assertEqual(seen, {"MOR:ServiceJourney:1136_today"})
+        self.assertEqual(cancelled, set())
+        actual = mod.actual_departures_from_payload(
+            {
+                "data": {
+                    "standal": {
+                        "estimatedCalls": [
+                            {
+                                "aimedDepartureTime": "2026-10-05T13:00:00+02:00",
+                                "actualDepartureTime": "2026-10-05T13:01:00+02:00",
+                                "serviceJourney": {"id": "MOR:ServiceJourney:1136_today"},
+                            }
+                        ]
+                    }
+                }
+            },
+            "2026-10-05",
+        )
+        self.assertEqual(actual["MOR:ServiceJourney:1136_today"], "2026-10-05T13:01:00+02:00")
+
+    def test_full_side_les_resten_av_dagen(self):
+        moment = datetime(2026, 10, 1, 15, 0, tzinfo=OSLO)
+        first = {
+            "data": {
+                "s0": {
+                    "estimatedCalls": [
+                        {
+                            "cancellation": True,
+                            "aimedDepartureTime": "2026-10-01T08:00:00+02:00",
+                            "serviceJourney": {"id": "MOR:ServiceJourney:1136_a"},
+                        }
+                    ]
+                }
+            }
+        }
+        second = {
+            "data": {
+                "s0": {
+                    "estimatedCalls": [
+                        {
+                            "cancellation": False,
+                            "aimedDepartureTime": "2026-10-01T13:00:00+02:00",
+                            "actualDepartureTime": "2026-10-01T13:04:00+02:00",
+                            "serviceJourney": {"id": "MOR:ServiceJourney:1136_b"},
+                        }
+                    ]
+                }
+            }
+        }
+        starts = []
+
+        def post_pages(start, stop_ids):
+            starts.append(start)
+            if len(starts) == 1:
+                return first
+            if len(starts) == 2:
+                return second
+            return {"data": {"s0": {"estimatedCalls": []}}}
+
+        cancelled, seen, actual = mod.fetch_cancelled(
+            moment,
+            ["NSR:StopPlace:39713"],
+            post=post_pages,
+            page_size=1,
+        )
+        self.assertEqual(cancelled, {"MOR:ServiceJourney:1136_a"})
+        self.assertIn("MOR:ServiceJourney:1136_b", seen)
+        self.assertEqual(actual["MOR:ServiceJourney:1136_b"], "2026-10-01T13:04:00+02:00")
+        self.assertGreaterEqual(len(starts), 2)
+
+    def test_kort_side_blir_ikkje_følgd_av_ei_ny(self):
+        calls = {"n": 0}
+
+        def post(start, stop_ids):
+            calls["n"] += 1
+            return {"data": {"s0": {"estimatedCalls": []}}}
+
+        mod.fetch_cancelled(
+            datetime(2026, 10, 1, 12, 0, tzinfo=OSLO),
+            ["NSR:StopPlace:39713"],
+            post=post,
+            page_size=40,
+        )
+        self.assertEqual(calls["n"], 1)
+
+
+class SignalLogHeartbeatTests(unittest.TestCase):
+    def test_fersk_logg_er_ikkje_for_sein(self):
+        moment = datetime(2026, 10, 4, 10, 0, tzinfo=ZoneInfo("UTC"))
+        self.assertFalse(log_is_late("2026-10-04T09:40:00Z", moment))
+
+    def test_to_timar_gammal_logg_er_for_sein(self):
+        moment = datetime(2026, 10, 4, 10, 0, tzinfo=ZoneInfo("UTC"))
+        self.assertTrue(log_is_late("2026-10-04T08:00:00Z", moment))
+
+    def test_natt_er_planlagt_pause(self):
+        moment = datetime(2026, 10, 4, 2, 0, tzinfo=ZoneInfo("UTC"))
+        self.assertFalse(log_is_late("2026-10-03T21:30:00Z", moment))
+
+    def test_manglande_hjarteslag_er_for_seint_på_dagen(self):
+        moment = datetime(2026, 10, 4, 10, 0, tzinfo=ZoneInfo("UTC"))
+        self.assertTrue(log_is_late("", moment))
+        self.assertTrue(log_is_late(None, moment))
+
+    def test_morgon_reknar_ikkje_med_nattpausen(self):
+        early = datetime(2026, 10, 4, 4, 30, tzinfo=ZoneInfo("UTC"))
+        self.assertFalse(log_is_late("2026-10-03T21:30:00Z", early))
+        late = datetime(2026, 10, 4, 5, 15, tzinfo=ZoneInfo("UTC"))
+        self.assertTrue(log_is_late("2026-10-03T21:30:00Z", late))
 
 
 if __name__ == "__main__":

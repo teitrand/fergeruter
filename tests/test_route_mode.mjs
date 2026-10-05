@@ -1353,7 +1353,7 @@ test("signaltur ringjer rett ferje, tel:+47", () => {
   assert.equal(telHref(signalPhone(after)), "tel:+4791669340");
 });
 
-test("avlyste morgonsignalturar: ferja ligg på Trandal når tomturen er framme", () => {
+test("avlyste morgonsignalturar inne i fjorden er kai, ikkje tomtur", () => {
   setTestState({
     routes: ruter,
     kombirute: kombi,
@@ -1365,12 +1365,12 @@ test("avlyste morgonsignalturar: ferja ligg på Trandal når tomturen er framme"
   const skipped = new Set(["08:35:00", "08:55:00", "09:20:00"]);
   const running = day.filter((leg) => !(leg.signal && skipped.has(leg.departure)));
   const during = ferryStatus(running, 8 * 60 + 40, day);
-  assert.equal(during.text, "Ferja går til Trandal utan passasjerar");
-  assert.equal(during.underway, true);
+  assert.equal(during.underway, undefined);
+  assert.match(during.text, /ligg til kai/);
+  assert.doesNotMatch(during.text, /utan passasjerar/);
   const alongside = ferryStatus(running, 8 * 60 + 57, day);
-  assert.equal(alongside.text, "Ferja ligg til kai på Trandal");
+  assert.equal(alongside.text, during.text);
   assert.equal(alongside.underway, undefined);
-  assert.equal(alongside.until, 9 * 60 + 45);
 });
 
 test("kombirute er éi samanhengande rute utan tomflytting", () => {

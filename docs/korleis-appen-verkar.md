@@ -18,7 +18,7 @@ To samband, éi ferje om gongen:
 
 Kaien Lekneset hos Entur blir normalisert til Leknes.
 
-Heimkai er fyrste `from` i dagen, i praksis Standal. Etter siste passasjertur reknar sida med at ferja går tom tilbake til Standal. Tomtur mellom Valderøya/Store Kalvøy og Hjørundfjorden tek 120 minutt (AIS, om lag 110–125), deretter ligg ho til kai. Den tomturen står ikkje i Entur.
+Heimkai er fyrste `from` i dagen, i praksis Standal. Ferja flyttar seg ikkje utan passasjerar mellom kaiene i Hjørundfjorden. Den einaste tomturen er mellom Valderøya/Store Kalvøy og Hjørundfjorden, 120 minutt (AIS, om lag 110–125), deretter ligg ho til kai. Den turen står ikkje i Entur. Etter siste passasjertur på Valderøya eller Store Kalvøy går ho slik heim til Standal. Endar dagen på ein kai i fjorden, ligg ho der.
 
 Fartya som er namngjevne i meldingar og kombirute er M/F Geiranger (916 69 321) og M/F Kvernes (916 69 340, MMSI 257297400). Signaltur-telefonen i ruteheftet er 91 66 93 40.
 
@@ -109,7 +109,17 @@ Jobben køyrer kvart 5. minutt på `main` (`.github/workflows/update-trafikkmeld
 
 ### `data/signalturar.json`
 
-Skriven av `scripts/log_signalturar.py` kvart 30. minutt, cron `*/30 4-21 * * *` i UTC (06:00–23:30 norsk sommertid), berre på `main`. Workflow: `.github/workflows/log-signalturar.yml`.
+Skriven av `scripts/log_signalturar.py` på `main`, kvar halvtime i vaktvindauget 04:00–22:40 UTC. Workflow: `.github/workflows/log-signalturar.yml`. Skriptet som hentar `main`, loggar og pushar er `scripts/signaltur_loop.py`.
+
+Klokka er ein Cloudflare Worker på gratisplanen, `cloudflare/signaltur-cron/`. Cron Trigger der er `7,37 4-21 * * *` (UTC). Kvart slag kallar GitHub REST og startar workflowen med `workflow_dispatch` på `main`. Tokenet er ein fine-grained PAT med berre dette repoet og Actions les og skriv, lagra som løyndommen `GITHUB_TOKEN` på workeren. Oppsett står i `cloudflare/signaltur-cron/README.md`.
+
+GitHub-cron med same minutt er reserve. `:07` og `:37` ligg utanfor den travlaste cron-køen på `:00` og `:30`. Siste slag er 21:37 UTC (23:37 norsk sommertid, 22:37 vintertid), inne i vaktvindauget som sluttar 22:40 UTC. `22:07` UTC er 00:07 i Oslo i sommar og blir ikkje brukt, for då blir neste dag logga tom. Siste signaltur 20:20, framme 20:35 Oslo, ligg før neste slag både i sommar (18:37 UTC) og vinter (19:37 UTC). `concurrency` med gruppa `log-signalturar` held éin køyring om gongen. Er `updatedAt` yngre enn 20 minutt, hoppar jobben over, så worker og reserve ikkje skriv dobbelt. Manuell køyring kan setje `force` for å logge likevel. Push til `main` kan tape kappløpet mot andre jobbar. Då blir committen rebasa og prøvd på nytt. Kollisjon i `signalturar.json` blir kasta, og loggen blir skriven på nytt oppå siste `main`.
+
+Kvar runde ser på **alle** signalturar i dag som har passert tingefristen, òg dei eit hol hoppa over. Turane blir fylte inn frå det Entur enno svarar: avlyst blir `skipped` òg etter ankomst, og ein tur som enno ligg i feeden utan avlysing blir `booked` fram til ankomst. Etter ankomst er manglande avlysing ikkje bevis. Har Entur enno `actualDepartureTime`, blir turen logga som `booked` med den tida som `observedAt`, så observasjonen tel. Unntaket er ein tom uttur som berre går så ein seinare bestilt retur kan køyre (t.d. 06:45 Standal→Trandal før bestilt 07:05 tilbake). Då er `actualDepartureTime` åleine ikkje tinging. Statusen blir `gått`: ferja segla, utan bestillingsbevis. Er kallet borte frå feeden, blir det ikkje gjetta. Spørjinga les dagen side for side om Entur berre gir 40 kall om gongen.
+
+Start, etter at workflowen ligg på `main`: følg `cloudflare/signaltur-cron/README.md` (`npx wrangler login`, `npx wrangler secret put GITHUB_TOKEN`, `npx wrangler deploy`). Reservecronen på GitHub startar av seg sjølv når fila ligg på `main`. For å stoppe: slå av cron på workeren og slå av workflowen (Actions → Logg signalturar → Disable workflow).
+
+`updatedAt` er hjarteslaget. Skriptet skriv det kvar gong, så eit commit betyr at sjekken køyrde. Mellom 04:00 og 22:40 UTC er loggen for sein om det er meir enn 70 minutt sidan siste skriving. Alderen blir rekna frå `updatedAt`, eller frå 04:00 UTC same dag om nattpausen er lengre, så den fyrste morgonkøyringa ikkje blir sein berre fordi jobben stod stille om natta. Etter 22:40 UTC er det planlagt pause. Når loggen er for sein, viser statuslinja ein åtvaring. Observasjonar som alt er gjort i tide tel framleis. Ein sein `updatedAt` stoppar ikkje jobben: ho varslar og skriv loggen likevel.
 
 ```json
 {
@@ -129,9 +139,9 @@ Skriven av `scripts/log_signalturar.py` kvart 30. minutt, cron `*/30 4-21 * * *`
 }
 ```
 
-`status` er `booked` eller `skipped`. `observedAt` er når loggen fyrst skreiv statusen, ikkje når nokon ringde. `skippedAt` kjem om ein tur som var `booked` seinare blir avlyst. Sju dagar medrekna i dag. Eldre datoar blir sletta. Ein tur som først er `skipped` blir aldri skriven om til `booked`. `booked` kan bli `skipped` om eit seinare svar viser avlysing. `observedAt` blir ståande.
+`status` er `booked`, `skipped` eller `gått`. `observedAt` er når loggen fyrst skreiv statusen, ikkje når nokon ringde. For `gått` er `observedAt` den faktiske avgangen. `skippedAt` kjem om ein tur som var `booked` seinare blir avlyst. Sju dagar medrekna i dag. Eldre datoar blir sletta. Ein tur som først er `skipped` blir aldri skriven om til `booked`. Han kan bli `gått` om ferja likevel segla som tomtur for ein bestilt retur. `booked` kan bli `skipped` om eit seinare svar viser avlysing, men ikkje `gått`. `gått` blir ståande. `observedAt` blir ståande.
 
-Entur har berre driftsdagen. Dagar før loggen starta kan ikkje fyllast inn. Første observasjon som betyr noko er etter tingefristen, og berre om turen faktisk ligg i `estimatedCalls`. At turen manglar i feeden er ikkje bevis på at ho var bestilt (avlysinga dett ut etter ei stund, og fullførte turar dett òg ut).
+Entur har berre driftsdagen. Dagar før loggen starta kan ikkje fyllast inn. Første observasjon som betyr noko er etter tingefristen, og berre om turen faktisk ligg i `estimatedCalls`. At turen manglar i feeden er ikkje bevis på at ho var bestilt (avlysinga dett ut etter ei stund, og fullførte turar dett òg ut). Eit hol same dag blir fylt inn frå det som enno ligg i feeden, inkludert faktisk avgangstid om turen alt har lagt frå kai.
 
 ## 4. Entur: rutetabell
 
@@ -233,7 +243,7 @@ To mengder blir lagra:
 - `cancelledJourneys`: `cancellation: true`
 - `seenJourneys`: alle id-ar i svaret
 
-Service journey-id blir brukt på fleire datoar. Avlysingsmengda gjeld berre i dag. Ein vanleg tur som er avlyst i dag får «Innstilt». Ein signaltur som er avlyst får «Ikkje utført», ikkje «Innstilt». Avlyste bein blir tekne ut av `runningLegs`, så «No»-linja ikkje seier at ferja er på veg på ein tur som ikkje går.
+Service journey-id blir brukt på fleire datoar. Avlysingsmengda gjeld berre i dag. Ein vanleg tur som er avlyst i dag får «Innstilt». Ein signaltur som er avlyst får «Ikkje utført», ikkje «Innstilt». Setninga «Ferja har ikkje lagt frå kai» kjem berre når sanntid viser at ho framleis ligg ved frå-kaien etter avgangstid. Avlysing hos Entur før avgang, utan den posisjonen, er ikkje det same. Avlyste bein blir tekne ut av `runningLegs`, så «No»-linja ikkje seier at ferja er på veg på ein tur som ikkje går.
 
 ### Når etiketten er «Bestilt signaltur»
 
@@ -243,25 +253,30 @@ For **i dag**, etter fristen (`avgang − minutesBefore`):
 
 1. Loggen seier `skipped` → ikkje bestilt.
 2. Sanntid seier at denne turen ikkje la frå kai, eller at ein seinare tur er den som blir køyrd, → ikkje bestilt («Ikkje utført»).
-3. Loggen seier `booked` → bestilt.
-4. Siste Entur-svar er frå i dag, turen er ikkje avlyst, og svaret kom etter fristen:
+3. Loggen seier `booked`, og `observedAt` er før ankomst (eller manglar, på gamle rader) → bestilt. Ein logg som fyrst såg turen etter ankomst tel ikkje: då har Entur gløymt avlysinga, og ein utur ser ut som ein tinga tur. Unntaket er at loggeren fann `actualDepartureTime` i feeden. Då er `observedAt` den faktiske avgangen, som er før ankomst, og observasjonen tel. Er turen ein tom uttur for ein seinare bestilt retur, blir den same avgangstida `gått` i staden, og tel ikkje som bestilt.
+4. Siste Entur-svar er frå i dag, kom etter fristen og før ankomst, og turen låg i svaret utan avlysing:
    - turen låg i svaret (`seenJourneys`) → bestilt. Id-en blir hugsa i `confirmedBooked` ut økta.
    - turen var hugsa slik tidlegare i økta → bestilt, òg om eit seinare svar ikkje lenger har kallet.
-   - ankomst er passert og ingen av punkta over stemmer → **ikkje** bestilt. Då står «På signal». Mangelen på avlysing etter at kallet har dette ut er ikkje bevis.
-   - ankomst er ikkje passert → bestilt. Fram til ankomst er «ikkje i avlyst-lista etter fristen» nok, fordi turen enno skal liggje i feeden.
+   - turen var ikkje i svaret → **ikkje** bestilt. «Ikkje avlyst» åleine er ikkje bevis, og folk blir ståande att om vi gjettar.
+   - svaret kom etter ankomst → **ikkje** bestilt, same grunn som i loggen.
+
+Etter fristen, utan dette beviset, er turen usikker. Då er statusen den same som om ho ikkje var bestilt: «Ikkje utført», og ho blir teken ut av rekninga av kvar ferja er. Før fristen står det framleis «På signal». Vi skriv ikkje at Entur har avlyst turen når vi berre manglar bevis.
+
+Om hjarteslaget i loggen er for seint (sjå `updatedAt` under `data/signalturar.json`), seier statuslinja frå. Vi merkjer ikkje ein tur bestilt berre fordi sjekken manglar. Ein observasjon som alt kom før ankomst tel likevel, og eit ferskt Entur-svar i nettlesaren tel òg.
 
 Eit trykk på avgangen opnar eit vindauge. Der står korleis signalturen verkar, telefonnummeret, og om vi reknar turen som bestilt. Teksten seier at Entur ikkje oppgjev når bestillinga kom inn, berre at turen ikkje var avlyst etter fristen. Om loggen har `observedAt`, visest det tidspunktet som «vi registrerte det fyrste gong». Vindauget seier òg at den som tinga kan gjere om, og at Entur då kan avlyse, så ein bør ringje sjølv om ein vil vere sikker.
 
-Dette er grunnen til at 06:45 fredag 2. oktober stod som «På signal» / «Gått» medan 07:05 stod som «Bestilt signaltur». 07:05 hadde ikkje komme fram enno, så regelen før ankomst trekte. 06:45 hadde ankomst 07:00, loggen for 2. oktober var tom (cron hadde ikkje skrive morgonturen enno), og den gamle regelen kravde logg etter ankomst. No held økta på merkelappen når Entur har synt turen utan avlysing etter fristen.
+Økta held på merkelappen når Entur har synt turen utan avlysing etter fristen og før ankomst. Eit svar som berre seier «ikkje avlyst», utan at turen låg i feeden, blir ikkje grøn etikett.
 
-For **ein annan dag** finst ikkje dagens avlysingsmengd. Berre loggen: `booked` → grøn etikett og «Gått», `skipped` → «Ikkje utført», ingenting → «På signal» utan påstand om at turen gjekk.
+For **ein annan dag** finst ikkje dagens avlysingsmengd. Berre loggen: `booked` med observasjon før ankomst → grøn etikett og «Gått». `gått` → «Gått» utan grøn etikett og utan «Ikkje utført» (ferja segla, men vi har ikkje bestillingsbevis). Alt anna → «Ikkje utført». Usikkert blir ikkje «På signal» og ikkje «Gått».
 
 ### Når «No»-linja seier at signalturen går
 
 `signalVerdict`:
 
-- annan dag: `skipped` berre om loggen seier det
+- annan dag: `skipped` når loggen ikkje har ein `booked` som tel og ikkje `gått`. `gått` er ikkje `skipped`. `booked` med observasjon i tide (eller utan klokkeslett, på gamle rader) blir ståande
 - i dag, fersk posisjon, same tur, har lagt frå kai → `running` (òg om Entur har avlyst, dersom båten faktisk gjekk)
+- etter fristen utan bevis på bestilling → `skipped`. Det gjeld òg før avgang
 - avlyst i dag, eller logg `skipped`, og posisjonen ikkje viser avgang → `skipped`
 - etter avgangstid, fersk posisjon, framleis på startkaien → `skipped`
 - ein seinare tur er den VM følgjer → denne signalturen er `skipped`, med mindre ho alt er sett som bestilt (loggen, eller ho låg i feeden utan avlysing etter fristen). Returen 07:05 skal ikkje gjere utturen 06:45 om til «Ikkje utført»
@@ -277,9 +292,9 @@ For **ein annan dag** finst ikkje dagens avlysingsmengd. Berre loggen: `booked` 
 2. Før fyrste avgang: ligg på frå-kaia.
 3. Mellom avgang og ankomst: «på veg mot {kai}». Framdrift er lineær mellom klokkesletta.
 4. Mellom ankomst og neste avgang på same kai: «ligg til kai». Opphald på minst 20 minutt er liggetid (matpause), med eigen tekst.
-5. Mellom ankomst og neste avgang på ein annan kai, og tabellen ikkje er kombi: tomflytting. Ho varer den kortaste planlagde overfarten mellom dei kaiane. Tomtur mellom Valderøya/Store Kalvøy og ein kai i Hjørundfjorden har inga direkte linje; den varer 120 minutt. Deretter ligg ferja til kai på neste kai (Standal på veg inn, Valderøya før passasjeravgangen på veg ut) til avgangen. Er holet kortare enn overfarten, varer tomturen heile holet. Er overfarten ukjend, varer tomturen òg heile holet.
-6. Etter siste ankomst: ferdig på den kaia om det er heimkai eller kombi. Elles tomtur heim med same overfart som i punkt 5 (Valderøya/Store Kalvøy → Standal: 120 minutt), deretter ligg ho til kai på Standal over natta. Manglar både overfart og hol i tabellen, seier vi at ho går heim og ligg der over natta, utan eit oppfunne klokkeslett.
-7. Om VM er fersk: signaltur som har lagt frå kai overstyrer med destinasjon og forseinking. Signaltur som ikkje har lagt frå kai overstyrer med «ikkje utført». Vanleg rute får forseinking lagt på tabellteksten.
+5. Mellom ankomst og neste avgang på ein annan kai: tomflytting berre mellom Valderøya/Store Kalvøy og Hjørundfjorden, 120 minutt. Deretter ligg ferja til kai på neste kai (Standal på veg inn, Valderøya før passasjeravgangen på veg ut) til avgangen. Er holet kortare enn 120 minutt, varer tomturen heile holet. Eit hol mellom Standal, Trandal, Sæbø og Skår er ikkje tomtur. Ferja ligg på kaia ho sist kom til.
+6. Etter siste ankomst: ferdig på den kaia om det er heimkai eller kombi. Frå Valderøya eller Store Kalvøy: tomtur heim i 120 minutt, deretter kai på Standal. Frå ein kai i fjorden: ferdig der, utan tomtur heim.
+7. Om VM er fersk: signaltur som har lagt frå kai overstyrer med destinasjon og forseinking, heilt til ho er framme. Framme er `VehicleAtStop` på `leg.to`, eller planlagd/forventa ankomst er passert utan at VM seier at ho er ein annan stad. Då gjeld same kai-tekst som tabellen: «ligg til kai» med liggetid og neste avgang. Signaltur som ikkje har lagt frå kai overstyrer med «ikkje utført». Vanleg rute får forseinking lagt på tabellteksten.
 
 Filtra frå/til endrar kva rader som visest, ikkje kvar ferja er. Reise med mellomstopp følgjer same ferje. Skår→Standal går via Sæbø/Trandal. Leknes→Standal i vanleg rute byter ferje på Sæbø og får ventetid. Korrespondanse blir merkt på avgang og ankomst, ikkje som eigne rader. Fyrste avgang i reisa står i hovudlinja. Seinare bein og venting på knutepunktet får klassen `stop-onward` og er innrykka, så dei ikkje ser ut som avgangar frå startkaien.
 
@@ -343,15 +358,17 @@ Python-testar lastar skript med `importlib` frå filsti. `unittest discover` har
 Det som må halde:
 
 - Tabellbyte frå meldingstekst, inkludert delvis innstilling, nynorsk dato, og at 1049 ikkje styrer 1136
-- Signaltur som ligg til kai etter avgang er ikkje utført. Signaltur som har lagt frå kai er på veg, med forseinking
+- Signaltur som ligg til kai etter avgang er ikkje utført. Signaltur som har lagt frå kai er på veg, med forseinking. Avlyst signaltur før avgang får «Ikkje utført» utan «har ikkje lagt frå kai»
 - Avlyst kveldssignaltur 20:00/20:20 gjer ikkje «på veg mot Standal» når ferja ligg der
-- Etter fristen og eit Entur-svar utan avlysing: bestilt. Før fristen, eller utan svar: ikkje bestilt
+- Etter fristen, før ankomst, og turen låg i Entur utan avlysing: bestilt. Ikkje i svaret, svar etter ankomst, før fristen, eller utan svar: ikkje bestilt
 - Etter ankomst: bestilt berre om loggen seier det, eller turen var sett i feeden etter fristen
 - Logg `skipped` blir ikkje bestilt att, heller ikkje om Entur har gløymt avlysinga
 - Loggen viser bestilt og ikkje utført på ein tidlegare dato
+- Signallogg eldre enn 70 minutt mellom 04:00 og 22:40 UTC er for sein. Utanfor vindauget, og rett etter 04:00 når førre køyring var kvelden før, er ho ikkje for sein
 - Kombirute-transkripsjonen stemmer med byggaren
 - Høgtidsdag i kombirute bruker søndagstabellen
-- Tomtur Valderøya/Store Kalvøy ↔ Hjørundfjorden varer 120 minutt, deretter kai
+- Tomtur berre Valderøya/Store Kalvøy ↔ Hjørundfjorden, 120 minutt, deretter kai. Hol inne i fjorden er kai
+- Etter tingefristen utan bevis på bestilling: «Ikkje utført», og turen flyttar ikkje ferja
 - Cache-versjonen i SW, HTML og JS er den same
 
 ## 12. Byggje opp att
@@ -363,6 +380,6 @@ Det som må halde:
 5. Poll SIRI VM i rutevindauget. Stol på posisjon berre i 3 minutt. Rekn avgang frå `leftOrigin`.
 6. Poll GraphQL-avlysingar for dagen. Ta avlyste bein ut av posisjonsrekninga. Signaltur som er avlyst er «Ikkje utført».
 7. Etter tingefristen: grøn «Bestilt signaltur» berre etter reglane i avsnitt 7. Hugs sett tur ut økta. Ikkje gjett bestilt etter ankomst berre fordi kallet manglar.
-8. Cron på `main` som skriv `signalturar.json` i sju dagar. `skipped` er sticky. Turar som ikkje er i feeden blir ikkje logga.
+8. Cloudflare Worker (`cloudflare/signaltur-cron/`) startar logging på `main` kl. :07 og :37 UTC mellom 04 og 21. Ikkje 22:07 UTC. GitHub-cron med same minutt er reserve. Jobben skriv `signalturar.json` i sju dagar. `skipped` blir ikkje `booked`. `gått` er ein segla tomtur utan bestillingsbevis og blir ikkje «Ikkje utført». Turar som ikkje er i feeden blir ikkje logga. Eit hol blir fylt frå det Entur enno har, også faktisk avgangstid, unntatt posisjonering før ein bestilt retur. Ein sein `updatedAt` varslar, men stoppar ikkje jobben.
 9. Service worker som i avsnitt 9, med eige cachenamn på `/dev/`.
 10. Sjekk med testane i avsnitt 11 før produksjon. Slepp via `dev`, ikkje med feature-PR mot `main`.

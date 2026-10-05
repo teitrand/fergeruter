@@ -1,0 +1,12 @@
+name = "fergeruter-signaltur-cron"
+main = "src/index.js"
+compatibility_date = "2026-10-05"
+
+# UTC, ikkje :00/:30. Cloudflare kjenner ikkje norsk sommartid.
+# Time 22 UTC er 00:07 i Oslo i sommar og loggar ein tom ny dag, så ho er ute.
+# Siste slag er 21:37 UTC: 23:37 sommertid og 22:37 vintertid, rundt 23:07.
+# 21:07 UTC er 23:07 om sommaren og 22:07 om vinteren.
+# Siste signaltur 20:20 (ankomst 20:35 Oslo) er dekt i båe:
+# sommar 18:35 UTC (neste slag 18:37), vinter 19:35 UTC (neste slag 19:37).
+[triggers]
+crons = ["7,37 4-21 * * *"]
