@@ -7,7 +7,7 @@ import {
   setLang,
   t,
   weekdays,
-} from "./i18n.js?v=69";
+} from "./i18n.js?v=70";
 
 const MESSAGES_URL = "data/trafikkmeldinger.json";
 const SIGNAL_LOG_URL = "data/signalturar.json";
@@ -534,11 +534,11 @@ function isCancelledDeparture(leg, cancelled = cancelledDepartureSet()) {
   return cancelled.has(`${quayPlace(leg.from)}|${leg.departure}`);
 }
 
-function runningLegs(legs) {
+function runningLegs(legs, now = nowMinutes()) {
   const cancelled = cancelledDepartureSet();
   return (legs || []).filter((leg) => {
     if (isCancelledDeparture(leg, cancelled) || journeyCancelled(leg)) return false;
-    if (leg.signal && signalVerdict(leg, state.live, nowMinutes(), legs) === "skipped") return false;
+    if (leg.signal && signalVerdict(leg, state.live, now, legs) === "skipped") return false;
     return true;
   });
 }
@@ -2319,7 +2319,7 @@ function ferryStatus(legs, now = nowMinutes(), allLegs = null) {
 }
 
 function currentStatus(legs, now = nowMinutes()) {
-  const planned = ferryStatus(runningLegs(legs), now);
+  const planned = ferryStatus(runningLegs(legs, now), now);
   const live = isLiveFresh(state.live) ? state.live : null;
   if (!live) return planned;
   const monitored = legForLive(legs, live);

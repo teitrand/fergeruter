@@ -109,9 +109,17 @@ Jobben køyrer kvart 5. minutt på `main` (`.github/workflows/update-trafikkmeld
 
 ### `data/signalturar.json`
 
-Skriven av `scripts/log_signalturar.py` kvart 30. minutt, cron `*/30 4-21 * * *` i UTC (06:00–23:30 norsk sommertid), berre på `main`. Workflow: `.github/workflows/log-signalturar.yml`.
+Skriven av `scripts/log_signalturar.py` på `main`, kvar halvtime i vaktvindauget 04:00–22:40 UTC. Workflow: `.github/workflows/log-signalturar.yml`. Skriptet som hentar `main`, loggar og pushar er `scripts/signaltur_loop.py`.
 
-`updatedAt` er hjarteslaget. Skriptet skriv det kvar gong, så eit commit betyr at sjekken køyrde. GitHub køyrer ikkje cron på minuttet. Mellom 04:00 og 22:40 UTC er loggen for sein om det er meir enn 70 minutt sidan siste skriving. Alderen blir rekna frå `updatedAt`, eller frå 04:00 UTC same dag om nattpausen er lengre, så den fyrste morgonkøyringa ikkje blir raud berre fordi jobben stod stille om natta. Etter 22:40 UTC er det planlagt pause. Når loggen er for sein, viser statuslinja ein åtvaring. Observasjonar som alt er gjort i tide tel framleis. Når jobben endeleg køyrer, skriv ho loggen som vanleg, og deretter feilar workflowen om førre `updatedAt` var for gammal.
+Klokka er ein Cloudflare Worker på gratisplanen, `cloudflare/signaltur-cron/`. Cron Triggers der er `7,37 4-21 * * *` og `7 22 * * *` (UTC). Kvart slag kallar GitHub REST og startar workflowen med `workflow_dispatch` på `main`. Tokenet er ein fine-grained PAT med berre dette repoet og Actions les og skriv, lagra som løyndommen `GITHUB_TOKEN` på workeren. Oppsett står i `cloudflare/signaltur-cron/README.md`.
+
+GitHub-cron med same minutt er reserve. `:07` og `:37` ligg utanfor den travlaste cron-køen på `:00` og `:30`. Siste slag er 22:07, inne i vindauget som sluttar 22:40. `concurrency` med gruppa `log-signalturar` held éin køyring om gongen. Er `updatedAt` yngre enn 20 minutt, hoppar jobben over, så worker og reserve ikkje skriv dobbelt. Manuell køyring kan setje `force` for å logge likevel. Push til `main` kan tape kappløpet mot andre jobbar. Då blir committen rebasa og prøvd på nytt. Kollisjon i `signalturar.json` blir kasta, og loggen blir skriven på nytt oppå siste `main`.
+
+Kvar runde ser på **alle** signalturar i dag som har passert tingefristen, òg dei eit hol hoppa over. Turane blir fylte inn frå det Entur enno svarar: avlyst blir `skipped` òg etter ankomst, og ein tur som enno ligg i feeden utan avlysing blir `booked` fram til ankomst. Etter ankomst er manglande avlysing ikkje bevis. Har Entur enno `actualDepartureTime`, blir turen logga som `booked` med den tida som `observedAt`, så observasjonen tel. Er kallet borte frå feeden, blir det ikkje gjetta. Spørjinga les dagen side for side om Entur berre gir 40 kall om gongen.
+
+Start, etter at workflowen ligg på `main`: følg `cloudflare/signaltur-cron/README.md` (`npx wrangler login`, `npx wrangler secret put GITHUB_TOKEN`, `npx wrangler deploy`). Reservecronen på GitHub startar av seg sjølv når fila ligg på `main`. For å stoppe: slå av cron på workeren og slå av workflowen (Actions → Logg signalturar → Disable workflow).
+
+`updatedAt` er hjarteslaget. Skriptet skriv det kvar gong, så eit commit betyr at sjekken køyrde. Mellom 04:00 og 22:40 UTC er loggen for sein om det er meir enn 70 minutt sidan siste skriving. Alderen blir rekna frå `updatedAt`, eller frå 04:00 UTC same dag om nattpausen er lengre, så den fyrste morgonkøyringa ikkje blir sein berre fordi jobben stod stille om natta. Etter 22:40 UTC er det planlagt pause. Når loggen er for sein, viser statuslinja ein åtvaring. Observasjonar som alt er gjort i tide tel framleis. Ein sein `updatedAt` stoppar ikkje jobben: ho varslar og skriv loggen likevel.
 
 ```json
 {
@@ -133,7 +141,7 @@ Skriven av `scripts/log_signalturar.py` kvart 30. minutt, cron `*/30 4-21 * * *`
 
 `status` er `booked` eller `skipped`. `observedAt` er når loggen fyrst skreiv statusen, ikkje når nokon ringde. `skippedAt` kjem om ein tur som var `booked` seinare blir avlyst. Sju dagar medrekna i dag. Eldre datoar blir sletta. Ein tur som først er `skipped` blir aldri skriven om til `booked`. `booked` kan bli `skipped` om eit seinare svar viser avlysing. `observedAt` blir ståande.
 
-Entur har berre driftsdagen. Dagar før loggen starta kan ikkje fyllast inn. Første observasjon som betyr noko er etter tingefristen, og berre om turen faktisk ligg i `estimatedCalls`. At turen manglar i feeden er ikkje bevis på at ho var bestilt (avlysinga dett ut etter ei stund, og fullførte turar dett òg ut).
+Entur har berre driftsdagen. Dagar før loggen starta kan ikkje fyllast inn. Første observasjon som betyr noko er etter tingefristen, og berre om turen faktisk ligg i `estimatedCalls`. At turen manglar i feeden er ikkje bevis på at ho var bestilt (avlysinga dett ut etter ei stund, og fullførte turar dett òg ut). Eit hol same dag blir fylt inn frå det som enno ligg i feeden, inkludert faktisk avgangstid om turen alt har lagt frå kai.
 
 ## 4. Entur: rutetabell
 
@@ -245,7 +253,7 @@ For **i dag**, etter fristen (`avgang − minutesBefore`):
 
 1. Loggen seier `skipped` → ikkje bestilt.
 2. Sanntid seier at denne turen ikkje la frå kai, eller at ein seinare tur er den som blir køyrd, → ikkje bestilt («Ikkje utført»).
-3. Loggen seier `booked`, og `observedAt` er før ankomst (eller manglar, på gamle rader) → bestilt. Ein logg som fyrst såg turen etter ankomst tel ikkje: då har Entur gløymt avlysinga, og ein utur ser ut som ein tinga tur.
+3. Loggen seier `booked`, og `observedAt` er før ankomst (eller manglar, på gamle rader) → bestilt. Ein logg som fyrst såg turen etter ankomst tel ikkje: då har Entur gløymt avlysinga, og ein utur ser ut som ein tinga tur. Unntaket er at loggeren fann `actualDepartureTime` i feeden. Då er `observedAt` den faktiske avgangen, som er før ankomst, og observasjonen tel.
 4. Siste Entur-svar er frå i dag, kom etter fristen og før ankomst, og turen låg i svaret utan avlysing:
    - turen låg i svaret (`seenJourneys`) → bestilt. Id-en blir hugsa i `confirmedBooked` ut økta.
    - turen var hugsa slik tidlegare i økta → bestilt, òg om eit seinare svar ikkje lenger har kallet.
@@ -372,6 +380,6 @@ Det som må halde:
 5. Poll SIRI VM i rutevindauget. Stol på posisjon berre i 3 minutt. Rekn avgang frå `leftOrigin`.
 6. Poll GraphQL-avlysingar for dagen. Ta avlyste bein ut av posisjonsrekninga. Signaltur som er avlyst er «Ikkje utført».
 7. Etter tingefristen: grøn «Bestilt signaltur» berre etter reglane i avsnitt 7. Hugs sett tur ut økta. Ikkje gjett bestilt etter ankomst berre fordi kallet manglar.
-8. Cron på `main` som skriv `signalturar.json` i sju dagar. `skipped` er sticky. Turar som ikkje er i feeden blir ikkje logga. Etter commit: feil om førre `updatedAt` var meir enn 70 minutt gammalt inne i vaktvindauget.
+8. Cloudflare Worker (`cloudflare/signaltur-cron/`) startar logging på `main` kl. :07 og :37 UTC mellom 04 og 21, pluss 22:07. GitHub-cron med same minutt er reserve. Jobben skriv `signalturar.json` i sju dagar. `skipped` er sticky. Turar som ikkje er i feeden blir ikkje logga. Eit hol blir fylt frå det Entur enno har, også faktisk avgangstid. Ein sein `updatedAt` varslar, men stoppar ikkje jobben.
 9. Service worker som i avsnitt 9, med eige cachenamn på `/dev/`.
 10. Sjekk med testane i avsnitt 11 før produksjon. Slepp via `dev`, ikkje med feature-PR mot `main`.
