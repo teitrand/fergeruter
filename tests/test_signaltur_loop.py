@@ -282,6 +282,30 @@ class GateTests(unittest.TestCase):
         self.assertEqual(decision, "continue")
         self.assertIsInstance(error, RuntimeError)
 
+    def test_vakt_vik_for_ei_køyring_i_ko(self):
+        runs = [active(timedelta(minutes=2), self.now, status="queued", started=False)]
+        self.assertTrue(
+            mod.should_exit_as_duplicate("schedule", False, runs, self.now, self_id=1)
+        )
+
+    def test_gammal_ko_blokkerer_ikkje_vakta(self):
+        runs = [active(timedelta(hours=7), self.now, status="queued", started=False)]
+        self.assertFalse(
+            mod.should_exit_as_duplicate("schedule", False, runs, self.now, self_id=1)
+        )
+
+    def test_ferdig_køyring_blokkerer_ikkje_vakta(self):
+        runs = [active(timedelta(minutes=5), self.now, status="completed")]
+        self.assertFalse(
+            mod.should_exit_as_duplicate("schedule", False, runs, self.now, self_id=1)
+        )
+
+    def test_vidareførings_vik_for_ung_vakt_i_ko(self):
+        runs = [active(timedelta(minutes=1), self.now, status="queued", started=False)]
+        self.assertTrue(
+            mod.should_exit_as_duplicate("workflow_dispatch", True, runs, self.now, self_id=9)
+        )
+
     def test_anna_grein_blokkerer_ikkje(self):
         runs = [active(timedelta(minutes=10), self.now, branch="dev")]
         self.assertFalse(
@@ -417,7 +441,8 @@ class WorkflowContractTests(unittest.TestCase):
     def test_workflow_held_cron_og_kan_starte_seg_sjølv(self):
         text = (ROOT / ".github" / "workflows" / "log-signalturar.yml").read_text(encoding="utf-8")
         script = SCRIPT.read_text(encoding="utf-8")
-        self.assertIn('cron: "*/30 4-21 * * *"', text)
+        self.assertIn('cron: "7,37 4-22 * * *"', text)
+        self.assertNotIn("*/30 4-21", text)
         self.assertIn("workflow_dispatch:", text)
         self.assertIn("actions: write", text)
         self.assertIn("contents: write", text)

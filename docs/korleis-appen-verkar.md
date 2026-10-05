@@ -113,7 +113,9 @@ Skriven av `scripts/log_signalturar.py` minst kvart 30. minutt mellom 04:00 og 2
 
 Éi køyring varer opptil 5 timar og 30 minutt. GitHub stoppar ein jobb etter 6 timar, så løkka avsluttar før det og startar seg sjølv på nytt med `workflow_dispatch` (`gh workflow run` og den innebygde `GITHUB_TOKEN`, ingen eigen løyndom). Mellom kvar logging søv ho. Utanfor vindauget søv ho til 04:00 UTC om det er tid att i jobben. Er morgonen for langt unna, søv ho til ho er nær taket og startar då neste køyring. Repoet er offentleg, så minutta er gratis.
 
-Cron `*/30 4-21 * * *` er berre ein reserve-startar om løkka har døydd. Ser cron-køyringa at ei løkke alt går, avsluttar ho med ein gong. Ei køyring som har stått som `in_progress` i over 6 timar blir rekna som daud, så ho ikkje blokkerer ein ny start. Feilar sjølve oppslaget, held logginga fram. Push til `main` kan tape kappløpet mot andre jobbar. Då blir committen rebasa og prøvd på nytt. Kollisjon i `signalturar.json` blir kasta, og loggen blir skriven på nytt oppå siste `main`.
+Cron `7,37 4-22 * * *` er vakt, ikkje den vanlege klokka. GitHub si cron-kø er tettast på `:00` og `:30`, så vakta ligg på `:07` og `:37`. Siste slag er 22:37, inne i vindauget som sluttar 22:40. Ser vakta at ei løkke alt går eller ventar på løpar (`in_progress`, `queued`, `waiting`, `pending`, `requested`) og er yngre enn 6 timar, avsluttar ho med ein gong. Er ingen slik køyring, startar ho ei ny løkke. Ei køyring eldre enn 6 timar blir rekna som daud. Feilar sjølve oppslaget, startar vakta likevel, så ein daud `gh`-feil ikkje held loggen nede. Push til `main` kan tape kappløpet mot andre jobbar. Då blir committen rebasa og prøvd på nytt. Kollisjon i `signalturar.json` blir kasta, og loggen blir skriven på nytt oppå siste `main`.
+
+Kvar runde ser på **alle** signalturar i dag som har passert tingefristen, ikkje berre den neste. Turar eit hol hoppa over blir fylte inn frå det Entur enno svarar: avlyst blir `skipped` òg etter ankomst, og ein tur som enno ligg i feeden utan avlysing blir `booked` fram til ankomst. Etter ankomst er manglande avlysing ikkje bevis. Har Entur enno `actualDepartureTime`, blir turen logga som `booked` med den tida som `observedAt`, så observasjonen tel. Er kallet borte frå feeden, blir det ikkje gjetta. Spørjinga les dagen side for side om Entur berre gir 40 kall om gongen.
 
 Fyrste start, etter at workflowen ligg på `main`: Actions → **Logg signalturar** → Run workflow, grein `main`, éin gong. La vidareførings-flagget stå av. For å stoppe: avbryt den køyrande jobben. Ho startar ikkje neste køyring når ho blir avbroten. Cron kan likevel starte ein ny løkke seinare. Skal ho vere stoppa, slå av workflowen (Actions → Logg signalturar → Disable workflow).
 
@@ -139,7 +141,7 @@ Fyrste start, etter at workflowen ligg på `main`: Actions → **Logg signaltura
 
 `status` er `booked` eller `skipped`. `observedAt` er når loggen fyrst skreiv statusen, ikkje når nokon ringde. `skippedAt` kjem om ein tur som var `booked` seinare blir avlyst. Sju dagar medrekna i dag. Eldre datoar blir sletta. Ein tur som først er `skipped` blir aldri skriven om til `booked`. `booked` kan bli `skipped` om eit seinare svar viser avlysing. `observedAt` blir ståande.
 
-Entur har berre driftsdagen. Dagar før loggen starta kan ikkje fyllast inn. Første observasjon som betyr noko er etter tingefristen, og berre om turen faktisk ligg i `estimatedCalls`. At turen manglar i feeden er ikkje bevis på at ho var bestilt (avlysinga dett ut etter ei stund, og fullførte turar dett òg ut).
+Entur har berre driftsdagen. Dagar før loggen starta kan ikkje fyllast inn. Første observasjon som betyr noko er etter tingefristen, og berre om turen faktisk ligg i `estimatedCalls`. At turen manglar i feeden er ikkje bevis på at ho var bestilt (avlysinga dett ut etter ei stund, og fullførte turar dett òg ut). Eit hol same dag blir fylt inn frå det som enno ligg i feeden, inkludert faktisk avgangstid om turen alt har lagt frå kai.
 
 ## 4. Entur: rutetabell
 
@@ -251,7 +253,7 @@ For **i dag**, etter fristen (`avgang − minutesBefore`):
 
 1. Loggen seier `skipped` → ikkje bestilt.
 2. Sanntid seier at denne turen ikkje la frå kai, eller at ein seinare tur er den som blir køyrd, → ikkje bestilt («Ikkje utført»).
-3. Loggen seier `booked`, og `observedAt` er før ankomst (eller manglar, på gamle rader) → bestilt. Ein logg som fyrst såg turen etter ankomst tel ikkje: då har Entur gløymt avlysinga, og ein utur ser ut som ein tinga tur.
+3. Loggen seier `booked`, og `observedAt` er før ankomst (eller manglar, på gamle rader) → bestilt. Ein logg som fyrst såg turen etter ankomst tel ikkje: då har Entur gløymt avlysinga, og ein utur ser ut som ein tinga tur. Unntaket er at loggeren fann `actualDepartureTime` i feeden. Då er `observedAt` den faktiske avgangen, som er før ankomst, og observasjonen tel.
 4. Siste Entur-svar er frå i dag, kom etter fristen og før ankomst, og turen låg i svaret utan avlysing:
    - turen låg i svaret (`seenJourneys`) → bestilt. Id-en blir hugsa i `confirmedBooked` ut økta.
    - turen var hugsa slik tidlegare i økta → bestilt, òg om eit seinare svar ikkje lenger har kallet.
@@ -378,6 +380,6 @@ Det som må halde:
 5. Poll SIRI VM i rutevindauget. Stol på posisjon berre i 3 minutt. Rekn avgang frå `leftOrigin`.
 6. Poll GraphQL-avlysingar for dagen. Ta avlyste bein ut av posisjonsrekninga. Signaltur som er avlyst er «Ikkje utført».
 7. Etter tingefristen: grøn «Bestilt signaltur» berre etter reglane i avsnitt 7. Hugs sett tur ut økta. Ikkje gjett bestilt etter ankomst berre fordi kallet manglar.
-8. Løkke på `main` som skriv `signalturar.json` i sju dagar, minst kvart 30. minutt mellom 04:00 og 22:40 UTC, og startar seg sjølv på nytt før 6-timarstaket. Cron er reserve. `skipped` er sticky. Turar som ikkje er i feeden blir ikkje logga. Ein sein `updatedAt` varslar, men stoppar ikkje løkka.
+8. Løkke på `main` som skriv `signalturar.json` i sju dagar, minst kvart 30. minutt mellom 04:00 og 22:40 UTC, og startar seg sjølv på nytt før 6-timarstaket. Cron `7,37 4-22` er vakt og startar løkka om ingen køyring er aktiv. `skipped` er sticky. Turar som ikkje er i feeden blir ikkje logga. Eit hol blir fylt frå det Entur enno har, også faktisk avgangstid. Ein sein `updatedAt` varslar, men stoppar ikkje løkka.
 9. Service worker som i avsnitt 9, med eige cachenamn på `/dev/`.
 10. Sjekk med testane i avsnitt 11 før produksjon. Slepp via `dev`, ikkje med feature-PR mot `main`.

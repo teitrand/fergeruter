@@ -1,17 +1,21 @@
 name: Logg signalturar
 
 # Éi køyring loggar gjennom vaktvindauget og startar seg sjølv på nytt før
-# GitHub sitt 6-timarstak. Cron er berre reserve om den løkka har døydd.
+# GitHub sitt 6-timarstak. Cron er vakt: ho startar ei ny løkke om ingen
+# køyring er aktiv (in_progress eller i kø).
+#
+# :07 og :37, ikkje :00/:30. GitHub si cron-kø er tettast på heile og halve
+# timar, så vakta treffer oftare utanfor det.
 #
 # Start, etter at denne fila ligg på main: Actions → Logg signalturar →
 # Run workflow, grein main, éin gong. La vidareførings-flagget stå av.
-# Stopp: avbryt den køyrande jobben. Cron kan vekke ho att, så slå av
-# workflowen om ho skal vere stoppa.
+# Stopp: avbryt den køyrande jobben og slå av workflowen, elles vekker
+# vakta ho att.
 
 on:
   schedule:
-    # Reserve-startar. GitHub kan utsetje eller hoppe over cron.
-    - cron: "*/30 4-21 * * *"
+    # Vakt gjennom vindauget 04:00–22:40 UTC. Siste slag er 22:37.
+    - cron: "7,37 4-22 * * *"
   workflow_dispatch:
     inputs:
       handoff:

@@ -3,7 +3,8 @@
 
 Éi køyring loggar minst kvart 30. minutt mellom 04:00 og 22:40 UTC, søv
 mellom rundane, og varer opptil 5 timar og 30 minutt. Før ho sluttar, startar
-ho seg sjølv på nytt med `workflow_dispatch`. Cron er berre reserve.
+ho seg sjølv på nytt med `workflow_dispatch`. Cron på :07 og :37 er vakt:
+ho startar løkka på nytt om ingen køyring er aktiv.
 """
 
 from __future__ import annotations
@@ -19,8 +20,10 @@ from pathlib import Path
 
 LOG_INTERVAL = timedelta(minutes=30)
 LOOP_BUDGET = timedelta(hours=5, minutes=30)
-# GitHub drep jobben etter 6 timar. Eldre "in_progress" er ein daud rest.
+# GitHub drep jobben etter 6 timar. Eldre køyringar er ein daud rest.
 JOB_LIMIT = timedelta(hours=6)
+# Vakta skal ikkje starte ei ny løkke medan ei anna ventar på løpar.
+ACTIVE_STATUSES = {"in_progress", "queued", "waiting", "pending", "requested"}
 # Løkka vidarefører seg ved LOOP_BUDGET. Ein forelder er då eldre enn dette,
 # så barnet ikkje går av fordi forelderen enno står som in_progress.
 HANDOFF_AGE = timedelta(hours=5)
@@ -115,18 +118,22 @@ def parse_time(value):
 
 
 def run_age(run, now):
-    started = parse_time(run.get("startedAt")) or parse_time(run.get("createdAt"))
+    if run.get("status") == "in_progress":
+        started = parse_time(run.get("startedAt")) or parse_time(run.get("createdAt"))
+    else:
+        started = parse_time(run.get("createdAt")) or parse_time(run.get("startedAt"))
     if started is None:
         return None
     return as_utc(now) - started
 
 
 def should_exit_as_duplicate(event, handoff, runs, now, self_id):
-    """True berre når ei verkeleg løkke alt går.
+    """True berre når ei verkeleg løkke alt går eller ventar på løpar.
 
-    Cron skal vike. Vidareførings-køyret skal ikkje vike for forelderen, som
-    enno er in_progress dei siste minutta. Køyringar eldre enn jobbtaket, og
-    svar vi ikkje kan lese, blokkerer ikkje.
+    Cron-vakta skal vike, og dermed ikkje starte ei dobbel løkke. Vidareførings-
+    køyret skal ikkje vike for forelderen, som enno er in_progress dei siste
+    minutta. Køyringar eldre enn jobbtaket, ferdige køyringar, og svar vi ikkje
+    kan lese, blokkerer ikkje. Då kan vakta starte løkka på nytt.
     """
     self_id = str(self_id or "")
     if event == "schedule":
@@ -141,7 +148,7 @@ def should_exit_as_duplicate(event, handoff, runs, now, self_id):
         branch = run.get("headBranch")
         if branch not in (None, "", "main"):
             continue
-        if run.get("status") != "in_progress":
+        if run.get("status") not in ACTIVE_STATUSES:
             continue
         age = run_age(run, now)
         if age is None:
@@ -330,7 +337,7 @@ def run_loop(*, started, now_fn, sleep_fn, log_fn, handoff_fn, budget=LOOP_BUDGE
         sleep_fn(decision.sleep_seconds)
 
 
-def fetch_in_progress_runs():
+def fetch_recent_runs():
     proc = subprocess.run(
         [
             "gh",
@@ -338,8 +345,6 @@ def fetch_in_progress_runs():
             "list",
             "--workflow",
             WORKFLOW_FILE,
-            "--status",
-            "in_progress",
             "--json",
             "databaseId,status,startedAt,createdAt,headBranch,event",
             "--limit",
@@ -367,7 +372,7 @@ def main():
         event,
         handoff,
         self_id,
-        fetch_in_progress_runs,
+        fetch_recent_runs,
         datetime.now(timezone.utc),
     )
     if error is not None:
