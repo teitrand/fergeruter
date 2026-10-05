@@ -16,9 +16,11 @@ import {
   liveStatus,
   currentStatus,
   signalVerdict,
+  signalObservedAtQuay,
   signalIsBooked,
   departureDetail,
   signalLogStatus,
+  signalLogStale,
   cancelledJourneyIds,
   seenJourneyIds,
   osloDayStartIso,
@@ -42,7 +44,7 @@ import {
   shouldFetchLive,
   serviceWindowMinutes,
 } from "../assets/app.js";
-import { setLang } from "../assets/i18n.js?v=65";
+import { setLang } from "../assets/i18n.js?v=71";
 
 beforeEach(() => {
   setLang("nn");
@@ -114,33 +116,32 @@ test("NO-status fyller tida mellom stopp, òg i liggetid og kort kai-opphald", (
   assert.equal(done.progress, undefined);
 });
 
-test("tomtur varer overfarten, deretter ligg ferja på neste kai", () => {
+test("hol inne i fjorden er kai, ikkje tomtur", () => {
   const running = [
     leg("Trandal", "Sæbø", "08:00:00", "08:30:00"),
     leg("Trandal", "Standal", "09:45:00", "10:00:00"),
   ];
   const catalog = [...running, leg("Sæbø", "Trandal", "09:20:00", "09:45:00")];
   const during = ferryStatus(running, 8 * 60 + 40, catalog);
-  assert.equal(during.underway, true);
-  assert.equal(during.text, "Ferja går til Trandal utan passasjerar");
+  assert.equal(during.underway, undefined);
+  assert.equal(during.text, "Ferja ligg til kai på Sæbø");
   assert.equal(during.from, 8 * 60 + 30);
-  assert.equal(during.until, 8 * 60 + 55);
-  const alongside = ferryStatus(running, 8 * 60 + 57, catalog);
-  assert.equal(alongside.underway, undefined);
-  assert.equal(alongside.text, "Ferja ligg til kai på Trandal");
-  assert.equal(alongside.from, 8 * 60 + 55);
-  assert.equal(alongside.until, 9 * 60 + 45);
+  assert.equal(during.until, 9 * 60 + 45);
+  const later = ferryStatus(running, 8 * 60 + 57, catalog);
+  assert.equal(later.text, "Ferja ligg til kai på Sæbø");
+  assert.doesNotMatch(during.text, /utan passasjerar/);
 });
 
-test("tomtur utan kjend overfart varer heile holet", () => {
+test("hol utan kjend overfart inne i fjorden er òg kai", () => {
   const legs = [
     leg("Sæbø", "Skår", "08:35:00", "08:55:00"),
     leg("Trandal", "Standal", "09:45:00", "10:00:00"),
   ];
   const status = ferryStatus(legs, 9 * 60, legs);
-  assert.equal(status.underway, true);
-  assert.equal(status.text, "Ferja går til Trandal utan passasjerar");
+  assert.equal(status.underway, undefined);
+  assert.equal(status.text, "Ferja ligg til kai på Skår");
   assert.equal(status.until, 9 * 60 + 45);
+  assert.doesNotMatch(status.text, /utan passasjerar/);
 });
 
 test("etter siste passasjertur til Valderøya går ho heim utan folk", () => {
@@ -182,14 +183,15 @@ test("nattur frå Valderøya har fast tid òg utan hol i tabellen", () => {
   assert.equal(home.short, "Ferja ligg til kai på Standal");
 });
 
-test("utan kjend overfart og utan hol finn vi ikkje opp ei klokkeslett", () => {
+test("siste anløp inne i fjorden er ikkje tomtur heim", () => {
   const onlyEvening = [
     leg("Standal", "Trandal", "07:40:00", "07:55:00"),
     leg("Trandal", "Bjørke", "19:25:00", "19:45:00"),
   ];
   const status = ferryStatus(onlyEvening, 20 * 60, onlyEvening);
-  assert.match(status.text, /over natta/);
-  assert.doesNotMatch(status.text, /ferdig for dagen på Bjørke/);
+  assert.equal(status.short, "Ferja er ferdig for dagen på Bjørke");
+  assert.equal(status.underway, undefined);
+  assert.doesNotMatch(status.text, /utan passasjerar/);
 });
 
 test("tomtur Valderøya til Standal varer den faste tida, deretter kai", () => {
@@ -350,7 +352,7 @@ test("signaltur som ligg til kai etter avgang går ikkje", () => {
   const now = 7 * 60 + 25;
   assert.equal(signalVerdict(signalMorning[0], live, now, signalMorning), "skipped");
   assert.equal(signalVerdict(signalMorning[1], live, now, signalMorning), "skipped");
-  assert.equal(signalVerdict(signalMorning[0], live, 6 * 60 + 30, signalMorning), null);
+  assert.equal(signalVerdict(signalMorning[0], live, 6 * 60 + 30, signalMorning), "skipped");
   setTestState({ live });
   const status = currentStatus(signalMorning, now);
   assert.equal(status.signal, "skipped");
@@ -358,6 +360,106 @@ test("signaltur som ligg til kai etter avgang går ikkje", () => {
   assert.match(status.text, /kl\. 06:45/);
   assert.match(status.text, /Standal/);
   assert.doesNotMatch(status.text, /forsinka/);
+});
+
+test("signaltur som er framme ved kai seier liggetid, ikkje på veg", () => {
+  const backId = "MOR:ServiceJourney:1136_101_9150000046366323";
+  const legs = [
+    signalLeg("Standal", "Trandal", "06:45:00", "07:00:00"),
+    signalLeg("Trandal", "Standal", "07:05:00", "07:20:00", backId),
+    leg("Standal", "Trandal", "07:40:00", "07:55:00"),
+  ];
+  const live = freshLive({
+    journeyRef: backId,
+    originAimed: "2026-10-05T07:05:00+02:00",
+    destination: "Standal",
+    atStop: true,
+    stopName: "Standal ferjekai",
+    actualDeparture: "",
+    actualArrival: "2026-10-05T07:21:34+02:00",
+    latitude: 62.26652,
+    longitude: 6.42321,
+    delayMinutes: 1,
+    recordedAt: "2026-10-05T07:21:34+02:00",
+  });
+  const now = 7 * 60 + 21;
+  setTestState({ live });
+  const status = currentStatus(legs, now);
+  assert.equal(status.underway, undefined);
+  assert.match(status.short, /ligg til kai på Standal/);
+  assert.match(status.text, /ligg til kai på Standal/);
+  assert.match(status.text, /07:40/);
+  assert.match(status.text, /Liggetid/);
+  assert.doesNotMatch(status.text, /på veg/);
+  assert.doesNotMatch(status.text, /forsinka/);
+});
+
+test("planlagd ankomst som er passert er kai, forseinka ankomst er enno på veg", () => {
+  const backId = "MOR:ServiceJourney:1136_101_9150000046366323";
+  const legs = [
+    signalLeg("Trandal", "Standal", "07:05:00", "07:20:00", backId),
+    leg("Standal", "Trandal", "07:40:00", "07:55:00"),
+  ];
+  setTestState({
+    live: freshLive({
+      journeyRef: backId,
+      originAimed: "2026-10-05T07:05:00+02:00",
+      destination: "Standal",
+      atStop: false,
+      stopName: "",
+      actualDeparture: "2026-10-05T07:06:00+02:00",
+      delayMinutes: 0,
+    }),
+  });
+  const arrived = currentStatus(legs, 7 * 60 + 22);
+  assert.match(arrived.text, /ligg til kai på Standal/);
+  assert.match(arrived.text, /07:40/);
+  assert.doesNotMatch(arrived.text, /på veg/);
+  setTestState({
+    live: freshLive({
+      journeyRef: backId,
+      originAimed: "2026-10-05T07:05:00+02:00",
+      destination: "Standal",
+      atStop: false,
+      stopName: "Trandal",
+      actualDeparture: "2026-10-05T07:06:00+02:00",
+      expectedArrival: "2026-10-05T07:30:00+02:00",
+      delayMinutes: 10,
+    }),
+  });
+  const late = currentStatus(legs, 7 * 60 + 22);
+  assert.equal(late.underway, true);
+  assert.match(late.text, /på veg mot Standal/);
+  setTestState({
+    live: freshLive({
+      journeyRef: backId,
+      originAimed: "2026-10-05T07:05:00+02:00",
+      destination: "Standal",
+      atStop: false,
+      stopName: "Standal",
+      actualDeparture: "2026-10-05T07:06:00+02:00",
+      expectedArrival: "2026-10-05T07:30:00+02:00",
+      delayMinutes: 10,
+    }),
+  });
+  const expectedLater = currentStatus(legs, 7 * 60 + 22);
+  assert.equal(expectedLater.underway, true);
+  assert.match(expectedLater.text, /på veg mot Standal/);
+  setTestState({
+    live: freshLive({
+      journeyRef: backId,
+      originAimed: "2026-10-05T07:05:00+02:00",
+      destination: "Standal",
+      atStop: false,
+      stopName: "Standal",
+      actualDeparture: "2026-10-05T07:06:00+02:00",
+      expectedArrival: "2026-10-05T07:21:00+02:00",
+      delayMinutes: 1,
+    }),
+  });
+  const expectedPassed = currentStatus(legs, 7 * 60 + 22);
+  assert.match(expectedPassed.text, /ligg til kai på Standal/);
+  assert.doesNotMatch(expectedPassed.text, /på veg/);
 });
 
 test("signaltur som har lagt frå kai blir køyrd, med forseinking", () => {
@@ -371,7 +473,7 @@ test("signaltur som har lagt frå kai blir køyrd, med forseinking", () => {
   });
   const now = 6 * 60 + 55;
   assert.equal(signalVerdict(signalMorning[0], live, now, signalMorning), "running");
-  assert.equal(signalVerdict(signalMorning[1], live, now, signalMorning), null);
+  assert.equal(signalVerdict(signalMorning[1], live, now, signalMorning), "skipped");
   setTestState({ live });
   const status = currentStatus(signalMorning, now);
   assert.equal(status.signal, "running");
@@ -425,6 +527,56 @@ test("vanleg tur tek framleis med Entur-forseinking", () => {
   const status = currentStatus(legs, 7 * 60 + 45);
   assert.match(status.text, /på veg mot Trandal/);
   assert.match(status.text, /5 min forsinka/);
+});
+
+test("logga tomtur som gjekk er ikkje ikkje utført og ikkje bestilt", () => {
+  const id = "MOR:ServiceJourney:1136_102_9150000047474169";
+  const trip = signalLeg("Standal", "Trandal", "06:45:00", "07:00:00", id);
+  const yesterday = "2026-10-04";
+  setTestState({
+    date: yesterday,
+    signalLog: {
+      days: {
+        [yesterday]: [
+          {
+            id,
+            from: "Standal",
+            to: "Trandal",
+            departure: "06:45:00",
+            status: "gått",
+            observedAt: `${yesterday}T06:46:00+02:00`,
+          },
+        ],
+      },
+    },
+  });
+  assert.equal(signalLogStatus(trip), "gått");
+  assert.equal(signalVerdict(trip, null, 12 * 60, [trip]), null);
+  assert.equal(signalIsBooked(trip, 12 * 60), false);
+  const detail = departureDetail(trip, 12 * 60);
+  assert.equal(detail.phase, "sailed");
+  assert.equal(detail.skipped, false);
+  assert.equal(detail.booked, false);
+  setTestState({ date: null });
+  setTestState({
+    signalLog: {
+      days: {
+        [todayIso()]: [
+          {
+            id,
+            from: "Standal",
+            to: "Trandal",
+            departure: "06:45:00",
+            status: "gått",
+            observedAt: `${todayIso()}T06:46:00+02:00`,
+          },
+        ],
+      },
+    },
+  });
+  assert.notEqual(signalVerdict(trip, null, 12 * 60, [trip]), "skipped");
+  assert.equal(signalIsBooked(trip, 12 * 60), false);
+  assert.equal(departureDetail(trip, 12 * 60).phase, "sailed");
 });
 
 test("loggen viser bestilt og ikkje utført ei veke attende", () => {
@@ -495,7 +647,7 @@ test("logga ikkje utført blir køyrd dersom ferja likevel har lagt frå kai", (
   assert.equal(signalIsBooked(trip, 20 * 60 + 10), false);
 });
 
-test("signaltur som ikkje er avlyst etter fristen er bestilt", () => {
+test("signaltur som ikkje er avlyst etter fristen er bestilt berre om han låg i svaret", () => {
   const id = "MOR:ServiceJourney:1136_booked";
   const trip = signalLeg("Standal", "Trandal", "13:00:00", "13:15:00", id);
   const start = Date.parse(osloDayStartIso(todayIso()));
@@ -503,18 +655,37 @@ test("signaltur som ikkje er avlyst etter fristen er bestilt", () => {
     cancelledJourneys: new Set(),
     cancellationsFetchedAt: start + (12 * 60 + 30) * 60 * 1000,
   });
-  assert.equal(signalIsBooked(trip, 12 * 60 + 30), true);
-  setTestState({ cancellationsFetchedAt: start + 11 * 60 * 60 * 1000 });
-  assert.equal(signalIsBooked(trip, 12 * 60 + 30), false);
-  setTestState({
-    cancelledJourneys: new Set([id]),
-    cancellationsFetchedAt: start + (12 * 60 + 30) * 60 * 1000,
-  });
-  assert.equal(signalIsBooked(trip, 12 * 60 + 30), false);
-  setTestState({ cancelledJourneys: new Set(), cancellationsFetchedAt: 0 });
   assert.equal(signalIsBooked(trip, 12 * 60 + 30), false);
   setTestState({
     cancelledJourneys: new Set(),
+    seenJourneys: new Set([id]),
+    cancellationsFetchedAt: start + (12 * 60 + 30) * 60 * 1000,
+  });
+  assert.equal(signalIsBooked(trip, 12 * 60 + 30), true);
+  setTestState({
+    seenJourneys: new Set(),
+    confirmedBooked: new Set(),
+    cancellationsFetchedAt: start + 11 * 60 * 60 * 1000,
+  });
+  assert.equal(signalIsBooked(trip, 12 * 60 + 30), false);
+  setTestState({
+    cancelledJourneys: new Set([id]),
+    seenJourneys: new Set([id]),
+    confirmedBooked: new Set(),
+    cancellationsFetchedAt: start + (12 * 60 + 30) * 60 * 1000,
+  });
+  assert.equal(signalIsBooked(trip, 12 * 60 + 30), false);
+  setTestState({
+    cancelledJourneys: new Set(),
+    seenJourneys: new Set(),
+    confirmedBooked: new Set(),
+    cancellationsFetchedAt: 0,
+  });
+  assert.equal(signalIsBooked(trip, 12 * 60 + 30), false);
+  setTestState({
+    cancelledJourneys: new Set(),
+    seenJourneys: new Set(),
+    confirmedBooked: new Set(),
     cancellationsFetchedAt: start + (12 * 60 + 30) * 60 * 1000,
   });
   assert.equal(signalIsBooked(trip, 13 * 60 + 20), false);
@@ -593,6 +764,89 @@ test("før fristen veit detaljane ikkje om turen er tinga", () => {
   assert.equal(departureDetail(trip, 11 * 60).phase, "open");
 });
 
+test("signalloggen er for sein berre i vaktvindauget", () => {
+  const at = (iso) => Date.parse(iso);
+  assert.equal(
+    signalLogStale(at("2026-10-04T10:00:00Z"), { updatedAt: "2026-10-04T09:40:00Z" }),
+    false
+  );
+  assert.equal(
+    signalLogStale(at("2026-10-04T10:00:00Z"), { updatedAt: "2026-10-04T08:00:00Z" }),
+    true
+  );
+  assert.equal(
+    signalLogStale(at("2026-10-04T02:00:00Z"), { updatedAt: "2026-10-03T21:30:00Z" }),
+    false
+  );
+  assert.equal(signalLogStale(at("2026-10-04T10:00:00Z"), {}), true);
+  assert.equal(signalLogStale(at("2026-10-04T10:00:00Z"), { updatedAt: "" }), true);
+  assert.equal(
+    signalLogStale(at("2026-10-04T04:30:00Z"), { updatedAt: "2026-10-03T21:30:00Z" }),
+    false
+  );
+  assert.equal(
+    signalLogStale(at("2026-10-04T05:15:00Z"), { updatedAt: "2026-10-03T21:30:00Z" }),
+    true
+  );
+});
+
+test("ein observasjon i tide tel sjølv om hjarteslaget seinare er for gammalt", () => {
+  const id = "MOR:ServiceJourney:1136_102_9150000047474169";
+  const trip = signalLeg("Standal", "Trandal", "06:45:00", "07:00:00", id);
+  setTestState({
+    signalLog: {
+      updatedAt: "2026-10-04T06:50:00+02:00",
+      days: {
+        [todayIso()]: [
+          {
+            id,
+            from: "Standal",
+            to: "Trandal",
+            departure: "06:45:00",
+            status: "booked",
+            observedAt: `${todayIso()}T06:50:00+02:00`,
+          },
+        ],
+      },
+    },
+  });
+  assert.equal(signalIsBooked(trip, 12 * 60), true);
+  assert.equal(signalLogStale(Date.parse("2026-10-04T10:00:00Z")), true);
+});
+
+test("logg og Entur-svar etter ankomst gjer ikkje turen bestilt", () => {
+  const id = "MOR:ServiceJourney:1136_707_9150000046319059";
+  const trip = signalLeg("Sæbø", "Skår", "10:50:00", "11:10:00", id);
+  const start = Date.parse(osloDayStartIso(todayIso()));
+  setTestState({
+    cancelledJourneys: new Set(),
+    seenJourneys: new Set([id]),
+    cancellationsFetchedAt: start + (12 * 60 + 19) * 60 * 1000,
+    signalLog: {
+      days: {
+        [todayIso()]: [
+          {
+            id,
+            from: "Sæbø",
+            to: "Skår",
+            departure: "10:50:00",
+            status: "booked",
+            observedAt: `${todayIso()}T12:19:00+02:00`,
+          },
+        ],
+      },
+    },
+  });
+  assert.equal(signalIsBooked(trip, 12 * 60 + 19), false);
+  const early = signalLeg("Skår", "Sæbø", "11:20:00", "11:40:00", "MOR:ServiceJourney:1136_702");
+  setTestState({
+    cancelledJourneys: new Set(),
+    seenJourneys: new Set(["MOR:ServiceJourney:1136_702"]),
+    cancellationsFetchedAt: start + (10 * 60 + 25) * 60 * 1000,
+  });
+  assert.equal(signalIsBooked(early, 10 * 60 + 25), true);
+});
+
 test("svar frå før fristen gjer ikkje ein gått signaltur bestilt", () => {
   const id = "MOR:ServiceJourney:1136_102_9150000047474169";
   const trip = signalLeg("Standal", "Trandal", "06:45:00", "07:00:00", id);
@@ -602,6 +856,81 @@ test("svar frå før fristen gjer ikkje ein gått signaltur bestilt", () => {
     cancellationsFetchedAt: start + 5 * 60 * 60 * 1000,
   });
   assert.equal(signalIsBooked(trip, 7 * 60 + 6), false);
+});
+
+test("avlyst signaltur før avgang seier ikkje at ferja ligg ved kai", () => {
+  const viaId = "MOR:ServiceJourney:1136_705_9150000047476817";
+  const toSkarId = "MOR:ServiceJourney:1136_707_9150000046319059";
+  const backId = "MOR:ServiceJourney:1136_702_9150000046318658";
+  const legs = [
+    leg("Standal", "Trandal", "10:00:00", "10:20:00"),
+    signalLeg("Trandal", "Sæbø", "10:20:00", "10:50:00", viaId),
+    signalLeg("Sæbø", "Skår", "10:50:00", "11:10:00", toSkarId),
+    signalLeg("Skår", "Sæbø", "11:20:00", "11:40:00", backId),
+  ];
+  const now = 10 * 60 + 24;
+  setTestState({ cancelledJourneys: new Set([viaId, toSkarId]) });
+  assert.equal(signalVerdict(legs[1], null, now, legs), "skipped");
+  assert.equal(signalVerdict(legs[2], null, now, legs), "skipped");
+  assert.equal(signalVerdict(legs[3], null, now, legs), "skipped");
+  assert.equal(signalObservedAtQuay(legs[1], null, now, legs), false);
+  assert.equal(signalObservedAtQuay(legs[2], null, now, legs), false);
+  const status = currentStatus(legs, now);
+  assert.equal(status.short, "Ferja er ferdig for dagen på Trandal");
+  assert.equal(status.underway, undefined);
+  assert.doesNotMatch(status.text, /utan passasjerar/);
+});
+
+test("avlyst signaltur som enno ligg ved kai etter avgang blir merkt", () => {
+  const id = "MOR:ServiceJourney:1136_705_9150000047476817";
+  const trip = signalLeg("Trandal", "Sæbø", "10:20:00", "10:50:00", id);
+  const live = freshLive({
+    journeyRef: id,
+    originAimed: "2026-10-04T10:20:00+02:00",
+    atStop: true,
+    stopName: "Trandal ferjekai",
+    latitude: 62.260997,
+    longitude: 6.500688,
+    destination: "Sæbø",
+    delayMinutes: 1,
+  });
+  const now = 10 * 60 + 24;
+  setTestState({ live, cancelledJourneys: new Set([id]) });
+  assert.equal(signalVerdict(trip, live, now, [trip]), "skipped");
+  assert.equal(signalObservedAtQuay(trip, live, now, [trip]), true);
+  assert.equal(signalObservedAtQuay(trip, live, 10 * 60 + 10, [trip]), false);
+});
+
+test("seinare kjøyretur gjev ikkje merknad om kai", () => {
+  const live = freshLive({
+    journeyRef: "MOR:ServiceJourney:1136_104_regular",
+    originAimed: "2026-10-01T07:40:00+02:00",
+    atStop: false,
+    stopName: "Trandal",
+    latitude: 62.263,
+    longitude: 6.46,
+    delayMinutes: 0,
+  });
+  const legs = [
+    ...signalMorning.slice(0, 2),
+    {
+      id: "MOR:ServiceJourney:1136_104_regular#0",
+      from: "Standal",
+      to: "Trandal",
+      departure: "07:40:00",
+      arrival: "07:55:00",
+    },
+  ];
+  assert.equal(signalVerdict(legs[0], live, 8 * 60, legs), "skipped");
+  assert.equal(signalObservedAtQuay(legs[0], live, 8 * 60, legs), false);
+});
+
+test("signaltur som ligg att på startkaien etter avgang blir merkt", () => {
+  const live = freshLive();
+  const now = 7 * 60 + 25;
+  assert.equal(signalObservedAtQuay(signalMorning[0], live, now, signalMorning), true);
+  assert.equal(signalObservedAtQuay(signalMorning[1], live, now, signalMorning), true);
+  assert.equal(signalObservedAtQuay(signalMorning[0], live, 6 * 60 + 30, signalMorning), false);
 });
 
 test("avlyst signaltur blir ikkje ståande som på veg til Standal", () => {
@@ -685,6 +1014,9 @@ test("parseVehicleMonitoring les kai og avgang for signaltur", () => {
                   StopPointName: [{ value: "Standal ferjekai" }],
                   AimedDepartureTime: "2026-10-01T06:45:00+02:00",
                   ExpectedDepartureTime: "2026-10-01T07:25:00+02:00",
+                  AimedArrivalTime: "2026-10-01T07:20:00+02:00",
+                  ExpectedArrivalTime: "2026-10-01T07:21:34+02:00",
+                  ActualArrivalTime: "2026-10-01T07:21:34+02:00",
                 },
               },
             },
@@ -697,6 +1029,9 @@ test("parseVehicleMonitoring les kai og avgang for signaltur", () => {
   assert.equal(live.atStop, true);
   assert.equal(live.stopName, "Standal");
   assert.equal(live.actualDeparture, "");
+  assert.equal(live.actualArrival, "2026-10-01T07:21:34+02:00");
+  assert.equal(live.expectedArrival, "2026-10-01T07:21:34+02:00");
+  assert.equal(live.aimedArrival, "2026-10-01T07:20:00+02:00");
   assert.equal(live.delayMinutes, 40);
   assert.equal(signalVerdict(signalMorning[0], live, 7 * 60 + 25, signalMorning), "skipped");
 });
