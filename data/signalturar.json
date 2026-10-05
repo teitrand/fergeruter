@@ -1,6 +1,6 @@
 {
   "keptDays": 7,
-  "updatedAt": "2026-10-05T19:38:10.431890+02:00",
+  "updatedAt": "2026-10-05T20:08:10.137833+02:00",
   "days": {
     "2026-10-01": [
       {
@@ -388,14 +388,6 @@
         "observedAt": "2026-10-05T06:48:15+02:00"
       },
       {
-        "id": "MOR:ServiceJourney:1136_101_9150000046366323",
-        "from": "Trandal",
-        "to": "Standal",
-        "departure": "07:05:00",
-        "status": "booked",
-        "observedAt": "2026-10-05T07:05:17+02:00"
-      },
-      {
         "id": "MOR:ServiceJourney:1136_108_9150000046319006",
         "from": "Sæbø",
         "to": "Skår",
@@ -423,14 +415,6 @@
         "skippedAt": "2026-10-05T08:37:24.301369+02:00"
       },
       {
-        "id": "MOR:ServiceJourney:1136_120_9150000047476409",
-        "from": "Trandal",
-        "to": "Sæbø",
-        "departure": "16:25:00",
-        "status": "booked",
-        "observedAt": "2026-10-05T15:39:17.457755+02:00"
-      },
-      {
         "id": "MOR:ServiceJourney:1136_122_9150000046319029",
         "from": "Sæbø",
         "to": "Skår",
@@ -447,30 +431,6 @@
         "status": "skipped",
         "observedAt": "2026-10-05T16:38:08.135247+02:00",
         "skippedAt": "2026-10-05T17:08:10.225294+02:00"
-      },
-      {
-        "id": "MOR:ServiceJourney:1136_121_9150000046366642",
-        "from": "Sæbø",
-        "to": "Trandal",
-        "departure": "17:45:00",
-        "status": "booked",
-        "observedAt": "2026-10-05T17:08:10.225294+02:00"
-      },
-      {
-        "id": "MOR:ServiceJourney:1136_128_9150000047474268",
-        "from": "Standal",
-        "to": "Trandal",
-        "departure": "20:00:00",
-        "status": "booked",
-        "observedAt": "2026-10-05T19:08:08.842966+02:00"
-      },
-      {
-        "id": "MOR:ServiceJourney:1136_129_9150000046366348",
-        "from": "Trandal",
-        "to": "Standal",
-        "departure": "20:20:00",
-        "status": "booked",
-        "observedAt": "2026-10-05T19:38:10.431890+02:00"
       }
     ]
   }
