@@ -7,7 +7,7 @@ import {
   setLang,
   t,
   weekdays,
-} from "./i18n.js?v=72";
+} from "./i18n.js?v=73";
 
 const MESSAGES_URL = "data/trafikkmeldinger.json";
 const SIGNAL_LOG_URL = "data/signalturar.json";
@@ -54,7 +54,7 @@ const FJORD1_MESSAGES_PAGE = "https://www.fjord1.no/trafikkmeldingar";
  * CORS-JSON frå cloudflare/trafikkmeldinger/. Må vere lik MESSAGES_API_URL der.
  * Det gamle Fjord1-endepunktet svarar 404 og blir ikkje kalla.
  */
-const FJORD1_MESSAGES_API = "https://fergeruter-trafikkmeldinger.teitrand.workers.dev/";
+const FJORD1_MESSAGES_API = "https://fergeruter-trafikkmeldinger.fergeruter-teitrand.workers.dev/";
 /** Siste utveg om workeren feilar. Fjord1-sida har ikkje CORS. */
 const FJORD1_HTML_READER = `https://r.jina.ai/${FJORD1_MESSAGES_PAGE}`;
 const ALLOWED_MODES = new Set(["1136", "1135", "kombi"]);

@@ -19,10 +19,10 @@ Nodane i JSON-svaret har same form som `normalizeFjord1Node` i `assets/app.js` v
 `workers.dev`-underdomenet høyrer til Cloudflare-kontoen og står ikkje i repoet. Konstanten under er den nettlesaren kallar. Ho må vere lik `MESSAGES_API_URL` i `src/index.js` og `FJORD1_MESSAGES_API` i `assets/app.js` (testen sjekkar det).
 
 ```
-https://fergeruter-trafikkmeldinger.teitrand.workers.dev/
+https://fergeruter-trafikkmeldinger.fergeruter-teitrand.workers.dev/
 ```
 
-`teitrand.workers.dev` løyste ikkje då workeren blei lagd inn. Ikkje gjett eit anna underdomene i koden. Etter deploy skriv `wrangler` ut den faktiske URL-en. Er ho annleis, oppdater begge konstantane og auk cache-tallet `?v=` slik docs seier. Ikkje merg til `dev` før den URL-en er stadfesta.
+Den adressa er den wrangler gav ved deploy. Endrar ho seg, oppdater `MESSAGES_API_URL` og `FJORD1_MESSAGES_API` saman og auk `?v=`.
 
 ## Oppsett
 
@@ -37,10 +37,10 @@ npx wrangler deploy
 3. Sjekk URL-en wrangler skriv ut:
 
 ```bash
-curl -sS -D- "https://fergeruter-trafikkmeldinger.<underdomene>.workers.dev/" | head
+curl -sS -D- "https://fergeruter-trafikkmeldinger.fergeruter-teitrand.workers.dev/" | head
 ```
 
-Svaret skal vere JSON med `messages`, og headerane `access-control-allow-origin: *` og `cache-control: public, max-age=120`. Om underdomenet ikkje er `teitrand`, oppdater `MESSAGES_API_URL` og `FJORD1_MESSAGES_API` til den URL-en, auk `?v=` i `index.html`, `sw.js` og `assets/app.js`, og få endringa ut via `dev` først etter at URL-en er stadfesta.
+Svaret skal vere JSON med `messages`, og headerane `access-control-allow-origin: *` og `cache-control: public, max-age=120`. Live URL er `https://fergeruter-trafikkmeldinger.fergeruter-teitrand.workers.dev/`.
 
 ## Stopp
 

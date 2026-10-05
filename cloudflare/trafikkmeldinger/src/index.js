@@ -5,13 +5,8 @@ const MAX_MESSAGES = 500;
 const CACHE_SECONDS = 120;
 export const ERROR_CACHE_SECONDS = 45;
 
-/**
- * workers.dev-underdomenet blir valt på Cloudflare-kontoen.
- * `teitrand.workers.dev` løyste ikkje då dette blei skrive. Etter
- * `wrangler deploy`: om URL-en er ein annan, oppdater denne og same streng i
- * `assets/app.js`. Testen krev at dei er like.
- */
-export const MESSAGES_API_URL = "https://fergeruter-trafikkmeldinger.teitrand.workers.dev/";
+/** Må vere lik FJORD1_MESSAGES_API i assets/app.js. Testen krev det. */
+export const MESSAGES_API_URL = "https://fergeruter-trafikkmeldinger.fergeruter-teitrand.workers.dev/";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",

@@ -108,7 +108,7 @@ test("GET svarar JSON med CORS og bruker cachen", async () => {
     return { ok: true, json: async () => view([hit(7)]) };
   };
   const now = () => new Date("2026-10-05T12:00:00.000Z");
-  const first = await handleRequest(new Request("https://fergeruter-trafikkmeldinger.teitrand.workers.dev/"), {
+  const first = await handleRequest(new Request("https://fergeruter-trafikkmeldinger.fergeruter-teitrand.workers.dev/"), {
     fetchImpl,
     cache,
     now,
@@ -124,7 +124,7 @@ test("GET svarar JSON med CORS og bruker cachen", async () => {
   assert.deepEqual(payload, buildPayload(payload.messages, payload.fetchedAt));
 
   const second = await handleRequest(
-    new Request("https://fergeruter-trafikkmeldinger.teitrand.workers.dev/?t=1"),
+    new Request("https://fergeruter-trafikkmeldinger.fergeruter-teitrand.workers.dev/?t=1"),
     { fetchImpl, cache, now }
   );
   assert.equal(upstream, 1);
