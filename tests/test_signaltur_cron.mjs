@@ -68,8 +68,94 @@ test("scheduled kastar når dispatch feilar", async () => {
   await assert.rejects(() => worker.scheduled({ cron: "7 4 * * *" }, {}, {}), /log-signalturar/);
 });
 
-test("wrangler har same cron som workeren skal fyre", () => {
+function cronFields(expr) {
+  return expr.trim().split(/\s+/);
+}
+
+function expandField(field) {
+  const values = [];
+  for (const part of field.split(",")) {
+    if (part.includes("-")) {
+      const [from, to] = part.split("-").map(Number);
+      for (let value = from; value <= to; value += 1) values.push(value);
+    } else {
+      values.push(Number(part));
+    }
+  }
+  return values;
+}
+
+function cronsFromToml(toml) {
+  const block = toml.match(/crons\s*=\s*\[([^\]]*)\]/);
+  assert.ok(block, toml);
+  return [...block[1].matchAll(/"([^"]+)"/g)].map((hit) => hit[1]);
+}
+
+function cronMatches(expr, date) {
+  const [minuteField, hourField, day, month, weekday] = cronFields(expr);
+  if (day !== "*" || month !== "*" || weekday !== "*") return false;
+  return (
+    expandField(minuteField).includes(date.getUTCMinutes()) &&
+    expandField(hourField).includes(date.getUTCHours())
+  );
+}
+
+function osloClock(date) {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Oslo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(date);
+  const pick = (type) => parts.find((part) => part.type === type).value;
+  return {
+    date: `${pick("year")}-${pick("month")}-${pick("day")}`,
+    hour: Number(pick("hour")),
+    minute: Number(pick("minute")),
+  };
+}
+
+function nextCronAfter(crons, instant) {
+  const start = instant.getTime();
+  for (let step = 60 * 1000; step <= 6 * 60 * 60 * 1000; step += 60 * 1000) {
+    const candidate = new Date(start + step);
+    candidate.setUTCSeconds(0, 0);
+    if (candidate.getTime() <= start) continue;
+    if (crons.some((expr) => cronMatches(expr, candidate))) return candidate;
+  }
+  return null;
+}
+
+test("wrangler har kveldskøyring som ikkje blir midnatt i Oslo", () => {
   const toml = readFileSync(new URL("../cloudflare/signaltur-cron/wrangler.toml", import.meta.url), "utf8");
-  assert.match(toml, /7,37 4-21 \* \* \*/);
-  assert.match(toml, /7 22 \* \* \*/);
+  const workflow = readFileSync(new URL("../.github/workflows/log-signalturar.yml", import.meta.url), "utf8");
+  const crons = cronsFromToml(toml);
+  assert.deepEqual(crons, ["7,37 4-21 * * *"]);
+  assert.equal(toml.includes("7 22"), false);
+  assert.match(workflow, /cron: "7,37 4-21 \* \* \*"/);
+  assert.equal(workflow.includes('cron: "7 22 * * *"'), false);
+
+  const summerArrival = new Date("2026-07-15T20:35:00+02:00");
+  const winterArrival = new Date("2026-01-14T20:35:00+01:00");
+  for (const arrival of [summerArrival, winterArrival]) {
+    const next = nextCronAfter(crons, arrival);
+    assert.ok(next, arrival.toISOString());
+    assert.ok(next.getTime() - arrival.getTime() <= 30 * 60 * 1000, next.toISOString());
+    assert.equal(osloClock(next).date, osloClock(arrival).date);
+  }
+
+  const summerLast = new Date(Date.UTC(2026, 6, 15, 21, 37));
+  const winterLast = new Date(Date.UTC(2026, 0, 14, 21, 37));
+  assert.equal(crons.some((expr) => cronMatches(expr, summerLast)), true);
+  assert.equal(crons.some((expr) => cronMatches(expr, winterLast)), true);
+  assert.equal(osloClock(summerLast).hour, 23);
+  assert.equal(osloClock(summerLast).date, "2026-07-15");
+  assert.equal(osloClock(winterLast).hour, 22);
+  assert.equal(osloClock(winterLast).date, "2026-01-14");
+  const summerMidnight = new Date(Date.UTC(2026, 6, 15, 22, 7));
+  assert.equal(osloClock(summerMidnight).date, "2026-07-16");
+  assert.equal(crons.some((expr) => cronMatches(expr, summerMidnight)), false);
 });

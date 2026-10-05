@@ -197,6 +197,128 @@ class SignalLogTests(unittest.TestCase):
         self.assertEqual(by_id["MOR:ServiceJourney:1136_b"]["status"], "booked")
         self.assertNotIn("MOR:ServiceJourney:1136_c", by_id)
 
+    def _pair(self):
+        out = leg("MOR:ServiceJourney:1136_out", "06:45:00")
+        out["from"] = "Standal"
+        out["to"] = "Trandal"
+        out["arrival"] = "07:00:00"
+        back = leg("MOR:ServiceJourney:1136_back", "07:05:00")
+        back["from"] = "Trandal"
+        back["to"] = "Standal"
+        back["arrival"] = "07:20:00"
+        return out, back
+
+    def test_tomtur_ut_for_bestilt_retur_er_gått(self):
+        out, back = self._pair()
+        actual = {
+            "MOR:ServiceJourney:1136_out": "2026-10-05T06:46:00+02:00",
+            "MOR:ServiceJourney:1136_back": "2026-10-05T07:06:00+02:00",
+        }
+        seen = set(actual)
+        after_both = observe_signal_trips(
+            [out, back],
+            now_minutes=7 * 60 + 37,
+            cancelled_ids=set(),
+            seen_ids=seen,
+            actual_departures=actual,
+        )
+        by_id = {trip["id"]: trip for trip in after_both}
+        self.assertEqual(by_id["MOR:ServiceJourney:1136_out"]["status"], "gått")
+        self.assertEqual(
+            by_id["MOR:ServiceJourney:1136_out"]["observedAt"],
+            "2026-10-05T06:46:00+02:00",
+        )
+        self.assertEqual(by_id["MOR:ServiceJourney:1136_back"]["status"], "booked")
+        while_return_runs = observe_signal_trips(
+            [out, back],
+            now_minutes=7 * 60 + 10,
+            cancelled_ids=set(),
+            seen_ids=seen,
+            actual_departures=actual,
+        )
+        while_by_id = {trip["id"]: trip for trip in while_return_runs}
+        self.assertEqual(while_by_id["MOR:ServiceJourney:1136_out"]["status"], "gått")
+        self.assertEqual(while_by_id["MOR:ServiceJourney:1136_back"]["status"], "booked")
+
+    def test_uttur_sett_før_ankomst_er_bestilt_sjølv_med_retur(self):
+        out, back = self._pair()
+        trips = observe_signal_trips(
+            [out, back],
+            now_minutes=6 * 60 + 50,
+            cancelled_ids=set(),
+            seen_ids={"MOR:ServiceJourney:1136_out", "MOR:ServiceJourney:1136_back"},
+        )
+        by_id = {trip["id"]: trip for trip in trips}
+        self.assertEqual(by_id["MOR:ServiceJourney:1136_out"]["status"], "booked")
+        self.assertEqual(by_id["MOR:ServiceJourney:1136_back"]["status"], "booked")
+
+    def test_avlyst_retur_gjer_ikkje_uttur_med_avgangstid_til_gått(self):
+        out, back = self._pair()
+        trips = observe_signal_trips(
+            [out, back],
+            now_minutes=8 * 60,
+            cancelled_ids={"MOR:ServiceJourney:1136_back"},
+            seen_ids={"MOR:ServiceJourney:1136_out", "MOR:ServiceJourney:1136_back"},
+            actual_departures={"MOR:ServiceJourney:1136_out": "2026-10-05T06:46:00+02:00"},
+        )
+        by_id = {trip["id"]: trip for trip in trips}
+        self.assertEqual(by_id["MOR:ServiceJourney:1136_out"]["status"], "booked")
+        self.assertEqual(by_id["MOR:ServiceJourney:1136_back"]["status"], "skipped")
+
+    def test_avlyst_tomtur_som_likevel_segla_er_gått(self):
+        out, back = self._pair()
+        trips = observe_signal_trips(
+            [out, back],
+            now_minutes=7 * 60 + 37,
+            cancelled_ids={"MOR:ServiceJourney:1136_out"},
+            seen_ids={"MOR:ServiceJourney:1136_out", "MOR:ServiceJourney:1136_back"},
+            actual_departures={
+                "MOR:ServiceJourney:1136_out": "2026-10-05T06:46:00+02:00",
+                "MOR:ServiceJourney:1136_back": "2026-10-05T07:06:00+02:00",
+            },
+        )
+        by_id = {trip["id"]: trip for trip in trips}
+        self.assertEqual(by_id["MOR:ServiceJourney:1136_out"]["status"], "gått")
+        self.assertEqual(by_id["MOR:ServiceJourney:1136_back"]["status"], "booked")
+
+    def test_gått_blir_ikkje_skriven_om_til_bestilt(self):
+        merged = apply_observations(
+            [
+                {
+                    "id": "MOR:ServiceJourney:1136_out",
+                    "status": "gått",
+                    "departure": "06:45:00",
+                    "observedAt": "2026-10-05T06:46:00+02:00",
+                }
+            ],
+            [
+                {
+                    "id": "MOR:ServiceJourney:1136_out",
+                    "from": "Standal",
+                    "to": "Trandal",
+                    "departure": "06:45:00",
+                    "status": "booked",
+                }
+            ],
+            "2026-10-05T08:07:00+02:00",
+        )
+        self.assertEqual(merged[0]["status"], "gått")
+        self.assertEqual(merged[0]["observedAt"], "2026-10-05T06:46:00+02:00")
+        from_skip = apply_observations(
+            [{"id": "MOR:ServiceJourney:1136_out", "status": "skipped", "departure": "06:45:00"}],
+            [
+                {
+                    "id": "MOR:ServiceJourney:1136_out",
+                    "from": "Standal",
+                    "to": "Trandal",
+                    "departure": "06:45:00",
+                    "status": "gått",
+                    "observedAt": "2026-10-05T06:46:00+02:00",
+                }
+            ],
+        )
+        self.assertEqual(from_skip[0]["status"], "gått")
+
     def test_gått_tur_blir_logga_når_entur_enno_har_faktisk_avgang(self):
         journey = "MOR:ServiceJourney:1136_a"
         routes = {"lines": {"1136": {"legs": [leg(journey, "08:00:00")]}}}
