@@ -48,7 +48,7 @@ class SignalLogTests(unittest.TestCase):
         )
         self.assertEqual(trips, [])
 
-    def test_avlyst_etter_frist_er_ikkje_utført_og_elles_bestilt(self):
+    def test_avlyst_etter_frist_er_ikkje_utført_og_synleg_er_ikkje_bestilt(self):
         trips = observe_signal_trips(
             [
                 leg("MOR:ServiceJourney:1136_a", "13:00:00"),
@@ -58,8 +58,9 @@ class SignalLogTests(unittest.TestCase):
             cancelled_ids={"MOR:ServiceJourney:1136_a"},
             seen_ids={"MOR:ServiceJourney:1136_a", "MOR:ServiceJourney:1136_b"},
         )
-        self.assertEqual(trips[0]["status"], "skipped")
-        self.assertEqual(trips[1]["status"], "booked")
+        by_id = {trip["id"]: trip for trip in trips}
+        self.assertEqual(by_id["MOR:ServiceJourney:1136_a"]["status"], "skipped")
+        self.assertNotIn("MOR:ServiceJourney:1136_b", by_id)
 
     def test_avlyst_blir_ikkje_skriven_om_til_bestilt(self):
         merged = apply_observations(
@@ -146,7 +147,17 @@ class SignalLogTests(unittest.TestCase):
             cancelled_ids=set(),
             seen_ids={"MOR:ServiceJourney:1136_a"},
         )
-        self.assertEqual(in_time[0]["status"], "booked")
+        self.assertEqual(in_time, [])
+        departed = observe_signal_trips(
+            [leg("MOR:ServiceJourney:1136_a", "13:00:00")],
+            now_minutes=13 * 60 + 5,
+            cancelled_ids=set(),
+            seen_ids={"MOR:ServiceJourney:1136_a"},
+            actual_departures={"MOR:ServiceJourney:1136_a": "2026-10-01T13:01:00+02:00"},
+        )
+        self.assertEqual(departed[0]["status"], "booked")
+        self.assertEqual(departed[0]["evidence"], "departed")
+        self.assertEqual(departed[0]["observedAt"], "2026-10-01T13:01:00+02:00")
 
     def test_tur_som_har_dette_ut_av_feeden_blir_ikkje_gjetta_bestilt(self):
         trips = observe_signal_trips(
@@ -194,7 +205,7 @@ class SignalLogTests(unittest.TestCase):
         )
         by_id = {trip["id"]: trip for trip in payload["days"]["2026-10-01"]}
         self.assertEqual(by_id["MOR:ServiceJourney:1136_a"]["status"], "skipped")
-        self.assertEqual(by_id["MOR:ServiceJourney:1136_b"]["status"], "booked")
+        self.assertNotIn("MOR:ServiceJourney:1136_b", by_id)
         self.assertNotIn("MOR:ServiceJourney:1136_c", by_id)
 
     def _pair(self):
@@ -240,7 +251,7 @@ class SignalLogTests(unittest.TestCase):
         self.assertEqual(while_by_id["MOR:ServiceJourney:1136_out"]["status"], "gått")
         self.assertEqual(while_by_id["MOR:ServiceJourney:1136_back"]["status"], "booked")
 
-    def test_uttur_sett_før_ankomst_er_bestilt_sjølv_med_retur(self):
+    def test_uttur_utan_avgangstid_er_ikkje_bestilt_sjølv_om_returen_ligg_i_feeden(self):
         out, back = self._pair()
         trips = observe_signal_trips(
             [out, back],
@@ -248,9 +259,7 @@ class SignalLogTests(unittest.TestCase):
             cancelled_ids=set(),
             seen_ids={"MOR:ServiceJourney:1136_out", "MOR:ServiceJourney:1136_back"},
         )
-        by_id = {trip["id"]: trip for trip in trips}
-        self.assertEqual(by_id["MOR:ServiceJourney:1136_out"]["status"], "booked")
-        self.assertEqual(by_id["MOR:ServiceJourney:1136_back"]["status"], "booked")
+        self.assertEqual(trips, [])
 
     def test_avlyst_retur_gjer_ikkje_uttur_med_avgangstid_til_gått(self):
         out, back = self._pair()
@@ -334,7 +343,140 @@ class SignalLogTests(unittest.TestCase):
         )
         trip = payload["days"]["2026-10-01"][0]
         self.assertEqual(trip["status"], "booked")
+        self.assertEqual(trip["evidence"], "departed")
         self.assertEqual(trip["observedAt"], actual)
+
+    def _afternoon_pair(self):
+        out = leg("MOR:ServiceJourney:1136_122", "16:50:00")
+        out["from"] = "Sæbø"
+        out["to"] = "Skår"
+        out["arrival"] = "17:05:00"
+        back = leg("MOR:ServiceJourney:1136_119", "17:10:00")
+        back["from"] = "Skår"
+        back["to"] = "Sæbø"
+        back["arrival"] = "17:25:00"
+        return out, back
+
+    def test_synleg_utan_avlysing_før_avgang_er_ikkje_bestilt(self):
+        """16:50 og 17:10 vart logga bestilt før Entur rakk å setje cancellation."""
+        out, back = self._afternoon_pair()
+        trips = observe_signal_trips(
+            [out, back],
+            now_minutes=16 * 60 + 7,
+            cancelled_ids=set(),
+            seen_ids={"MOR:ServiceJourney:1136_122", "MOR:ServiceJourney:1136_119"},
+        )
+        self.assertEqual(trips, [])
+
+    def test_ubekrefta_booked_blir_ikkje_ståande(self):
+        out, back = self._afternoon_pair()
+        routes = {"lines": {"1136": {"legs": [out, back]}}}
+        stale = {
+            "days": {
+                "2026-10-01": [
+                    {
+                        "id": "MOR:ServiceJourney:1136_122",
+                        "from": "Sæbø",
+                        "to": "Skår",
+                        "departure": "16:50:00",
+                        "status": "booked",
+                        "observedAt": "2026-10-01T16:07:00+02:00",
+                    },
+                    {
+                        "id": "MOR:ServiceJourney:1136_119",
+                        "from": "Skår",
+                        "to": "Sæbø",
+                        "departure": "17:10:00",
+                        "status": "booked",
+                        "observedAt": "2026-10-01T16:07:00+02:00",
+                    },
+                ]
+            }
+        }
+        moment = datetime(2026, 10, 1, 16, 7, tzinfo=OSLO)
+        payload = update_log(
+            stale,
+            routes,
+            moment,
+            set(),
+            {"MOR:ServiceJourney:1136_122", "MOR:ServiceJourney:1136_119"},
+        )
+        self.assertEqual(payload["days"]["2026-10-01"], [])
+
+    def test_sein_avlysing_skriv_over_tidleg_booked(self):
+        out, _back = self._afternoon_pair()
+        routes = {"lines": {"1136": {"legs": [out]}}}
+        journey = "MOR:ServiceJourney:1136_122"
+        stale = {
+            "days": {
+                "2026-10-01": [
+                    {
+                        "id": journey,
+                        "from": "Sæbø",
+                        "to": "Skår",
+                        "departure": "16:50:00",
+                        "status": "booked",
+                        "evidence": "departed",
+                        "observedAt": "2026-10-01T16:51:00+02:00",
+                    }
+                ]
+            }
+        }
+        moment = datetime(2026, 10, 1, 17, 7, tzinfo=OSLO)
+        payload = update_log(stale, routes, moment, {journey}, {journey})
+        trip = payload["days"]["2026-10-01"][0]
+        self.assertEqual(trip["status"], "skipped")
+        self.assertNotEqual(trip.get("evidence"), "departed")
+
+    def test_faktisk_avgang_er_bestilt_og_tom_uttur_er_gått(self):
+        out, back = self._afternoon_pair()
+        actual = {
+            "MOR:ServiceJourney:1136_122": "2026-10-01T16:51:00+02:00",
+            "MOR:ServiceJourney:1136_119": "2026-10-01T17:11:00+02:00",
+        }
+        while_return_open = observe_signal_trips(
+            [out, back],
+            now_minutes=17 * 60,
+            cancelled_ids=set(),
+            seen_ids=set(actual),
+            actual_departures={"MOR:ServiceJourney:1136_122": actual["MOR:ServiceJourney:1136_122"]},
+        )
+        self.assertEqual(while_return_open, [])
+        after_both = observe_signal_trips(
+            [out, back],
+            now_minutes=17 * 60 + 30,
+            cancelled_ids=set(),
+            seen_ids=set(actual),
+            actual_departures=actual,
+        )
+        by_id = {trip["id"]: trip for trip in after_both}
+        self.assertEqual(by_id["MOR:ServiceJourney:1136_122"]["status"], "gått")
+        self.assertEqual(by_id["MOR:ServiceJourney:1136_119"]["status"], "booked")
+        self.assertEqual(by_id["MOR:ServiceJourney:1136_119"]["evidence"], "departed")
+
+    def test_stadfesta_avgang_blir_ståande_når_kallet_dett_ut(self):
+        journey = "MOR:ServiceJourney:1136_a"
+        routes = {"lines": {"1136": {"legs": [leg(journey, "13:00:00")]}}}
+        existing = {
+            "days": {
+                "2026-10-01": [
+                    {
+                        "id": journey,
+                        "from": "Standal",
+                        "to": "Trandal",
+                        "departure": "13:00:00",
+                        "status": "booked",
+                        "evidence": "departed",
+                        "observedAt": "2026-10-01T13:01:00+02:00",
+                    }
+                ]
+            }
+        }
+        moment = datetime(2026, 10, 1, 18, 0, tzinfo=OSLO)
+        payload = update_log(existing, routes, moment, set(), set())
+        trip = payload["days"]["2026-10-01"][0]
+        self.assertEqual(trip["status"], "booked")
+        self.assertEqual(trip["evidence"], "departed")
 
     def test_kall_frå_annan_dag_tel_ikkje(self):
         cancelled, seen = journey_ids_from_payload(
