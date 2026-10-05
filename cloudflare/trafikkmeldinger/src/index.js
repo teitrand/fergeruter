@@ -1,10 +1,9 @@
 const REST_URL = "https://www.fjord1.no/api/ezp/v2/views";
 const SOURCE_URL = "https://www.fjord1.no/trafikkmeldingar";
-const DISPATCH_URL =
-  "https://api.github.com/repos/teitrand/fergeruter/actions/workflows/update-trafikkmeldinger.yml/dispatches";
 const PAGE_SIZE = 50;
 const MAX_MESSAGES = 500;
 const CACHE_SECONDS = 120;
+export const ERROR_CACHE_SECONDS = 45;
 
 /**
  * workers.dev-underdomenet blir valt på Cloudflare-kontoen.
@@ -162,69 +161,9 @@ export async function handleRequest(request, {
     return response;
   } catch (error) {
     const message = error && error.message ? error.message : String(error);
-    return jsonResponse({ error: message }, 502, 0);
-  }
-}
-
-export async function dispatchWorkflow({
-  token,
-  fetchImpl = fetch,
-  log = console.log,
-  sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
-  attempts = 3,
-} = {}) {
-  if (!token) {
-    log("Manglar GITHUB_TOKEN. Køyr: npx wrangler secret put GITHUB_TOKEN");
-    return false;
-  }
-
-  for (let attempt = 1; attempt <= attempts; attempt += 1) {
-    try {
-      const response = await fetchImpl(DISPATCH_URL, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: "application/vnd.github+json",
-          "X-GitHub-Api-Version": "2022-11-28",
-          "User-Agent": "fergeruter-trafikkmeldinger",
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ ref: "main" }),
-      });
-      if (response.status === 204) {
-        log(`Starta update-trafikkmeldinger på main (forsøk ${attempt}).`);
-        return true;
-      }
-      let detail = "";
-      try {
-        detail = typeof response.text === "function" ? await response.text() : "";
-      } catch {
-        detail = "";
-      }
-      log(`Dispatch svarte ${response.status} (forsøk ${attempt}). ${detail}`.trim());
-    } catch (error) {
-      const message = error && error.message ? error.message : String(error);
-      log(`Dispatch feila (forsøk ${attempt}): ${message}`);
-    }
-    if (attempt < attempts) {
-      await sleep(Math.min(1000 * 2 ** (attempt - 1), 8000));
-    }
-  }
-  return false;
-}
-
-export async function runScheduled(event, env, extras = {}) {
-  const cron = event && event.cron ? event.cron : "";
-  const log = extras.log || console.log;
-  log(`Cron ${cron} startar oppdatering av trafikkmeldingar.`);
-  const ok = await dispatchWorkflow({
-    token: env && env.GITHUB_TOKEN,
-    fetchImpl: extras.fetchImpl,
-    log,
-    sleep: extras.sleep,
-  });
-  if (!ok) {
-    throw new Error("Fekk ikkje starta update-trafikkmeldinger.");
+    const response = jsonResponse({ error: message }, 502, ERROR_CACHE_SECONDS);
+    if (cache) waitUntil(Promise.resolve(cache.put(cacheKey, response.clone())));
+    return response;
   }
 }
 
@@ -235,8 +174,5 @@ export default {
       cache,
       waitUntil: (promise) => (ctx && ctx.waitUntil ? ctx.waitUntil(promise) : promise),
     });
-  },
-  async scheduled(event, env) {
-    await runScheduled(event, env);
   },
 };

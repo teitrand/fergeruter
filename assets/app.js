@@ -1132,7 +1132,7 @@ async function fetchFjord1Api() {
       headers: { Accept: "application/json" },
       cache: "no-store",
     },
-    8000
+    5000
   );
   if (!response.ok) throw new Error(response.statusText || String(response.status));
   const body = await response.json();

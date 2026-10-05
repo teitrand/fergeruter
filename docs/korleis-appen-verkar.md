@@ -105,7 +105,7 @@ Melding:
 | `isRouteControl` | Om meldinga får lov å byte tabell |
 | `kind` | `cancelled`, `delay`, `normal`, `capacity`, `info` |
 
-Jobben på `main` (`.github/workflows/update-trafikkmeldinger.yml`) committer berre når innhaldet er endra. `fetchedAt` blir derfor ståande mellom endringane og er ikkje eit teikn på at jobben nett har køyrd. GitHub sin `*/5`-cron er reserve og blir ofte køyrd berre nokre gonger i døgnet. Cloudflare-workeren `cloudflare/trafikkmeldinger/` startar same workflow med `workflow_dispatch` kvart 10. minutt når `GITHUB_TOKEN` er sett, og svarar sjølv JSON med CORS til nettlesaren. `dev` skal ikkje overskrive denne fila. Testhosten les produksjonsfila. Oppsett: `cloudflare/trafikkmeldinger/README.md`.
+Jobben på `main` (`.github/workflows/update-trafikkmeldinger.yml`) committer berre når innhaldet er endra. `fetchedAt` blir derfor ståande mellom endringane og er ikkje eit teikn på at jobben nett har køyrd. GitHub sin `*/5`-cron er reserve for fila og blir ofte køyrd berre nokre gonger i døgnet. Cloudflare-workeren `cloudflare/trafikkmeldinger/` svarar JSON med CORS til nettlesaren og startar ikkje denne jobben. `dev` skal ikkje overskrive denne fila. Testhosten les produksjonsfila. Oppsett: `cloudflare/trafikkmeldinger/README.md`.
 
 ### `data/signalturar.json`
 
@@ -193,7 +193,7 @@ Små ferjer manglar ofte i VM, særleg utanom rutetid. Då gjeld tabellklokka.
 Vi bruker ein Cloudflare Worker, ikkje GitHub-cronen, som den ferske vegen. Fila på GitHub blir berre skriven når meldingsteksten endrar seg, og Pages bruker tid på å publisere. Då ville nettlesaren framleis rekne kopien som gammal etter åtte minutt og gå til `r.jina.ai` om cronen var einerådande. Workeren les Ibexa direkte og svarar med CORS. `r.jina.ai` er siste utveg om workeren feilar.
 
 1. Cloudflare-workeren `cloudflare/trafikkmeldinger/` hentar Ibexa-viewet og svarar JSON. Kant-cachen er 2 minutt. Nodane har same form som `normalizeFjord1Node` ventar. Klassifiseringa skjer i nettlesaren.
-2. GitHub Actions skriv `data/trafikkmeldinger.json` på `main` når innhaldet er endra. Workeren kan starte jobben kvart 10. minutt. GitHub sin `*/5`-cron er berre reserve.
+2. GitHub Actions skriv `data/trafikkmeldinger.json` på `main` når innhaldet er endra. GitHub sin `*/5`-cron er berre reserve for den fila. Workeren har ingen cron.
 3. Nettlesaren hentar fila kvart 3. minutt (`cache: no-cache`). Testhost `/dev/` hentar produksjons-URL (`…/fergeruter/data/trafikkmeldinger.json`), ikkje kopien under `/dev/`.
 4. Er `fetchedAt` eldre enn 8 minutt, eller fila manglar, spør nettlesaren workeren. Svaret er `complete`, så haldne meldingar blir fletta inn og ikkje berre lagde oppå.
 5. Svarer ikkje workeren, blir HTML-sida `https://www.fjord1.no/trafikkmeldingar` lesen via `https://r.jina.ai/`. Nye meldingar blir fletta inn på `heading|text` og får id `live:…`. Dei blir òg lagra i `localStorage` (`fergeruter-messages-v1`) slik at kombirute kan visast før nettverket svarar.

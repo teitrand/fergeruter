@@ -3,8 +3,8 @@ main = "src/index.js"
 compatibility_date = "2026-10-05"
 workers_dev = true
 
-# Kvart 10. minutt, UTC. Startar update-trafikkmeldinger.yml på main.
-# GitHub sin eigen */5-cron er berre reserve og blir ofte ikkje køyrd.
-# HTTP-endepunktet er det nettlesaren bruker. Cronen treng GITHUB_TOKEN.
+# Ingen cron. Nettlesaren les HTTP-svaret. GitHub sin eigen */5-cron
+# på update-trafikkmeldinger.yml er reserve for data/trafikkmeldinger.json.
+# Tom liste slettar cron om ein tidlegare deploy hadde lagt inn ein.
 [triggers]
-crons = ["*/10 * * * *"]
+crons = []

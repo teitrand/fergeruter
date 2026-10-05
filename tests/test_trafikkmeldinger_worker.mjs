@@ -3,18 +3,14 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import worker, {
+  ERROR_CACHE_SECONDS,
   MESSAGES_API_URL,
   buildPayload,
   contentIdToMessageId,
-  dispatchWorkflow,
   fetchMessages,
   handleRequest,
   nodeFromContent,
-  runScheduled,
 } from "../cloudflare/trafikkmeldinger/src/index.js";
-
-const DISPATCH_URL =
-  "https://api.github.com/repos/teitrand/fergeruter/actions/workflows/update-trafikkmeldinger.yml/dispatches";
 
 function field(ident, value) {
   return { fieldDefinitionIdentifier: ident, fieldValue: value };
@@ -135,8 +131,9 @@ test("GET svarar JSON med CORS og bruker cachen", async () => {
   assert.equal((await second.json()).messages[0].id, contentIdToMessageId(7));
 });
 
-test("feil frå Fjord1 blir 502 utan å bli lagra", async () => {
+test("feil frå Fjord1 blir 502 og blir ståande ein kort stund", async () => {
   const store = new Map();
+  let upstream = 0;
   const cache = {
     async match(request) {
       return store.get(request.url) || null;
@@ -145,17 +142,24 @@ test("feil frå Fjord1 blir 502 utan å bli lagra", async () => {
       store.set(request.url, response);
     },
   };
-  const response = await handleRequest(new Request("https://example.test/"), {
-    fetchImpl: async () => ({
+  const fetchImpl = async () => {
+    upstream += 1;
+    return {
       ok: true,
       json: async () => ({ ErrorMessage: { errorMessage: "nei" } }),
-    }),
-    cache,
-  });
+    };
+  };
+  const response = await handleRequest(new Request("https://example.test/"), { fetchImpl, cache });
   assert.equal(response.status, 502);
-  assert.equal(response.headers.get("cache-control"), "no-store");
+  assert.equal(response.headers.get("cache-control"), `public, max-age=${ERROR_CACHE_SECONDS}`);
+  assert.ok(ERROR_CACHE_SECONDS >= 30 && ERROR_CACHE_SECONDS <= 60);
   assert.match((await response.json()).error, /nei/);
-  assert.equal(store.size, 0);
+  assert.equal(store.size, 1);
+
+  const again = await handleRequest(new Request("https://example.test/?t=1"), { fetchImpl, cache });
+  assert.equal(again.status, 502);
+  assert.equal(upstream, 1);
+  assert.match((await again.json()).error, /nei/);
 });
 
 test("OPTIONS og POST", async () => {
@@ -170,58 +174,16 @@ test("OPTIONS og POST", async () => {
   assert.equal(post.status, 405);
 });
 
-test("dispatch prøver om att og godtek 204", async () => {
-  const calls = [];
-  let n = 0;
-  const logs = [];
-  const ok = await dispatchWorkflow({
-    token: "ghp_test",
-    fetchImpl: async (url, init) => {
-      n += 1;
-      calls.push({ url, init });
-      if (n < 3) return { status: 500, text: async () => "nei" };
-      return { status: 204, text: async () => "" };
-    },
-    log: (line) => logs.push(line),
-    sleep: async () => {},
-  });
-  assert.equal(ok, true);
-  assert.equal(calls[0].url, DISPATCH_URL);
-  assert.equal(calls[0].init.headers.Authorization, "Bearer ghp_test");
-  assert.equal(calls[0].init.headers["User-Agent"], "fergeruter-trafikkmeldinger");
-  assert.deepEqual(JSON.parse(calls[0].init.body), { ref: "main" });
-  assert.equal(logs.join("\n").includes("ghp_test"), false);
-});
-
-test("manglande token hentar ikkje", async () => {
-  let called = false;
-  const logs = [];
-  const ok = await dispatchWorkflow({
-    token: "",
-    fetchImpl: async () => {
-      called = true;
-      return { status: 204 };
-    },
-    log: (line) => logs.push(line),
-  });
-  assert.equal(ok, false);
-  assert.equal(called, false);
-  assert.match(logs.join("\n"), /npx wrangler secret put GITHUB_TOKEN/);
-});
-
-test("scheduled kastar når dispatch feilar", async () => {
-  await assert.rejects(
-    () => runScheduled({ cron: "*/10 * * * *" }, {}, { log: () => {}, sleep: async () => {} }),
-    /update-trafikkmeldinger/
-  );
-  await assert.rejects(() => worker.scheduled({ cron: "*/10 * * * *" }, {}), /update-trafikkmeldinger/);
-});
-
-test("wrangler køyrer kvart 10. minutt og app.js bruker same URL", () => {
+test("workeren startar ikkje GitHub-workflowen", () => {
   const toml = readFileSync(new URL("../cloudflare/trafikkmeldinger/wrangler.toml", import.meta.url), "utf8");
+  const source = readFileSync(new URL("../cloudflare/trafikkmeldinger/src/index.js", import.meta.url), "utf8");
   const app = readFileSync(new URL("../assets/app.js", import.meta.url), "utf8");
-  assert.match(toml, /crons = \["\*\/10 \* \* \* \*"\]/);
+  assert.match(toml, /crons = \[\]/);
+  assert.equal(source.includes("workflow_dispatch"), false);
+  assert.equal(source.includes("api.github.com"), false);
+  assert.equal(worker.scheduled, undefined);
   assert.equal(app.includes(MESSAGES_API_URL), true);
+  assert.match(app, /fetchWithTimeout\(\s*FJORD1_MESSAGES_API,[\s\S]*?5000\s*\)/);
   assert.equal(app.includes("www.fjord1.no/graphql"), false);
   assert.equal(app.includes("FJORD1_GRAPHQL"), false);
 });

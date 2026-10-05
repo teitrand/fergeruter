@@ -2,9 +2,9 @@ name: Oppdater trafikkmeldingar
 
 on:
   schedule:
-    # Reserve. GitHub køyrer sjeldan */5 (ofte berre nokre gonger i døgnet).
-    # Fersk veg: Cloudflare-workeren cloudflare/trafikkmeldinger/ (CORS-JSON,
-    # pluss workflow_dispatch kvart 10. minutt når GITHUB_TOKEN er sett).
+    # Reserve for data/trafikkmeldinger.json. GitHub køyrer sjeldan */5.
+    # Fersk veg for nettlesaren er Cloudflare-workeren
+    # cloudflare/trafikkmeldinger/ (CORS-JSON). Ho startar ikkje denne jobben.
     - cron: "*/5 * * * *"
   workflow_dispatch:
   push:
