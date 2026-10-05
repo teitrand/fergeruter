@@ -1,15 +1,15 @@
 const IS_DEV = self.location.pathname.includes("/dev/");
-const CACHE = IS_DEV ? "fergeruter-dev-v71" : "fergeruter-v71";
+const CACHE = IS_DEV ? "fergeruter-dev-v73" : "fergeruter-v73";
 const PRECACHE = [
   "./",
   "./index.html",
   "./manifest.webmanifest",
   "./assets/app.js",
-  "./assets/app.js?v=71",
+  "./assets/app.js?v=73",
   "./assets/i18n.js",
-  "./assets/i18n.js?v=71",
+  "./assets/i18n.js?v=73",
   "./assets/styles.css",
-  "./assets/styles.css?v=71",
+  "./assets/styles.css?v=73",
   "./assets/favicon.svg",
   "./assets/icons/icon-192.png?v=2",
   "./assets/icons/icon-512.png?v=2",
@@ -32,7 +32,7 @@ function isTimetableJson(url) {
   return /\/data\/(ruter|kombirute|korrespondanse)\.json$/.test(url.pathname);
 }
 
-/** Trafikkmeldingar styrer 1136/1135/kombi og kan skifte kvart 5. minutt. */
+/** Trafikkmeldingar styrer 1136/1135/kombi og kan skifte medan sida er open. */
 function isMessagesJson(url) {
   return url.pathname.endsWith("/trafikkmeldinger.json");
 }

@@ -7,7 +7,7 @@ import {
   setLang,
   t,
   weekdays,
-} from "./i18n.js?v=71";
+} from "./i18n.js?v=73";
 
 const MESSAGES_URL = "data/trafikkmeldinger.json";
 const SIGNAL_LOG_URL = "data/signalturar.json";
@@ -49,30 +49,14 @@ const FJORD1_PDF =
   "https://www.fjord1.no/ruteoversikt/moere-og-romsdal/standal-trandal-valderoeya-store-kalvoey/(page)/pdf";
 const FJORD1_PDF_1135 =
   "https://www.fjord1.no/ruteoversikt/moere-og-romsdal/leknes-saeboe/(page)/pdf";
-const FJORD1_GRAPHQL_URL = "https://www.fjord1.no/graphql";
 const FJORD1_MESSAGES_PAGE = "https://www.fjord1.no/trafikkmeldingar";
-/** HTML-lesar med CORS; Fjord1 GraphQL svarar utan Access-Control-Allow-Origin. */
+/**
+ * CORS-JSON frå cloudflare/trafikkmeldinger/. Må vere lik MESSAGES_API_URL der.
+ * Det gamle Fjord1-endepunktet svarar 404 og blir ikkje kalla.
+ */
+const FJORD1_MESSAGES_API = "https://fergeruter-trafikkmeldinger.fergeruter-teitrand.workers.dev/";
+/** Siste utveg om workeren feilar. Fjord1-sida har ikkje CORS. */
 const FJORD1_HTML_READER = `https://r.jina.ai/${FJORD1_MESSAGES_PAGE}`;
-const FJORD1_GRAPHQL_KEY = "fergeruter-fjord1-graphql";
-const FJORD1_MESSAGES_QUERY = `{
-  content {
-    trafficMessages(first: 50, sortBy: [_datePublished, _desc]) {
-      edges {
-        node {
-          id
-          heading
-          countyNumber
-          connectionNumber
-          date
-          content
-          importantMessage
-          validFrom { timestamp }
-          validTo { timestamp }
-        }
-      }
-    }
-  }
-}`;
 const ALLOWED_MODES = new Set(["1136", "1135", "kombi"]);
 const CHOOSABLE_ROUTES = new Set(["1136", "1135"]);
 const NORMAL_RE = /normal drift/i;
@@ -100,7 +84,7 @@ const TIMETABLE_CACHE_KEY = "fergeruter-timetable-v1";
 const MESSAGES_CACHE_KEY = "fergeruter-messages-v1";
 const LAST_MODE_KEY = "fergeruter-last-mode";
 const MESSAGES_POLL_MS = 3 * 60 * 1000;
-/** GitHub-kopien er «gammal» når Actions ikkje har køyrd; då sjekkar sida Fjord1. */
+/** GitHub-kopien er gammal når innhaldet ikkje er skrive på nytt. Då spør sida workeren. */
 const MESSAGES_STALE_MS = 8 * 60 * 1000;
 const LIVE_MIN_INTERVAL_MS = 55 * 1000;
 const LIVE_BACKOFF_START_MS = 60 * 1000;
@@ -147,7 +131,6 @@ let lastLiveStructureKey = null;
 let tickTimer = null;
 let messagesTimer = null;
 let messagesInflight = null;
-let fjord1GraphqlBlocked = false;
 let wakeTimer = null;
 let bootedAt = 0;
 let messagesHydrated = false;
@@ -1132,31 +1115,6 @@ function mergeMessagePayloads(base, live, now = Date.now()) {
   };
 }
 
-function fjord1GraphqlIsBlocked() {
-  if (fjord1GraphqlBlocked) return true;
-  try {
-    if (
-      typeof sessionStorage !== "undefined" &&
-      sessionStorage.getItem(FJORD1_GRAPHQL_KEY) === "blocked"
-    ) {
-      fjord1GraphqlBlocked = true;
-      return true;
-    }
-  } catch {
-    // private mode
-  }
-  return false;
-}
-
-function markFjord1GraphqlBlocked() {
-  fjord1GraphqlBlocked = true;
-  try {
-    sessionStorage.setItem(FJORD1_GRAPHQL_KEY, "blocked");
-  } catch {
-    // private mode
-  }
-}
-
 async function fetchWithTimeout(url, options = {}, ms = 12000) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), ms);
@@ -1167,22 +1125,20 @@ async function fetchWithTimeout(url, options = {}, ms = 12000) {
   }
 }
 
-async function fetchFjord1Graphql() {
-  const response = await fetchWithTimeout(FJORD1_GRAPHQL_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify({ query: FJORD1_MESSAGES_QUERY }),
-    cache: "no-store",
-  });
-  if (!response.ok) throw new Error(response.statusText);
+async function fetchFjord1Api() {
+  const response = await fetchWithTimeout(
+    FJORD1_MESSAGES_API,
+    {
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+    },
+    5000
+  );
+  if (!response.ok) throw new Error(response.statusText || String(response.status));
   const body = await response.json();
-  if (body?.errors) throw new Error("Fjord1 GraphQL-feil");
-  const edges = body?.data?.content?.trafficMessages?.edges || [];
-  const messages = edges
-    .map((edge) => edge?.node)
-    .filter(Boolean)
-    .map(normalizeFjord1Node);
-  return fjord1Payload(messages, { complete: true });
+  if (!Array.isArray(body?.messages)) throw new Error("Uventa svar frå trafikkmelding-API");
+  const messages = body.messages.filter(Boolean).map((node) => normalizeFjord1Node(node));
+  return fjord1Payload(messages, { fetchedAt: body.fetchedAt || null, complete: true });
 }
 
 async function fetchFjord1Html() {
@@ -1197,14 +1153,11 @@ async function fetchFjord1Html() {
 }
 
 async function fetchFjord1Messages() {
-  if (!fjord1GraphqlIsBlocked()) {
-    try {
-      return await fetchFjord1Graphql();
-    } catch {
-      markFjord1GraphqlBlocked();
-    }
+  try {
+    return await fetchFjord1Api();
+  } catch {
+    return fetchFjord1Html();
   }
-  return fetchFjord1Html();
 }
 
 async function fetchMessagesJson() {
@@ -4990,7 +4943,6 @@ function resetTestState() {
   state.confirmedBooked = new Set();
   state.signalLog = null;
   lastLiveStructureKey = null;
-  fjord1GraphqlBlocked = false;
   messagesHydrated = false;
   messagesHydrateWaiters = [];
 }
