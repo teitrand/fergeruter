@@ -23,6 +23,7 @@ import {
   signalLogStale,
   cancelledJourneyIds,
   seenJourneyIds,
+  actualDeparturesFromPayload,
   osloDayStartIso,
   matchesLegPlaces,
   matchesStop,
@@ -594,7 +595,15 @@ test("loggen viser bestilt og ikkje utført ei veke attende", () => {
       keptDays: 7,
       days: {
         "2026-09-28": [
-          { id: "MOR:ServiceJourney:1136_booked", from: "Standal", to: "Trandal", departure: "13:00:00", status: "booked" },
+          {
+            id: "MOR:ServiceJourney:1136_booked",
+            from: "Standal",
+            to: "Trandal",
+            departure: "13:00:00",
+            status: "booked",
+            evidence: "departed",
+            observedAt: "2026-09-28T13:01:00+02:00",
+          },
           { id: "MOR:ServiceJourney:1136_skip", from: "Trandal", to: "Standal", departure: "13:20:00", status: "skipped" },
         ],
       },
@@ -604,6 +613,28 @@ test("loggen viser bestilt og ikkje utført ei veke attende", () => {
   assert.equal(signalIsBooked(booked), true);
   assert.equal(signalVerdict(skipped), "skipped");
   assert.equal(signalIsBooked(skipped), false);
+  const bare = signalLeg("Sæbø", "Skår", "16:50:00", "17:05:00", "MOR:ServiceJourney:1136_122");
+  setTestState({
+    date: "2026-09-28",
+    cancelledJourneys: new Set(["MOR:ServiceJourney:1136_122"]),
+    signalLog: {
+      days: {
+        "2026-09-28": [
+          {
+            id: "MOR:ServiceJourney:1136_122",
+            from: "Sæbø",
+            to: "Skår",
+            departure: "16:50:00",
+            status: "booked",
+          },
+        ],
+      },
+    },
+  });
+  const detail = departureDetail(bare, 18 * 60);
+  assert.equal(detail.booked, false);
+  assert.equal(detail.phase, "skipped");
+  assert.equal(detail.seenSkip, false);
 });
 
 test("logga ikkje utført blir ståande når Entur har gløymt avlysinga", () => {
@@ -647,51 +678,38 @@ test("logga ikkje utført blir køyrd dersom ferja likevel har lagt frå kai", (
   assert.equal(signalIsBooked(trip, 20 * 60 + 10), false);
 });
 
-test("signaltur som ikkje er avlyst etter fristen er bestilt berre om han låg i svaret", () => {
+test("kall utan avlysing etter fristen er ikkje bestilt", () => {
   const id = "MOR:ServiceJourney:1136_booked";
   const trip = signalLeg("Standal", "Trandal", "13:00:00", "13:15:00", id);
   const start = Date.parse(osloDayStartIso(todayIso()));
   setTestState({
     cancelledJourneys: new Set(),
-    cancellationsFetchedAt: start + (12 * 60 + 30) * 60 * 1000,
-  });
-  assert.equal(signalIsBooked(trip, 12 * 60 + 30), false);
-  setTestState({
-    cancelledJourneys: new Set(),
     seenJourneys: new Set([id]),
     cancellationsFetchedAt: start + (12 * 60 + 30) * 60 * 1000,
   });
-  assert.equal(signalIsBooked(trip, 12 * 60 + 30), true);
-  setTestState({
-    seenJourneys: new Set(),
-    confirmedBooked: new Set(),
-    cancellationsFetchedAt: start + 11 * 60 * 60 * 1000,
-  });
   assert.equal(signalIsBooked(trip, 12 * 60 + 30), false);
+  assert.equal(signalVerdict(trip, null, 12 * 60 + 30), "skipped");
+  setTestState({
+    cancelledJourneys: new Set(),
+    seenJourneys: new Set([id]),
+    actualDepartures: new Map([[id, `${todayIso()}T13:01:00+02:00`]]),
+    cancellationsFetchedAt: start + (13 * 60 + 5) * 60 * 1000,
+    confirmedBooked: new Set(),
+  });
+  assert.equal(signalIsBooked(trip, 13 * 60 + 5), true);
+  setTestState({ actualDepartures: new Map(), seenJourneys: new Set() });
+  assert.equal(signalIsBooked(trip, 13 * 60 + 5), true);
   setTestState({
     cancelledJourneys: new Set([id]),
     seenJourneys: new Set([id]),
-    confirmedBooked: new Set(),
-    cancellationsFetchedAt: start + (12 * 60 + 30) * 60 * 1000,
+    actualDepartures: new Map([[id, `${todayIso()}T13:01:00+02:00`]]),
+    confirmedBooked: new Set([id]),
   });
-  assert.equal(signalIsBooked(trip, 12 * 60 + 30), false);
-  setTestState({
-    cancelledJourneys: new Set(),
-    seenJourneys: new Set(),
-    confirmedBooked: new Set(),
-    cancellationsFetchedAt: 0,
-  });
-  assert.equal(signalIsBooked(trip, 12 * 60 + 30), false);
-  setTestState({
-    cancelledJourneys: new Set(),
-    seenJourneys: new Set(),
-    confirmedBooked: new Set(),
-    cancellationsFetchedAt: start + (12 * 60 + 30) * 60 * 1000,
-  });
-  assert.equal(signalIsBooked(trip, 13 * 60 + 20), false);
+  assert.equal(signalIsBooked(trip, 13 * 60 + 5), false);
+  assert.equal(signalVerdict(trip, null, 13 * 60 + 5), "skipped");
 });
 
-test("gått signaltur som Entur har sett utan avlysing blir ståande som bestilt", () => {
+test("open kall etter fristen blir ikkje hugsa som bestilt", () => {
   const id = "MOR:ServiceJourney:1136_102_9150000047474169";
   const trip = signalLeg("Standal", "Trandal", "06:45:00", "07:00:00", id);
   const start = Date.parse(osloDayStartIso(todayIso()));
@@ -700,17 +718,20 @@ test("gått signaltur som Entur har sett utan avlysing blir ståande som bestilt
     seenJourneys: new Set([id]),
     cancellationsFetchedAt: start + (6 * 60 + 50) * 60 * 1000,
   });
+  assert.equal(signalIsBooked(trip, 7 * 60 + 6), false);
+  setTestState({
+    actualDepartures: new Map([[id, `${todayIso()}T06:46:00+02:00`]]),
+  });
   assert.equal(signalIsBooked(trip, 7 * 60 + 6), true);
-  setTestState({ seenJourneys: new Set() });
+  setTestState({ seenJourneys: new Set(), actualDepartures: new Map() });
   assert.equal(signalIsBooked(trip, 7 * 60 + 6), true);
 });
 
-test("retur i sanntid gjer ikkje ein sett uttur om til ikkje utført", () => {
+test("retur i sanntid gjer ikkje ein uttur utan avgangsbevis om til bestilt", () => {
   const outId = "MOR:ServiceJourney:1136_102_9150000047474169";
   const backId = "MOR:ServiceJourney:1136_101_9150000046366323";
   const out = signalLeg("Standal", "Trandal", "06:45:00", "07:00:00", outId);
   const back = signalLeg("Trandal", "Standal", "07:05:00", "07:20:00", backId);
-  const start = Date.parse(osloDayStartIso(todayIso()));
   const live = freshLive({
     journeyRef: backId,
     originAimed: `${todayIso()}T07:05:00+02:00`,
@@ -724,10 +745,36 @@ test("retur i sanntid gjer ikkje ein sett uttur om til ikkje utført", () => {
   setTestState({
     live,
     seenJourneys: new Set([outId, backId]),
-    cancellationsFetchedAt: start + (6 * 60 + 50) * 60 * 1000,
+    routes: {
+      lines: {
+        1136: {
+          legs: [out, back].map((leg) => ({ ...leg, activeDates: [todayIso()] })),
+        },
+      },
+    },
   });
-  assert.equal(signalVerdict(out, live, 7 * 60 + 6, [out, back]), null);
-  assert.equal(signalIsBooked(out, 7 * 60 + 6), true);
+  assert.equal(signalVerdict(out, live, 7 * 60 + 6, [out, back]), "skipped");
+  assert.equal(signalIsBooked(out, 7 * 60 + 6), false);
+  assert.equal(signalIsBooked(back, 7 * 60 + 6), true);
+  setTestState({
+    signalLog: {
+      days: {
+        [todayIso()]: [
+          {
+            id: outId,
+            from: "Standal",
+            to: "Trandal",
+            departure: "06:45:00",
+            status: "booked",
+            evidence: "departed",
+            observedAt: `${todayIso()}T06:46:00+02:00`,
+          },
+        ],
+      },
+    },
+  });
+  assert.equal(signalIsBooked(out, 7 * 60 + 6), false);
+  assert.notEqual(signalVerdict(out, live, 7 * 60 + 6, [out, back]), "skipped");
 });
 
 test("detaljane seier at bestilt ikkje er tidspunktet nokon ringde", () => {
@@ -753,9 +800,27 @@ test("detaljane seier at bestilt ikkje er tidspunktet nokon ringde", () => {
       },
     },
   });
-  const detail = departureDetail(trip, 12 * 60 + 40);
+  assert.notEqual(departureDetail(trip, 12 * 60 + 40).phase, "booked");
+  setTestState({
+    signalLog: {
+      days: {
+        [todayIso()]: [
+          {
+            id,
+            from: "Standal",
+            to: "Trandal",
+            departure: "13:00:00",
+            status: "booked",
+            evidence: "departed",
+            observedAt: `${todayIso()}T13:01:00+02:00`,
+          },
+        ],
+      },
+    },
+  });
+  const detail = departureDetail(trip, 13 * 60 + 10);
   assert.equal(detail.phase, "booked");
-  assert.equal(detail.observedAt, "2026-10-02T12:30:00+02:00");
+  assert.equal(detail.observedAt, `${todayIso()}T13:01:00+02:00`);
   assert.equal(detail.phone.replace(/\s/g, ""), "91669340");
 });
 
@@ -804,7 +869,8 @@ test("ein observasjon i tide tel sjølv om hjarteslaget seinare er for gammalt",
             to: "Trandal",
             departure: "06:45:00",
             status: "booked",
-            observedAt: `${todayIso()}T06:50:00+02:00`,
+            evidence: "departed",
+            observedAt: `${todayIso()}T06:46:00+02:00`,
           },
         ],
       },
@@ -812,6 +878,25 @@ test("ein observasjon i tide tel sjølv om hjarteslaget seinare er for gammalt",
   });
   assert.equal(signalIsBooked(trip, 12 * 60), true);
   assert.equal(signalLogStale(Date.parse("2026-10-04T10:00:00Z")), true);
+  setTestState({
+    confirmedBooked: new Set(),
+    signalLog: {
+      updatedAt: "2026-10-04T06:50:00+02:00",
+      days: {
+        [todayIso()]: [
+          {
+            id,
+            from: "Standal",
+            to: "Trandal",
+            departure: "06:45:00",
+            status: "booked",
+            observedAt: `${todayIso()}T06:50:00+02:00`,
+          },
+        ],
+      },
+    },
+  });
+  assert.equal(signalIsBooked(trip, 12 * 60), false);
 });
 
 test("logg og Entur-svar etter ankomst gjer ikkje turen bestilt", () => {
@@ -843,8 +928,14 @@ test("logg og Entur-svar etter ankomst gjer ikkje turen bestilt", () => {
     cancelledJourneys: new Set(),
     seenJourneys: new Set(["MOR:ServiceJourney:1136_702"]),
     cancellationsFetchedAt: start + (10 * 60 + 25) * 60 * 1000,
+    confirmedBooked: new Set(),
+    actualDepartures: new Map(),
   });
-  assert.equal(signalIsBooked(early, 10 * 60 + 25), true);
+  assert.equal(signalIsBooked(early, 10 * 60 + 25), false);
+  setTestState({
+    actualDepartures: new Map([["MOR:ServiceJourney:1136_702", `${todayIso()}T11:21:00+02:00`]]),
+  });
+  assert.equal(signalIsBooked(early, 11 * 60 + 25), true);
 });
 
 test("svar frå før fristen gjer ikkje ein gått signaltur bestilt", () => {
@@ -951,6 +1042,33 @@ test("avlyst signaltur blir ikkje ståande som på veg til Standal", () => {
   assert.equal(status.underway, undefined);
   assert.equal(status.short, "Ferja er ferdig for dagen på Standal");
   assert.doesNotMatch(status.text, /på veg/);
+});
+
+test("faktisk avgang frå ein annan dag tel ikkje", () => {
+  const found = actualDeparturesFromPayload(
+    {
+      data: {
+        saebo: {
+          estimatedCalls: [
+            {
+              cancellation: false,
+              aimedDepartureTime: "2026-10-04T16:50:00+02:00",
+              actualDepartureTime: "2026-10-04T16:51:00+02:00",
+              serviceJourney: { id: "MOR:ServiceJourney:1136_122" },
+            },
+            {
+              cancellation: false,
+              aimedDepartureTime: `${todayIso()}T16:50:00+02:00`,
+              actualDepartureTime: `${todayIso()}T16:52:00+02:00`,
+              serviceJourney: { id: "MOR:ServiceJourney:1136_122" },
+            },
+          ],
+        },
+      },
+    },
+    todayIso()
+  );
+  assert.equal(found.get("MOR:ServiceJourney:1136_122"), `${todayIso()}T16:52:00+02:00`);
 });
 
 test("cancelledJourneyIds plukkar berre avlyste turar", () => {
