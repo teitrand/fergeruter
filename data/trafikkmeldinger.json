@@ -1,7 +1,27 @@
 {
   "source": "https://www.fjord1.no/trafikkmeldingar",
-  "fetchedAt": "2026-10-06T14:07:14.295122+00:00",
+  "fetchedAt": "2026-10-06T19:27:55.520530+00:00",
   "messages": [
+    {
+      "id": "RG9tYWluQ29udGVudDoyMTk1MDU2Nw==",
+      "heading": "Mortavika-Arsvågen",
+      "text": "Rute 1130 Arsvågen - Mortavika: Grunnet mannskapsmangel blir følgende avganger i D-ruten innstilt: Tirsdag 6. oktober: 1745, 1845 og 1945 fra Mortavika og 1815, 1915 og 2015 fra Arsvågen.Onsdag 7. oktober: 0845, 0945, 1045 og 1145 fra Mortavika og 0915, 1015, 1115 og 1215 fra Arsvågen.",
+      "publishedAt": "2026-10-06T17:26:34+02:00",
+      "validFrom": "2026-10-06T15:26:34+00:00",
+      "validTo": "2026-10-07T15:25:15+00:00",
+      "countyNumber": 11,
+      "connectionNumber": 528,
+      "important": false,
+      "severity": "cancelled",
+      "isRoute1136": false,
+      "isLocal": false,
+      "isRouteControl": false,
+      "routeMode": "1136",
+      "routeWindow": null,
+      "activateAt": null,
+      "vessel": null,
+      "routeSwitch": null
+    },
     {
       "id": "RG9tYWluQ29udGVudDoyMTk0NzUwMw==",
       "heading": "Bognes – Skarberget",
