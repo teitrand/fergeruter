@@ -181,7 +181,7 @@ test("Fjord1 24-timars validTo blir halden ut Oslo-dagen", () => {
   assert.equal(routeModeFromMessages([extra], sundayMorning, "2026-09-20"), "1136");
 });
 
-test("live GraphQL-feeden droppar ikkje haldne lokale meldingar", () => {
+test("komplett live-feed droppar ikkje haldne lokale meldingar", () => {
   const extra = normalizeFjord1Node({
     heading: "Standal-Trandal-Valderøya-Store Kalvøy",
     content:
@@ -1505,7 +1505,7 @@ test("Fjord1-HTML med kvilemelding blir lokale innstilte avgangar, ikkje 1135", 
   assert.equal(msg.publishedAt, "2026-09-13T15:57:00.000Z");
 });
 
-test("GraphQL-node blir normalisert likt Python-skriptet", () => {
+test("Fjord1-node blir normalisert likt Python-skriptet", () => {
   const msg = normalizeFjord1Node({
     id: "1",
     heading: "Standal-Trandal-Valderøya-Store Kalvøy",

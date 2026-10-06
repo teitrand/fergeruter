@@ -1,0 +1,10 @@
+name = "fergeruter-trafikkmeldinger"
+main = "src/index.js"
+compatibility_date = "2026-10-05"
+workers_dev = true
+
+# Ingen cron. Nettlesaren les HTTP-svaret. GitHub sin eigen */5-cron
+# på update-trafikkmeldinger.yml er reserve for data/trafikkmeldinger.json.
+# Tom liste slettar cron om ein tidlegare deploy hadde lagt inn ein.
+[triggers]
+crons = []
