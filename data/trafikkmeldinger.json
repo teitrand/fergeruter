@@ -1,6 +1,6 @@
 {
   "source": "https://www.fjord1.no/trafikkmeldingar",
-  "fetchedAt": "2026-10-06T05:38:00.191403+00:00",
+  "fetchedAt": "2026-10-06T07:04:03.938464+00:00",
   "messages": [
     {
       "id": "RG9tYWluQ29udGVudDoyMTk0NTk5Ng==",
@@ -423,7 +423,7 @@
       "routeSwitch": null
     },
     {
-      "id": "RG9tYWluQ29udGVudDoyMTkzNTM2Mg==",
+      "id": "RG9tYWluQ29udGVudDoyMTk0NzE2Ng==",
       "heading": "Stavanger - Byøyene - Hommersåk",
       "text": "Rute 800 Stavanger - Byøyene - Hommersåk: Pågåande rundtur til Hommersåk, vil bli avbrutt i Hommersåk kl. 08:05 grunna at fartøy har fått tau i ein propell. Rundtur 08:55 til Hommersåk vil gå som normalt, med alternativt fartøy. Mvh Fjord1 på vegne av Kolumbus.",
       "publishedAt": "2026-10-05T08:07:12+02:00",
