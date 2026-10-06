@@ -70,39 +70,32 @@ def env_flag(name):
     return os.environ.get(name, "").strip().lower() in {"1", "true", "yes"}
 
 
-def git(cwd, *args, check=True):
-    env = os.environ.copy()
-    env["GIT_TERMINAL_PROMPT"] = "0"
-    env.setdefault("GIT_AUTHOR_NAME", "github-actions[bot]")
-    env.setdefault("GIT_AUTHOR_EMAIL", "41898282+github-actions[bot]@users.noreply.github.com")
-    env.setdefault("GIT_COMMITTER_NAME", env["GIT_AUTHOR_NAME"])
-    env.setdefault("GIT_COMMITTER_EMAIL", env["GIT_AUTHOR_EMAIL"])
-    proc = subprocess.run(
-        ["git", *args],
-        cwd=cwd,
-        check=False,
-        text=True,
-        capture_output=True,
-        env=env,
-    )
-    if check and proc.returncode != 0:
-        detail = (proc.stderr or proc.stdout or "").strip()
-        raise RuntimeError(detail or f"git {args[0]} feila")
-    return proc
+_COMMIT = None
 
 
-def ensure_identity(cwd):
-    git(cwd, "config", "user.name", "github-actions[bot]")
-    git(cwd, "config", "user.email", "41898282+github-actions[bot]@users.noreply.github.com")
-    git(cwd, "config", "commit.gpgsign", "false")
+class LoggerFailed(RuntimeError):
+    pass
+
+
+def commit_tool():
+    global _COMMIT
+    if _COMMIT is None:
+        path = Path(__file__).with_name("commit_on_main.py")
+        spec = importlib.util.spec_from_file_location("commit_on_main", path)
+        mod = importlib.util.module_from_spec(spec)
+        assert spec.loader is not None
+        spec.loader.exec_module(mod)
+        _COMMIT = mod
+    return _COMMIT
 
 
 def prepare_worktree(cwd):
-    fetched = git(cwd, "fetch", "origin", "main", check=False)
+    tool = commit_tool()
+    fetched = tool.git(cwd, "fetch", "origin", "main", check=False)
     if fetched.returncode != 0:
         detail = (fetched.stderr or fetched.stdout or "").strip()
         raise RuntimeError(detail or "git fetch feila")
-    git(cwd, "reset", "--hard", "origin/main")
+    tool.git(cwd, "reset", "--hard", "origin/main")
 
 
 def read_updated_at(cwd):
@@ -116,28 +109,17 @@ def read_updated_at(cwd):
     return payload.get("updatedAt") or ""
 
 
-def stage_and_commit(cwd):
-    git(cwd, "add", "--", str(LOG_REL))
-    staged = git(cwd, "diff", "--staged", "--quiet", check=False)
-    if staged.returncode == 0:
-        say("Ingen endringar")
-        return False
-    if staged.returncode != 1:
-        detail = (staged.stderr or staged.stdout or "").strip()
-        raise RuntimeError(detail or "git diff feila")
-    git(cwd, "commit", "-m", COMMIT_MESSAGE)
-    return True
-
-
 def publish_log(cwd, run_logger, attempts=5, sleep_fn=None, now=None, skip_if_fresh=False):
     """Hent main, logg, commit og push. Rebase ved kappløp, skriv om ved kollisjon.
 
     Ein sein `updatedAt` blir varsla og logginga held fram. Er loggen fersk
-    og `skip_if_fresh` er sett, blir loggeren ikkje køyrt.
+    og `skip_if_fresh` er sett, blir loggeren ikkje køyrt. Push går gjennom
+    `commit_on_main`, same hjelparen som dei andre datajobbane.
     """
+    tool = commit_tool()
     if sleep_fn is None:
         sleep_fn = time.sleep
-    ensure_identity(cwd)
+    tool.ensure_identity(cwd)
     prepare_worktree(cwd)
     moment = as_utc(now or datetime.now(timezone.utc))
     previous = read_updated_at(cwd)
@@ -151,27 +133,29 @@ def publish_log(cwd, run_logger, attempts=5, sleep_fn=None, now=None, skip_if_fr
     if proc is not None and getattr(proc, "returncode", 0) != 0:
         say("Logger feila. Prøver att neste runde.")
         return "logger-failed", late
-    if not stage_and_commit(cwd):
+    if not tool.commit_paths(cwd, [str(LOG_REL)], COMMIT_MESSAGE):
+        say("Ingen endringar")
         return "unchanged", late
-    for attempt in range(1, attempts + 1):
-        push = git(cwd, "push", "origin", "HEAD:main", check=False)
-        if push.returncode == 0:
-            return "pushed", late
-        say(f"Push feila, prøver rebase (forsøk {attempt}).")
-        git(cwd, "fetch", "origin", "main", check=False)
-        rebase = git(cwd, "rebase", "origin/main", check=False)
-        if rebase.returncode != 0:
-            git(cwd, "rebase", "--abort", check=False)
-            git(cwd, "reset", "--hard", "origin/main")
-            proc = run_logger()
-            if proc is not None and getattr(proc, "returncode", 0) != 0:
-                say("Logger feila etter rebase. Prøver att neste runde.")
-                return "logger-failed", late
-            if not stage_and_commit(cwd):
-                return "unchanged", late
-        sleep_fn(min(2**attempt, 15))
-    say("Fekk ikkje pusha loggen.")
-    return "push-failed", late
+
+    def rebuild():
+        again = run_logger()
+        if again is not None and getattr(again, "returncode", 0) != 0:
+            raise LoggerFailed()
+        return tool.commit_paths(cwd, [str(LOG_REL)], COMMIT_MESSAGE)
+
+    try:
+        result = tool.push_committed(
+            cwd,
+            refspec="HEAD:main",
+            attempts=attempts,
+            sleep_fn=sleep_fn,
+            rebuild=rebuild,
+            fail_message="Fekk ikkje pusha loggen.",
+        )
+    except LoggerFailed:
+        say("Logger feila etter rebase. Prøver att neste runde.")
+        return "logger-failed", late
+    return result, late
 
 
 def run_production_logger():

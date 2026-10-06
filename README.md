@@ -4,11 +4,11 @@ Statisk oversikt over **trafikkmeldingar frå Fjord1** og **seglingsplanen** for
 
 Sida viser heile dagen som ei samanhengande tidslinje med alle anløpa i rekkjefølgje, og ei **No**-linje som fortel om ferja ligg til kai eller er på veg. Under dagen kan du velje **frå** og **til** (t.d. alle turar til Trandal, eller berre Standal→Trandal) og byte retning med pila mellom vala. Korrespondanse ligg i ei eiga nedtrekksliste. Posisjonen er i utgangspunktet rekna ut frå den aktive tabellen. Når Entur sender køyretøyposisjon for 1136 eller 1135, visest den som sanntid. Etter siste passasjertur på Valderøya eller Store Kalvøy reknar sida med at ferja går tilbake til Standal utan passasjerar (om lag to timar, deretter til kai) og ligg der over natta — den turen står ikkje i Entur. Mellom kaiene i Hjørundfjorden flyttar ho seg ikkje utan passasjerar.
 
-Rutetabellane for 1136 og 1135 blir lasta ned frå Entur og lagra i `data/ruter.json`. Dei blir berre henta på nytt når innhaldet faktisk er endra. Kombinasjonsruta ligg ikkje i Entur; ho er transkribert frå FRAM-PDF til `data/kombirute.json`. Rutetabellen kjem frå lokale JSON-filer; nettlesaren kallar Entur berre for valfri køyretøyposisjon (CORS er open). Trafikkmeldingar kjem frå Fjord1 når GitHub-kopien er gammal, elles frå `data/trafikkmeldinger.json`.
+Rutetabellane for 1136 og 1135 blir lasta ned frå Entur og lagra i `data/ruter.json`. Dei blir berre henta på nytt når innhaldet faktisk er endra. Kombinasjonsruta ligg ikkje i Entur; ho er transkribert frå FRAM-PDF til `data/kombirute.json`. Rutetabellen kjem frå lokale JSON-filer; nettlesaren kallar Entur berre for valfri køyretøyposisjon (CORS er open). Trafikkmeldingar kjem frå `data/trafikkmeldinger.json` når den kopien er fersk. Er ho eldre enn åtte minutt, hentar sida JSON frå vår eigen Cloudflare Worker (Fjord1 Ibexa, med CORS). `r.jina.ai` er berre siste utveg om workeren feilar.
 
 ## Kjelder
 
-- Trafikkmeldingar: [fjord1.no/trafikkmeldingar](https://www.fjord1.no/trafikkmeldingar) via Fjord1 sitt GraphQL-endepunkt
+- Trafikkmeldingar: [fjord1.no/trafikkmeldingar](https://www.fjord1.no/trafikkmeldingar) via Fjord1 sitt Ibexa-view, servert med CORS frå Cloudflare-workeren i `cloudflare/trafikkmeldinger/`
 - Rutetabell 1136 og 1135: [Entur Journey Planner](https://developer.entur.org/), lagra i `data/ruter.json` (`lines.1136` og `lines.1135`). Kai **Lekneset** blir normalisert til **Leknes**.
 - Kombinasjonsrute: [FRAM-PDF frå 18.11.25](https://frammr.no/_f/p2/i2e02cdba-2cdc-4a23-b9bf-f6a6bd437bbe/kombinasjonsrute-sabo-leknes-skar-trandal-standal-20251118.pdf), transkribert til `data/kombirute.json` (ikkje Entur).
 - Sanntidsposisjon: [Entur SIRI VM](https://developer.entur.no/open-data/realtime) (`datasetId=MOR`, `LineRef=MOR:Line:1136` og `1135`) når ferja rapporterer. Små ferjer kan vere utan køyretøy i straumen, særleg utanom rutetid. I kombimodus brukast sanntid berre om Kvernes rapporterer; elles melding + tidslinje.
@@ -28,7 +28,7 @@ Nyaste **gyldige lokale** Fjord1-melding styrer tabellen når 1136 er innstilt e
 
 Korrespondansar: Solavågen og Hundeidvika via Festøya→Standal som før. Når aktiv tabell har **Leknes** (kombirute eller 1135), kjem òg buss **133 Leknes–Øye**.
 
-Fjord1 sitt GraphQL-endepunkt svarar, men utan CORS-løyve frå `teitrand.github.io`, så nettlesaren får ikkje lese det direkte. GitHub Actions hentar framleis meldingane til `data/trafikkmeldinger.json` (cron på `main`). Når den fila er eldre enn åtte minutt, sjekkar appen Fjord1-sida live (GraphQL fyrst, deretter HTML via ein open lesar med CORS) og flettar inn nye meldingar.
+Fjord1 sitt gamle GraphQL-endepunkt svarar 404, og Ibexa-viewet har ikkje CORS frå `teitrand.github.io`. Nettlesaren les derfor `data/trafikkmeldinger.json`, og når den er eldre enn åtte minutt spør han workeren `cloudflare/trafikkmeldinger/` (same Ibexa-kall som GitHub Actions, med CORS og 2 minutt kant-cache). Svarer ikkje workeren, blir HTML-sida lesen via `r.jina.ai` som siste utveg. GitHub Actions skriv framleis fila på `main`, men berre når meldingsteksten er endra. GitHub sin `*/5`-cron er reserve for den fila og blir ofte køyrd berre nokre gonger i døgnet. Workeren startar ikkje den jobben. Oppsett: `cloudflare/trafikkmeldinger/README.md`.
 
 ## Køyre lokalt
 
@@ -67,12 +67,12 @@ Pages kjem framleis frå `main` (legacy). Testhosten blir derfor kopiert inn som
 - **Alltid via `dev` før prod.** `dev` skal vere føre `main`. Feature-grein frå `dev` → PR mot `dev` → test på `/dev/` → først då merge `dev` → `main`. Ikkje opne feature-PR mot `main`.
 - Service worker på `/dev/` har eige scope og eige cache-namn, så testinga ikkje stal cache frå prod
 - Plausible tel ikkje på `/dev/` (same som localhost)
-- Trafikkmelding-jobben køyrer framleis berre på `main`. Testhosten `/dev/` les same `data/trafikkmeldinger.json` som produksjon som reserve; når kopien er gammal, hentar både `/dev/` og produksjon meldingar live frå Fjord1.
+- Trafikkmelding-jobben som skriv JSON-fila køyrer berre på `main`. Testhosten `/dev/` les same `data/trafikkmeldinger.json` som produksjon. Når kopien er gammal, hentar både `/dev/` og produksjon frå Cloudflare-workeren, og frå `r.jina.ai` berre om workeren feilar.
 
 ## Oppdatering
 
-- Trafikkmeldingar: GitHub Actions kvart 5. minutt på `main` (tettaste GitHub tillèt; køyringane kan verte forseinka). Fila blir **ikkje** skriven om meldingane er dei same. Nettlesaren sjekkar fila kvart 3. minutt medan sida er open. Er kopien eldre enn 8 minutt, sjekkar ho Fjord1 direkte og viser nye meldingar med ein gong.
-- Signalturar: Cloudflare Worker (`cloudflare/signaltur-cron/`) startar logging på `main` kl. :07 og :37 UTC mellom 04 og 21. Ikkje 22:07 UTC, for det er 00:07 i Oslo i sommartid. Siste slag 21:37 UTC er 23:37 sommertid og 22:37 vintertid, og dekkjer siste signaltur 20:20 (framme 20:35) i båe. GitHub Actions skriv `data/signalturar.json` og fyller inn turar frå i dag som Entur enno har. Same cron på GitHub er reserve. Oppsett: `cloudflare/signaltur-cron/README.md`. For å stoppe: slå av cron på workeren og slå av workflowen **Logg signalturar**.
+- Trafikkmeldingar: Cloudflare-workeren `cloudflare/trafikkmeldinger/` svarar fersk JSON (Ibexa, cache 2 minutt, kortare om Fjord1 feilar). Nettlesaren les `data/trafikkmeldinger.json` kvart 3. minutt og spør workeren når `fetchedAt` er eldre enn 8 minutt. Fila på GitHub blir **ikkje** skriven om meldingane er dei same, så `fetchedAt` er ikkje eit hjarteslag. GitHub sin `*/5`-cron er reserve for fila og blir ofte ikkje køyrd. Workeren har ingen cron og startar ikkje workflowen. `r.jina.ai` blir brukt berre om workeren feilar. Oppsett: `cloudflare/trafikkmeldinger/README.md`.
+- Signalturar: Cloudflare Worker (`cloudflare/signaltur-cron/`) startar logging på `main` kl. :07 og :37 UTC mellom 04 og 21. Ikkje 22:07 UTC, for det er 00:07 i Oslo i sommartid. Siste slag 21:37 UTC er 23:37 sommertid og 22:37 vintertid, og dekkjer siste signaltur 20:20 (framme 20:35) i båe. GitHub Actions skriv `data/signalturar.json` og fyller inn turar frå i dag som Entur enno har. Same cron på GitHub er reserve. Får jobben ingen runner, avbryt workeren ho etter 12 minutt og startar same køyring på nytt, så ho ikkje blir liggjande til GitHub merkjer ho som failure etter 15 minutt. Oppsett: `cloudflare/signaltur-cron/README.md`. For å stoppe: slå av cron på workeren og slå av workflowen **Logg signalturar**.
 - Rutetabell 1136+1135 og korrespondansar (inkl. 133): last ned att **berre når tabellen er endra**. Nettlesaren viser sist lagra tabell med ein gong og oppdaterer i bakgrunnen:
 
 ```bash

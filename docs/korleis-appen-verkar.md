@@ -4,7 +4,7 @@ Dette dokumentet skal vere nok til å byggje appen opp att. Det skildrar kva kva
 
 Klokka er alltid veggtid i `Europe/Oslo`. Datoar er `YYYY-MM-DD` i den sona. Avgangar i JSON er `HH:MM:SS`.
 
-Appen heiter Fergeorakelet. Ho er ei statisk side på GitHub Pages. Det finst ingen eigen tenar. Alt som må hentast frå Entur eller Fjord1 anten blir skrive til JSON av GitHub Actions, eller blir henta rett frå nettlesaren der API-et har CORS.
+Appen heiter Fergeorakelet. Ho er ei statisk side på GitHub Pages. Entur med open CORS blir spurt frå nettlesaren. Fjord1-trafikkmeldingar kjem frå ein Cloudflare Worker med CORS (`cloudflare/trafikkmeldinger/`), med `data/trafikkmeldinger.json` som reserve. GitHub Actions skriv JSON-filene.
 
 ## 1. Kva sida viser
 
@@ -90,7 +90,7 @@ Skriven av `scripts/fetch_korrespondanse.py` frå Entur.
 
 ### `data/trafikkmeldinger.json`
 
-Skriven av `scripts/fetch_trafikkmeldinger.py` frå Fjord1 sitt Ibexa-view `https://www.fjord1.no/api/ezp/v2/views`. GraphQL på `www.fjord1.no/graphql` svarar 404. Sida `https://www.fjord1.no/trafikkmeldingar` er menneske-kjelda.
+Skriven av `scripts/fetch_trafikkmeldinger.py` frå Fjord1 sitt Ibexa-view `https://www.fjord1.no/api/ezp/v2/views`. Det gamle GraphQL-endepunktet på `www.fjord1.no` svarar 404 og blir ikkje brukt. Sida `https://www.fjord1.no/trafikkmeldingar` er menneske-kjelda. Same viewet blir òg lesen av Cloudflare-workeren, som nettlesaren spør når denne fila er gammal.
 
 Melding:
 
@@ -105,7 +105,7 @@ Melding:
 | `isRouteControl` | Om meldinga får lov å byte tabell |
 | `kind` | `cancelled`, `delay`, `normal`, `capacity`, `info` |
 
-Jobben køyrer kvart 5. minutt på `main` (`.github/workflows/update-trafikkmeldinger.yml`) og committer berre når innhaldet er endra. `dev` skal ikkje overskrive denne fila. Testhosten les produksjonsfila.
+Jobben på `main` (`.github/workflows/update-trafikkmeldinger.yml`) committer berre når innhaldet er endra. Push går gjennom `scripts/commit_on_main.py`: blir han avvist fordi ein annan jobb rakk å skrive til `main` først, blir committen rebasa og prøvd på nytt. Same skriptet blir brukt av rutetabell-jobben og av testhost-sync. Kollisjon i fila blir kasta, og hentinga køyrd om att oppå siste `main`. `fetchedAt` blir derfor ståande mellom endringane og er ikkje eit teikn på at jobben nett har køyrd. GitHub sin `*/5`-cron er reserve for fila og blir ofte køyrd berre nokre gonger i døgnet. Cloudflare-workeren `cloudflare/trafikkmeldinger/` svarar JSON med CORS til nettlesaren og startar ikkje denne jobben. `dev` skal ikkje overskrive denne fila. Testhosten les produksjonsfila. Oppsett: `cloudflare/trafikkmeldinger/README.md`.
 
 ### `data/signalturar.json`
 
@@ -113,7 +113,11 @@ Skriven av `scripts/log_signalturar.py` på `main`, kvar halvtime i vaktvindauge
 
 Klokka er ein Cloudflare Worker på gratisplanen, `cloudflare/signaltur-cron/`. Cron Trigger der er `7,37 4-21 * * *` (UTC). Kvart slag kallar GitHub REST og startar workflowen med `workflow_dispatch` på `main`. Tokenet er ein fine-grained PAT med berre dette repoet og Actions les og skriv, lagra som løyndommen `GITHUB_TOKEN` på workeren. Oppsett står i `cloudflare/signaltur-cron/README.md`.
 
-GitHub-cron med same minutt er reserve. `:07` og `:37` ligg utanfor den travlaste cron-køen på `:00` og `:30`. Siste slag er 21:37 UTC (23:37 norsk sommertid, 22:37 vintertid), inne i vaktvindauget som sluttar 22:40 UTC. `22:07` UTC er 00:07 i Oslo i sommar og blir ikkje brukt, for då blir neste dag logga tom. Siste signaltur 20:20, framme 20:35 Oslo, ligg før neste slag både i sommar (18:37 UTC) og vinter (19:37 UTC). `concurrency` med gruppa `log-signalturar` held éin køyring om gongen. Er `updatedAt` yngre enn 20 minutt, hoppar jobben over, så worker og reserve ikkje skriv dobbelt. Manuell køyring kan setje `force` for å logge likevel. Push til `main` kan tape kappløpet mot andre jobbar. Då blir committen rebasa og prøvd på nytt. Kollisjon i `signalturar.json` blir kasta, og loggen blir skriven på nytt oppå siste `main`.
+GitHub-cron med same minutt er reserve. `:07` og `:37` ligg utanfor den travlaste cron-køen på `:00` og `:30`. Siste slag er 21:37 UTC (23:37 norsk sommertid, 22:37 vintertid), inne i vaktvindauget som sluttar 22:40 UTC. `22:07` UTC er 00:07 i Oslo i sommar og blir ikkje brukt, for då blir neste dag logga tom. Siste signaltur 20:20, framme 20:35 Oslo, ligg før neste slag både i sommar (18:37 UTC) og vinter (19:37 UTC). `concurrency` med gruppa `log-signalturar` held éin køyring om gongen. Er `updatedAt` yngre enn 20 minutt, hoppar jobben over, så worker og reserve ikkje skriv dobbelt. Manuell køyring kan setje `force` for å logge likevel.
+
+Push til `main` går gjennom `scripts/commit_on_main.py`, same hjelparen som trafikkmeldingar, rutetabell og testhost-sync. Vinn ein annan jobb kappløpet, blir committen rebasa og push prøvd på nytt. Kollisjon i `signalturar.json` blir kasta, og loggen blir skriven på nytt oppå siste `main`.
+
+GitHub kan la jobben stå utan runner. Etter om lag 15 minutt avbryt plattforma ho og merkjer workflowen som failure, med teksten «The job was not acquired by Runner of type hosted even after multiple attempts». Ingen steg har køyrt, `runner_id` er 0, og det er ikkje concurrency-gruppa som avbryt: førre køyring er ferdig, og neste slag er eit halvtime seinare. Workeren sjekkar etter 15 sekund. Har jobben framleis ingen runner etter 12 minutt, avbryt han køyringa og startar **same** køyring på nytt (`rerun`). Då blir det ikkje ein ekstra workflow-run, og det nye forsøket kan bli grønt. `concurrency` held framleis éin logger om gongen, så reserve-cronen ikkje skriv dobbelt. 12 minutt er valt fordi ei treg men vellukka køyring 5. oktober 2026 venta drygt 10 minutt på runner. Dette verkar fyrst etter at workeren er deploya på nytt (`npx wrangler deploy` i `cloudflare/signaltur-cron/`). Sjølve workflow-fila på `main` endrar ikkje denne vakta.
 
 Kvar runde ser på **alle** signalturar i dag som har passert tingefristen, òg dei eit hol hoppa over. Turane blir fylte inn frå det Entur enno svarar. Avlyst blir `skipped` òg etter ankomst. `booked` krev `actualDepartureTime`: at kallet berre ligg i feeden utan avlysing etter fristen er ikkje tinging, for avlysinga kan kome etterpå. Utan faktisk avgang blir det ikkje skrive `booked`, heller ikkje før ankomst. `observedAt` er den faktiske avgangen, og rada får `evidence: "departed"`. Unntaket er ein tom uttur som berre går så ein seinare retur med faktisk avgang kan køyre (t.d. 06:45 Standal→Trandal før bestilt 07:05 tilbake). Då er statusen `gått`: ferja segla, utan bestillingsbevis. Er returen enno ikkje avgjord, blir utturen ikkje skriven som `booked`. Er kallet borte frå feeden, blir det ikkje gjetta. Spørjinga les dagen side for side om Entur berre gir 40 kall om gongen.
 
@@ -190,9 +194,13 @@ Små ferjer manglar ofte i VM, særleg utanom rutetid. Då gjeld tabellklokka.
 
 ### Innhenting
 
-1. GitHub Actions skriv `data/trafikkmeldinger.json` på `main`.
-2. Nettlesaren hentar fila kvart 3. minutt (`cache: no-cache`). Testhost `/dev/` hentar produksjons-URL (`…/fergeruter/data/trafikkmeldinger.json`), ikkje kopien under `/dev/`.
-3. Er `fetchedAt` eldre enn 8 minutt, spør nettlesaren Fjord1 direkte. GraphQL på `www.fjord1.no/graphql` har ikkje CORS frå `teitrand.github.io`. Då blir HTML-sida `https://www.fjord1.no/trafikkmeldingar` lese via `https://r.jina.ai/`. Nye meldingar blir fletta inn på `heading|text` og får id `live:…`. Dei blir òg lagra i `localStorage` (`fergeruter-messages-v1`) slik at kombirute kan visast før nettverket svarar. Actions-jobben bruker ikkje den vegen. Han les Ibexa REST-viewet, fordi GraphQL-endepunktet svarar 404 for den jobben.
+Vi bruker ein Cloudflare Worker, ikkje GitHub-cronen, som den ferske vegen. Fila på GitHub blir berre skriven når meldingsteksten endrar seg, og Pages bruker tid på å publisere. Då ville nettlesaren framleis rekne kopien som gammal etter åtte minutt og gå til `r.jina.ai` om cronen var einerådande. Workeren les Ibexa direkte og svarar med CORS. `r.jina.ai` er siste utveg om workeren feilar.
+
+1. Cloudflare-workeren `cloudflare/trafikkmeldinger/` hentar Ibexa-viewet og svarar JSON. Kant-cachen er 2 minutt. Nodane har same form som `normalizeFjord1Node` ventar. Klassifiseringa skjer i nettlesaren.
+2. GitHub Actions skriv `data/trafikkmeldinger.json` på `main` når innhaldet er endra. GitHub sin `*/5`-cron er berre reserve for den fila. Workeren har ingen cron.
+3. Nettlesaren hentar fila kvart 3. minutt (`cache: no-cache`). Testhost `/dev/` hentar produksjons-URL (`…/fergeruter/data/trafikkmeldinger.json`), ikkje kopien under `/dev/`.
+4. Er `fetchedAt` eldre enn 8 minutt, eller fila manglar, spør nettlesaren workeren. Svaret er `complete`, så haldne meldingar blir fletta inn og ikkje berre lagde oppå.
+5. Svarer ikkje workeren, blir HTML-sida `https://www.fjord1.no/trafikkmeldingar` lesen via `https://r.jina.ai/`. Nye meldingar blir fletta inn på `heading|text` og får id `live:…`. Dei blir òg lagra i `localStorage` (`fergeruter-messages-v1`) slik at kombirute kan visast før nettverket svarar.
 
 ### Klassifisering av tekst
 
@@ -348,7 +356,8 @@ CI (`.github/workflows/test.yml`) på kvar push og PR:
 python -m unittest discover -s tests -v
 node --test --test-concurrency=1 \
   tests/test_status.mjs tests/test_i18n.mjs tests/test_plausible.mjs \
-  tests/test_route_mode.mjs tests/test_sw.mjs
+  tests/test_route_mode.mjs tests/test_sw.mjs tests/test_signaltur_cron.mjs \
+  tests/test_trafikkmeldinger_worker.mjs
 ```
 
 Python-testar lastar skript med `importlib` frå filsti. `unittest discover` har `tests/` på `sys.path`, så `import scripts.…` verkar ikkje.
@@ -374,7 +383,7 @@ Det som må halde:
 1. Statisk `index.html` som lastar `assets/app.js?v=N` som modul og `assets/i18n.js`.
 2. Legg inn dei tre tabellfilene. Køyr `fetch_ruter.py` og `fetch_korrespondanse.py` mot Entur med `ET-Client-Name`. Bygg kombirute frå PDF-transkripsjonen, ikkje frå Entur.
 3. Implementer Oslo-klokke, `activeDates` / `days`, og `ferryStatus` som i avsnitt 8.
-4. Hent Fjord1 til JSON. Klassifiser med uttrykka i avsnitt 6. La nyaste lokale melding velje 1136, 1135 eller kombi. Delvis innstilling merkar rader, ho byter ikkje tabell.
+4. Hent Fjord1 til JSON via Ibexa, ikkje GraphQL. Klassifiser med uttrykka i avsnitt 6. La nyaste lokale melding velje 1136, 1135 eller kombi. Delvis innstilling merkar rader, ho byter ikkje tabell. Fersk veg i nettlesaren er workeren i `cloudflare/trafikkmeldinger/`. `r.jina.ai` er siste utveg.
 5. Poll SIRI VM i rutevindauget. Stol på posisjon berre i 3 minutt. Rekn avgang frå `leftOrigin`.
 6. Poll GraphQL-avlysingar for dagen. Ta avlyste bein ut av posisjonsrekninga. Signaltur som er avlyst er «Ikkje utført».
 7. Etter tingefristen: grøn «Bestilt signaltur» berre etter reglane i avsnitt 7. Hugs sett tur ut økta. Ikkje gjett bestilt etter ankomst berre fordi kallet manglar.
