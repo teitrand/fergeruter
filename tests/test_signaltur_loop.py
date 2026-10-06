@@ -265,10 +265,14 @@ class WorkflowContractTests(unittest.TestCase):
         self.assertIn("refs/heads/main", text)
         self.assertIn("force:", text)
         self.assertIn("HEAD:main", script)
+        self.assertIn("commit_on_main", script)
         self.assertNotIn("handoff", script)
         self.assertNotIn("workflow run", script)
         self.assertIn('ref: "main"', worker)
         self.assertIn("/repos/teitrand/fergeruter/actions/workflows/log-signalturar.yml/dispatches", worker)
+        self.assertIn("/cancel", worker)
+        self.assertIn("/rerun", worker)
+        self.assertIn("RUNNER_GIVE_UP_MS", worker)
         self.assertIn("GITHUB_TOKEN", worker)
 
 

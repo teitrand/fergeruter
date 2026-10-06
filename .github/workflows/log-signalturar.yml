@@ -9,6 +9,14 @@ name: Logg signalturar
 # concurrency held éin køyring om gongen. Er loggen skriven dei siste
 # 20 minutta, hoppar jobben over, så reserve og worker ikkje skriv dobbelt.
 #
+# Ein køyring som ikkje får runner, blir ståande i om lag 15 minutt og så
+# merkt failure («not acquired by Runner of type hosted») utan at nokon
+# steg har køyrt. Det er ikkje concurrency som avbryt ho: førre køyring er
+# ferdig, og neste kjem fyrst eit halvtime etter. Workeren avbryt ei slik
+# køyring etter 12 minutt og startar same køyring på nytt, så ho kan bli
+# grøn utan ein ekstra workflow-run. Sjå cloudflare/signaltur-cron/.
+# Push går gjennom scripts/commit_on_main.py.
+#
 # Start: når denne fila ligg på main, deploy workeren. Sjå
 # cloudflare/signaltur-cron/README.md.
 # Stopp: slå av cron på workeren og slå av denne workflowen.

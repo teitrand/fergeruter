@@ -10,6 +10,16 @@ GitHub har same cron som reserve. Sjå `.github/workflows/log-signalturar.yml`.
 
 Workflow-fila må liggje på `main` før deploy. Elles svarar GitHub 404 på dispatch.
 
+## Runner som ikkje kjem
+
+GitHub kan ta imot `workflow_dispatch` og likevel aldri gje jobben ein runner. Då står ho i om lag 15 minutt og blir merkt **failure**, sjølv om ingen steg har køyrt. E-posten seier at jobben feila. Annotasjonen er «The job was not acquired by Runner of type hosted even after multiple attempts».
+
+Workeren ventar ikkje heile det kvar gong. Dei fleste køyringane har runner innan 15 sekund, og då er vakta ferdig. Er det framleis ingen runner etter 12 minutt, avbryt han køyringa og kallar `rerun` på **same** køyring. Det blir ikkje ein ny workflow-run. Det nye forsøket køyrer i concurrency-gruppa, så han ventar om reservecronen alt loggar, og ferskskapssjekken i `scripts/signaltur_loop.py` hoppar over om `updatedAt` er under 20 minutt. Landar forsøk to, er konklusjonen på køyringa suksess, ikkje failure.
+
+12 minutt er innanfor veggtida på 15 minutt for cron på gratisplanen, og før GitHub sin eigen 15-minuttsgrense. Sjølve ventinga bruker ikkje CPU. Reservecronen som GitHub startar sjølv, blir ikkje overvaka av workeren. Han går sjeldan.
+
+Vakta ligg i denne workeren, ikkje i workflow-fila. Ho verkar fyrst etter `npx wrangler deploy`. Tokenet treng framleis berre Actions, les og skriv: avbrot og rerun bruker same løyvet.
+
 ## Oppsett
 
 1. Opprett ein Cloudflare-konto. Gratisplanen inkluderer Cron Triggers.
