@@ -23,25 +23,20 @@ jobs:
         with:
           ref: main
           path: dest
+          fetch-depth: 0
       - name: Checkout dev
         uses: actions/checkout@v4
         with:
           ref: dev
           path: src
-      - name: Kopier testhost inn i /dev/
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Kopier testhost og commit til main
         run: |
-          rm -rf dest/dev
-          mkdir -p dest/dev
-          rsync -a --exclude '.git' --exclude '.github' --exclude 'dev' src/ dest/dev/
-      - name: Commit til main
-        working-directory: dest
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add dev
-          if git diff --staged --quiet; then
-            echo "Testhosten er uendra"
-          else
-            git commit -m "data: oppdater testhost /dev/"
-            git push origin HEAD:main
-          fi
+          python src/scripts/commit_on_main.py \
+            --repo dest \
+            --to main \
+            --message "data: oppdater testhost /dev/" \
+            --refresh "rm -rf dev && mkdir -p dev && rsync -a --exclude '.git' --exclude '.github' --exclude 'dev' ../src/ dev/" \
+            -- dev
