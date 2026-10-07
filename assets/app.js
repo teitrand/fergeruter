@@ -7,7 +7,7 @@ import {
   setLang,
   t,
   weekdays,
-} from "./i18n.js?v=74";
+} from "./i18n.js?v=75";
 
 const MESSAGES_URL = "data/trafikkmeldinger.json";
 const SIGNAL_LOG_URL = "data/signalturar.json";
@@ -115,6 +115,8 @@ const state = {
   liveFetchedAt: 0,
   liveBackoffMs: 0,
   liveBlockedUntil: 0,
+  /** Siste VM-kall feila (nettverk, status eller JSON). Då seier vi det, ikkje «ingen posisjon». */
+  liveFailed: false,
   /** Service journey-id som Entur har merkt avlyst i dag. */
   cancelledJourneys: new Set(),
   /** Når vi sist fekk svar frå Entur om avlysingar. 0 = ikkje spurt enno. */
@@ -3934,10 +3936,21 @@ function appendSignalLogWarning(lede, legs) {
   lede.append(el("span", "lede-warn", text));
 }
 
+/**
+ * Fotnote for posisjonen. Når Entur strupar, manglar svaret CORS-hovud, så
+ * nettlesaren ser berre «Failed to fetch» og aldri 429. Difor reknar vi kvar
+ * feil ved kallet som «fekk ikkje kontakt», og tomt svar som «ingen posisjon».
+ */
+function positionNoteKey() {
+  if (liveStatus(state.live)) return "position.live";
+  if (state.liveFailed) return "position.offline";
+  return "position.planned";
+}
+
 function renderPositionNote() {
   const note = document.getElementById("position-note");
   if (!note) return;
-  note.textContent = liveStatus(state.live) ? t("position.live") : t("position.planned");
+  note.textContent = t(positionNoteKey());
 }
 
 function timelineEventIsPast(event, events, now = nowMinutes()) {
@@ -4620,8 +4633,10 @@ async function loadLivePosition() {
     state.live = pickFreshest(found);
     state.liveBackoffMs = 0;
     state.liveBlockedUntil = 0;
+    state.liveFailed = false;
   } catch (error) {
     if (found.length) state.live = pickFreshest(found);
+    state.liveFailed = true;
     noteLiveFailure();
     console.error(error);
   }
@@ -5006,6 +5021,7 @@ function resetTestState() {
   state.liveFetchedAt = 0;
   state.liveBackoffMs = 0;
   state.liveBlockedUntil = 0;
+  state.liveFailed = false;
   state.cancelledJourneys = new Set();
   state.cancellationsFetchedAt = 0;
   state.seenJourneys = new Set();
@@ -5087,6 +5103,7 @@ export {
   liveBlockedUntil,
   liveFetchUrls,
   liveStatus,
+  loadLivePosition,
   markPwaFirstOpen,
   matchesLegPlaces,
   matchesStop,
@@ -5099,6 +5116,7 @@ export {
   passengerJourneysFrom,
   plausibleContext,
   plausibleRoute,
+  positionNoteKey,
   sortMessagesForRoute,
   messagesFingerprint,
   minDeadheadMinutes,
