@@ -2162,12 +2162,12 @@ function crossingMinutes(allLegs, fromQuay, toQuay) {
   return shortest ?? outerDeadheadMinutes(from, to);
 }
 
-/** Tidspunkt for ei VM-aktivitet: ValidUntilTime, elles RecordedAtTime. */
+/** Tidspunkt for ei VM-aktivitet: RecordedAtTime, elles ValidUntilTime. */
 function activityTime(activity) {
-  const until = Date.parse(activity?.ValidUntilTime);
-  if (Number.isFinite(until)) return until;
   const recorded = Date.parse(activity?.RecordedAtTime);
-  return Number.isFinite(recorded) ? recorded : -Infinity;
+  if (Number.isFinite(recorded)) return recorded;
+  const until = Date.parse(activity?.ValidUntilTime);
+  return Number.isFinite(until) ? until : -Infinity;
 }
 
 function parseVehicleMonitoring(data) {
