@@ -129,7 +129,9 @@ const STRINGS = {
     "conn.signalCall": "Signaltur, ring {route}",
     "conn.signalCallPhone": "Signaltur, ring {route} ({phone})",
     "position.planned":
-      "Posisjonen er rekna ut frå rutetabellen når Entur ikkje sender køyretøyposisjon.",
+      "Entur har ingen posisjon for ferja no. Posisjonen er rekna ut frå rutetabellen.",
+    "position.offline":
+      "Fekk ikkje kontakt med Entur, prøver igjen om litt. Posisjonen er rekna ut frå rutetabellen.",
     "position.live": "Posisjonen kjem frå Entur i sanntid no.",
     "footnote.signal": "Signalturar må tingast på telefon. Trykk På signal for å ringe ferja innan fristen.",
     "footnote.timetable": "Rutetabellen blir berre lasta ned att når han er endra.",
@@ -349,7 +351,9 @@ const STRINGS = {
     "conn.signalCall": "On request, call {route}",
     "conn.signalCallPhone": "On request, call {route} ({phone})",
     "position.planned":
-      "Position is calculated from the timetable when Entur is not sending a vehicle position.",
+      "Entur has no position for the ferry right now. Position is calculated from the timetable.",
+    "position.offline":
+      "Could not reach Entur, will try again shortly. Position is calculated from the timetable.",
     "position.live": "Position is from Entur live data now.",
     "footnote.signal": "On-request sailings must be booked by phone. Tap On request to call the ferry before the deadline.",
     "footnote.timetable": "The timetable is only downloaded again when it has changed.",
@@ -569,7 +573,9 @@ const STRINGS = {
     "conn.signalCall": "Signalfahrt, {route} anrufen",
     "conn.signalCallPhone": "Signalfahrt, {route} anrufen ({phone})",
     "position.planned":
-      "Die Position wird aus dem Fahrplan berechnet, wenn Entur keine Fahrzeugposition sendet.",
+      "Entur hat gerade keine Position für die Fähre. Die Position wird aus dem Fahrplan berechnet.",
+    "position.offline":
+      "Keine Verbindung zu Entur, neuer Versuch in Kürze. Die Position wird aus dem Fahrplan berechnet.",
     "position.live": "Die Position kommt jetzt aus Entur-Echtzeit.",
     "footnote.signal":
       "Signalfahrten müssen telefonisch angemeldet werden. Tippen Sie auf Auf Signal, um die Fähre vor der Frist anzurufen.",

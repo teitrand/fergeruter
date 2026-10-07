@@ -14,6 +14,8 @@ import {
   liveBlockedUntil,
   liveFetchUrls,
   liveStatus,
+  loadLivePosition,
+  positionNoteKey,
   currentStatus,
   signalVerdict,
   signalObservedAtQuay,
@@ -45,7 +47,7 @@ import {
   shouldFetchLive,
   serviceWindowMinutes,
 } from "../assets/app.js";
-import { setLang } from "../assets/i18n.js?v=74";
+import { setLang, t } from "../assets/i18n.js?v=75";
 
 beforeEach(() => {
   setLang("nn");
@@ -1644,4 +1646,118 @@ test("Entur-feil aukar backoff", () => {
   assert.equal(shouldFetchLive(midday + 10_000), false);
   noteLiveFailure(midday);
   assert.equal(liveBlockedUntil(), midday + 120_000);
+});
+
+/** Rutetabell med turar i dag frå tidleg til seint, så shouldFetchLive() er sann no. */
+function allDayRoutes() {
+  const today = todayIso();
+  return {
+    lines: {
+      1136: {
+        legs: [
+          leg("Standal", "Trandal", "00:01:00", "00:20:00", [today]),
+          leg("Trandal", "Standal", "23:30:00", "23:50:00", [today]),
+        ],
+      },
+    },
+  };
+}
+
+const EMPTY_VM = { Siri: { ServiceDelivery: { VehicleMonitoringDelivery: [{}] } } };
+
+function jsonResponse(body, status = 200) {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    statusText: String(status),
+    json: async () => body,
+  };
+}
+
+/** Køyr loadLivePosition() med falsk fetch. `vm` svarar på VM-kalla. */
+async function runLiveFetch(vm) {
+  const previousFetch = globalThis.fetch;
+  const previousError = console.error;
+  globalThis.fetch = async (url, options = {}) => {
+    if (options.method === "POST") return jsonResponse({ data: {} });
+    return vm(url);
+  };
+  console.error = () => {};
+  try {
+    await loadLivePosition();
+  } finally {
+    globalThis.fetch = previousFetch;
+    console.error = previousError;
+  }
+}
+
+test("tomt VM-svar gir «ingen posisjon», ikkje «fekk ikkje kontakt»", async () => {
+  setTestState({ routes: allDayRoutes() });
+  await runLiveFetch(async () => jsonResponse(EMPTY_VM));
+  assert.equal(positionNoteKey(), "position.planned");
+  assert.equal(t(positionNoteKey()), "Entur har ingen posisjon for ferja no. Posisjonen er rekna ut frå rutetabellen.");
+  assert.equal(liveBlockedUntil(), 0);
+});
+
+test("nettverksfeil (struping utan CORS) gir «fekk ikkje kontakt» og backoff", async () => {
+  setTestState({ routes: allDayRoutes() });
+  const before = Date.now();
+  await runLiveFetch(async () => {
+    throw new TypeError("Failed to fetch");
+  });
+  assert.equal(positionNoteKey(), "position.offline");
+  assert.equal(
+    t(positionNoteKey()),
+    "Fekk ikkje kontakt med Entur, prøver igjen om litt. Posisjonen er rekna ut frå rutetabellen."
+  );
+  assert.ok(liveBlockedUntil() >= before + 60_000);
+});
+
+test("feilstatus og ugyldig JSON frå Entur gir òg «fekk ikkje kontakt»", async () => {
+  const failures = [
+    async () => jsonResponse(null, 429),
+    async () => jsonResponse(null, 403),
+    async () => ({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      json: async () => {
+        throw new SyntaxError("Unexpected token");
+      },
+    }),
+  ];
+  for (const vm of failures) {
+    resetTestState();
+    setTestState({ routes: allDayRoutes() });
+    await runLiveFetch(vm);
+    assert.equal(positionNoteKey(), "position.offline");
+  }
+});
+
+test("vellukka kall etter feil tek bort «fekk ikkje kontakt»", async () => {
+  setTestState({ routes: allDayRoutes() });
+  await runLiveFetch(async () => {
+    throw new TypeError("Failed to fetch");
+  });
+  assert.equal(positionNoteKey(), "position.offline");
+  setTestState({ liveFetchedAt: 0, liveBlockedUntil: 0 });
+  await runLiveFetch(async () => jsonResponse(EMPTY_VM));
+  assert.equal(positionNoteKey(), "position.planned");
+});
+
+test("fersk sanntid gir sanntidsfotnote sjølv etter feil", () => {
+  setTestState({
+    liveFailed: true,
+    live: { destination: "Trandal", validUntil: new Date(Date.now() + 60_000).toISOString() },
+  });
+  assert.equal(positionNoteKey(), "position.live");
+});
+
+test("fotnotane for posisjon finst på alle språk", () => {
+  for (const lang of ["en", "de", "nn"]) {
+    setLang(lang);
+    for (const key of ["position.planned", "position.offline", "position.live"]) {
+      assert.notEqual(t(key), key, `${lang} ${key}`);
+    }
+  }
 });
