@@ -1,7 +1,27 @@
 {
   "source": "https://www.fjord1.no/trafikkmeldingar",
-  "fetchedAt": "2026-10-07T15:47:57.353070+00:00",
+  "fetchedAt": "2026-10-07T20:47:56.817918+00:00",
   "messages": [
+    {
+      "id": "RG9tYWluQ29udGVudDoyMTk4MTg1MQ==",
+      "heading": "Bognes – Skarberget",
+      "text": "Rute 201109 Bognes - Skarberget: Grunnet transport av farlig last, blir det redusert kapasitet (maks: 12 passasjerer) på avgang fra Skarberget kl. 07:20 den 8 oktober 2026",
+      "publishedAt": "2026-10-07T20:53:14+02:00",
+      "validFrom": "2026-10-07T18:53:14+00:00",
+      "validTo": "2026-10-08T18:52:43+00:00",
+      "countyNumber": 18,
+      "connectionNumber": 611,
+      "important": false,
+      "severity": "capacity",
+      "isRoute1136": false,
+      "isLocal": false,
+      "isRouteControl": false,
+      "routeMode": "1136",
+      "routeWindow": null,
+      "activateAt": null,
+      "vessel": null,
+      "routeSwitch": null
+    },
     {
       "id": "RG9tYWluQ29udGVudDoyMTk3NjY1Mw==",
       "heading": "Askvoll-Gjervik-Fure-Askvoll",
