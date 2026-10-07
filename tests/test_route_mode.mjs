@@ -70,7 +70,11 @@ import {
   parseFjord1TrafficHtml,
 } from "../assets/app.js";
 
-const ruter = JSON.parse(readFileSync(new URL("../data/ruter.json", import.meta.url), "utf8"));
+// Fast kopi av rutetabellen (henta 2026-10-02). data/ruter.json rullar datovindauget
+// fram kvar dag, så testar med faste datoar ville slutta å finne avgangane.
+const ruter = JSON.parse(
+  readFileSync(new URL("./fixtures/ruter.json", import.meta.url), "utf8")
+);
 const kombi = JSON.parse(
   readFileSync(new URL("../data/kombirute.json", import.meta.url), "utf8")
 );

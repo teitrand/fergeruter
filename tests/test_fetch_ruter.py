@@ -12,6 +12,9 @@ from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "fetch_ruter.py"
+# Fast kopi av data/ruter.json (henta 2026-10-02). Den ekte fila rullar datovindauget
+# fram kvar dag, så testar med faste datoar må lese denne.
+FIXTURE_RUTER = ROOT / "tests" / "fixtures" / "ruter.json"
 
 spec = importlib.util.spec_from_file_location("fetch_ruter", SCRIPT)
 mod = importlib.util.module_from_spec(spec)
@@ -402,7 +405,7 @@ def _from_times(legs, iso):
 
 class StoredTimetableTests(unittest.TestCase):
     def test_1135_saebo_0815_weekday_from_entur(self):
-        data = json.loads((ROOT / "data" / "ruter.json").read_text(encoding="utf-8"))
+        data = json.loads(FIXTURE_RUTER.read_text(encoding="utf-8"))
         weekday = "2026-10-01"
         match = [
             leg
@@ -422,7 +425,7 @@ class StoredTimetableTests(unittest.TestCase):
 
     def test_1136_signal_matches_fram_pdf_footnote(self):
         """Berre 1)/3)-cellene i 1136-PDF-en skal vere merkte som signal."""
-        data = json.loads((ROOT / "data" / "ruter.json").read_text(encoding="utf-8"))
+        data = json.loads(FIXTURE_RUTER.read_text(encoding="utf-8"))
         samples = {
             "mtthf": "2026-10-01",
             "wednesday": "2026-10-07",
@@ -446,7 +449,7 @@ class StoredTimetableTests(unittest.TestCase):
 
     def test_1136_from_times_match_fram_pdf(self):
         """Frå-kolonnane i FRAM 1136-PDF 17.08.26."""
-        data = json.loads((ROOT / "data" / "ruter.json").read_text(encoding="utf-8"))
+        data = json.loads(FIXTURE_RUTER.read_text(encoding="utf-8"))
         samples = {
             "mtthf": "2026-10-01",
             "wednesday": "2026-10-07",
@@ -466,7 +469,7 @@ class StoredTimetableTests(unittest.TestCase):
 
     def test_1135_from_times_match_fram_pdf_seasons(self):
         """1135 haust frå 01.09. Entur sitt vindauge har ikkje sommaren lenger."""
-        data = json.loads((ROOT / "data" / "ruter.json").read_text(encoding="utf-8"))
+        data = json.loads(FIXTURE_RUTER.read_text(encoding="utf-8"))
         legs = data["lines"]["1135"]["legs"]
         samples = [
             (FRAM_PDF_FROM_1135_AUTUMN["weekday"], "2026-10-01"),
