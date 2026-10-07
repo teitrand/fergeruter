@@ -45,7 +45,7 @@ import {
   shouldFetchLive,
   serviceWindowMinutes,
 } from "../assets/app.js";
-import { setLang } from "../assets/i18n.js?v=73";
+import { setLang } from "../assets/i18n.js?v=74";
 
 beforeEach(() => {
   setLang("nn");
@@ -311,6 +311,47 @@ test("parseVehicleMonitoring kuttar destinasjonslista til neste kai", () => {
   });
   assert.equal(live.destination, "Sæbø");
   assert.equal(live.delayMinutes, 1);
+});
+
+test("parseVehicleMonitoring vel den nyaste aktiviteten, ikkje den første", () => {
+  // Entur 2026-10-07 11:12: gammal 08:00-tur fyrst, fersk tur mot Valderøya etterpå.
+  const live = parseVehicleMonitoring({
+    Siri: {
+      ServiceDelivery: {
+        VehicleMonitoringDelivery: [
+          {
+            VehicleActivity: [
+              {
+                RecordedAtTime: "2026-10-07T11:05:12+02:00",
+                ValidUntilTime: "2026-10-07T11:07:12+02:00",
+                MonitoredVehicleJourney: {
+                  DestinationName: [{ value: "Sæbø Skår" }],
+                  FramedVehicleJourneyRef: {
+                    DatedVehicleJourneyRef: "MOR:ServiceJourney:1136_106_9150000047472932",
+                  },
+                  VehicleLocation: { Latitude: 62.494873, Longitude: 6.133823 },
+                },
+              },
+              {
+                RecordedAtTime: "2026-10-07T11:12:35+02:00",
+                ValidUntilTime: "2026-10-07T11:14:35+02:00",
+                MonitoredVehicleJourney: {
+                  DestinationName: [{ value: "Valderøya" }],
+                  FramedVehicleJourneyRef: {
+                    DatedVehicleJourneyRef: "MOR:ServiceJourney:1136_110_9150000037358072",
+                  },
+                  VehicleLocation: { Latitude: 62.505405, Longitude: 6.175024 },
+                },
+              },
+            ],
+          },
+        ],
+      },
+    },
+  });
+  assert.equal(live.destination, "Valderøya");
+  assert.equal(live.validUntil, "2026-10-07T11:14:35+02:00");
+  assert.equal(live.latitude, 62.505405);
 });
 
 const signalJourney = "MOR:ServiceJourney:1136_102_9150000047474169";

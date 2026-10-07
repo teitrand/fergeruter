@@ -7,7 +7,7 @@ import {
   setLang,
   t,
   weekdays,
-} from "./i18n.js?v=73";
+} from "./i18n.js?v=74";
 
 const MESSAGES_URL = "data/trafikkmeldinger.json";
 const SIGNAL_LOG_URL = "data/signalturar.json";
@@ -2162,6 +2162,14 @@ function crossingMinutes(allLegs, fromQuay, toQuay) {
   return shortest ?? outerDeadheadMinutes(from, to);
 }
 
+/** Tidspunkt for ei VM-aktivitet: RecordedAtTime, elles ValidUntilTime. */
+function activityTime(activity) {
+  const recorded = Date.parse(activity?.RecordedAtTime);
+  if (Number.isFinite(recorded)) return recorded;
+  const until = Date.parse(activity?.ValidUntilTime);
+  return Number.isFinite(until) ? until : -Infinity;
+}
+
 function parseVehicleMonitoring(data) {
   const deliveries = data?.Siri?.ServiceDelivery?.VehicleMonitoringDelivery;
   const list = Array.isArray(deliveries) ? deliveries : deliveries ? [deliveries] : [];
@@ -2172,7 +2180,8 @@ function parseVehicleMonitoring(data) {
     activities.push(...(Array.isArray(items) ? items : [items]));
   }
   if (!activities.length) return null;
-  const activity = activities[0];
+  // Entur kan sende ei gammal aktivitet (t.d. 08:00-turen) før den ferske. Bruk den nyaste.
+  const activity = activities.reduce((best, item) => (activityTime(item) > activityTime(best) ? item : best));
   const journey = activity.MonitoredVehicleJourney || {};
   const location = journey.VehicleLocation || {};
   const call = journey.MonitoredCall || {};
