@@ -396,7 +396,8 @@ test("signaltur som ligg til kai etter avgang går ikkje", () => {
   const now = 7 * 60 + 25;
   assert.equal(signalVerdict(signalMorning[0], live, now, signalMorning), "skipped");
   assert.equal(signalVerdict(signalMorning[1], live, now, signalMorning), "skipped");
-  assert.equal(signalVerdict(signalMorning[0], live, 6 * 60 + 30, signalMorning), "skipped");
+  // Før avgang veit vi ikkje: nokon kan ha ringt og bestilt.
+  assert.equal(signalVerdict(signalMorning[0], live, 6 * 60 + 30, signalMorning), null);
   setTestState({ live });
   const status = currentStatus(signalMorning, now);
   assert.equal(status.signal, "skipped");
@@ -517,7 +518,8 @@ test("signaltur som har lagt frå kai blir køyrd, med forseinking", () => {
   });
   const now = 6 * 60 + 55;
   assert.equal(signalVerdict(signalMorning[0], live, now, signalMorning), "running");
-  assert.equal(signalVerdict(signalMorning[1], live, now, signalMorning), "skipped");
+  // Returen kan vere bestilt på telefon, så før avgang seier vi ingenting.
+  assert.equal(signalVerdict(signalMorning[1], live, now, signalMorning), null);
   setTestState({ live });
   const status = currentStatus(signalMorning, now);
   assert.equal(status.signal, "running");
@@ -731,7 +733,8 @@ test("kall utan avlysing etter fristen er ikkje bestilt", () => {
     cancellationsFetchedAt: start + (12 * 60 + 30) * 60 * 1000,
   });
   assert.equal(signalIsBooked(trip, 12 * 60 + 30), false);
-  assert.equal(signalVerdict(trip, null, 12 * 60 + 30), "skipped");
+  // Fristen er ute, men avgangstida er ikkje nådd: ikkje «ikkje utført» enno.
+  assert.equal(signalVerdict(trip, null, 12 * 60 + 30), null);
   setTestState({
     cancelledJourneys: new Set(),
     seenJourneys: new Set([id]),
@@ -1760,4 +1763,24 @@ test("fotnotane for posisjon finst på alle språk", () => {
       assert.notEqual(t(key), key, `${lang} ${key}`);
     }
   }
+});
+
+test("signaltur etter fristen er ikkje «ikkje utført» før avgang (8. oktober kl. 19:40)", () => {
+  const legs = [
+    leg("Trandal", "Standal", "19:40:00", "19:55:00"),
+    signalLeg("Standal", "Trandal", "20:00:00", "20:15:00", "MOR:ServiceJourney:1136_128_evening"),
+    signalLeg("Trandal", "Standal", "20:20:00", "20:35:00", "MOR:ServiceJourney:1136_129_evening"),
+  ];
+  const live = freshLive({
+    journeyRef: "MOR:ServiceJourney:1136_127_evening",
+    originAimed: "2026-10-01T19:40:00+02:00",
+    destination: "Standal",
+    atStop: false,
+    stopName: "Standal",
+    delayMinutes: 0,
+  });
+  const now = 19 * 60 + 40;
+  setTestState({ live });
+  assert.equal(signalVerdict(legs[1], live, now, legs), null);
+  assert.equal(signalVerdict(legs[2], live, now, legs), null);
 });
