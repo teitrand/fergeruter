@@ -1,7 +1,27 @@
 {
   "source": "https://www.fjord1.no/trafikkmeldingar",
-  "fetchedAt": "2026-10-08T00:25:57.131209+00:00",
+  "fetchedAt": "2026-10-08T06:22:03.004187+00:00",
   "messages": [
+    {
+      "id": "RG9tYWluQ29udGVudDoyMTk4NjM3OA==",
+      "heading": "Lavik - Oppedal",
+      "text": "Rute 1045 Lavik - Oppedal: Grunna transport av farleg last vert det redusert kapasitet (maks. 12 passasjerar) på avgang frå Oppedal kl. 08:00.",
+      "publishedAt": "2026-10-08T07:40:11+02:00",
+      "validFrom": "2026-10-08T05:40:11+00:00",
+      "validTo": "2026-10-09T05:38:56+00:00",
+      "countyNumber": 14,
+      "connectionNumber": 1045,
+      "important": false,
+      "severity": "capacity",
+      "isRoute1136": false,
+      "isLocal": false,
+      "isRouteControl": false,
+      "routeMode": "1136",
+      "routeWindow": null,
+      "activateAt": null,
+      "vessel": null,
+      "routeSwitch": null
+    },
     {
       "id": "RG9tYWluQ29udGVudDoyMTk4MTg1MQ==",
       "heading": "Bognes – Skarberget",
