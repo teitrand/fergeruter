@@ -1,6 +1,6 @@
 {
   "keptDays": 7,
-  "updatedAt": "2026-10-08T08:37:44.623832+02:00",
+  "updatedAt": "2026-10-08T09:08:23.605604+02:00",
   "days": {
     "2026-10-02": [
       {
@@ -528,6 +528,24 @@
         "departure": "07:05:00",
         "status": "booked",
         "observedAt": "2026-10-08T07:05:06+02:00",
+        "evidence": "departed"
+      },
+      {
+        "id": "MOR:ServiceJourney:1136_108_9150000046319006",
+        "from": "Sæbø",
+        "to": "Skår",
+        "departure": "08:35:00",
+        "status": "gått",
+        "observedAt": "2026-10-08T08:35:14+02:00",
+        "evidence": "departed"
+      },
+      {
+        "id": "MOR:ServiceJourney:1136_105_9150000046318624",
+        "from": "Skår",
+        "to": "Sæbø",
+        "departure": "08:55:00",
+        "status": "booked",
+        "observedAt": "2026-10-08T08:55:12+02:00",
         "evidence": "departed"
       }
     ]
