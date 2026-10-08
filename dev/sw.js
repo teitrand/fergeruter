@@ -1,5 +1,5 @@
 const IS_DEV = self.location.pathname.includes("/dev/");
-const CACHE = IS_DEV ? "fergeruter-dev-v75" : "fergeruter-v75";
+const CACHE = IS_DEV ? "fergeruter-dev-v76" : "fergeruter-v76";
 const PRECACHE = [
   "./",
   "./index.html",
