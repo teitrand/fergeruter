@@ -1324,14 +1324,20 @@ function liveLeftThisLeg(leg) {
 
 /**
  * Fersk sanntid viser at ferja har køyrt `leg`: faktisk avgang, framme ved endekaia
- * (ActualArrivalTime eller VehicleAtStop der), eller lagt frå startkaien etter rutetida.
+ * etter planlagd avgang (ActualArrivalTime eller VehicleAtStop der), eller lagt frå
+ * startkaien etter rutetida.
  */
 function liveProvesSailed(live, leg, now = nowMinutes()) {
   if (!leg || !isLiveFresh(live)) return false;
   if (live.actualDeparture) return true;
   const dest = quayPlace(leg.to);
   const stop = quayPlace(live.stopName);
-  if (dest && stop === dest && (live.atStop === true || Boolean(live.actualArrival))) return true;
+  if (dest && stop === dest && (live.atStop === true || Boolean(live.actualArrival))) {
+    // Ved endekaia før rutetida kan Entur alt ha kopla ferja til neste tur. Då er det ikkje bevis.
+    // Ferja ved endekaia har heller ikkje «lagt frå startkaien» for denne turen.
+    const seenAt = observationMinutes(live.actualArrival) ?? now;
+    return seenAt >= clockMinutes(leg.departure);
+  }
   return leftOrigin(live, leg) === true && now >= clockMinutes(leg.departure) - SAILED_EARLY_MIN;
 }
 

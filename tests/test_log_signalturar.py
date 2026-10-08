@@ -635,6 +635,13 @@ class SailedDespiteCancelTests(unittest.TestCase):
     def test_vm_frå_ein_annan_dag_tel_ikkje(self):
         self.assertEqual(mod.vm_sailed_from_payload(self.vm, self.legs, "2026-10-09"), {})
 
+    def test_vm_ved_endekaia_før_rutetida_er_ikkje_bevis(self):
+        payload = json.loads(json.dumps(self.vm))
+        activity = payload["Siri"]["ServiceDelivery"]["VehicleMonitoringDelivery"][0]["VehicleActivity"][0]
+        call = activity["MonitoredVehicleJourney"]["MonitoredCall"]
+        call["ActualArrivalTime"] = "2026-10-08T20:10:00+02:00"
+        self.assertEqual(mod.vm_sailed_from_payload(payload, self.legs, self.DAY), {})
+
     def test_vm_ved_startkaia_er_ikkje_bevis(self):
         payload = json.loads(json.dumps(self.vm))
         activity = payload["Siri"]["ServiceDelivery"]["VehicleMonitoringDelivery"][0]["VehicleActivity"][0]

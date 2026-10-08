@@ -2239,3 +2239,12 @@ test("sanntid før rutetida gjer ikkje ein tur gått", () => {
   assert.equal(liveProvesSailed(early, back, 20 * 60 + 5), false);
   assert.equal(liveProvesSailed(early, back, 20 * 60 + 12), true);
 });
+
+test("ved endekaia før rutetida er ikkje bevis (Entur kan ha kopla ferja til neste tur)", () => {
+  const { back } = evening2030(null);
+  const before = { ...freshVm, actualArrival: "2026-10-08T20:10:00+02:00" };
+  assert.equal(liveProvesSailed(before, back, 20 * 60 + 12), false);
+  const atStopEarly = { ...freshVm, actualArrival: "" };
+  assert.equal(liveProvesSailed(atStopEarly, back, 20 * 60 + 15), false);
+  assert.equal(liveProvesSailed(atStopEarly, back, 20 * 60 + 31), true);
+});

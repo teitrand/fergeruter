@@ -432,11 +432,25 @@ def _quay_place(name):
     return "Leknes" if text == "Lekneset" else text
 
 
+def _after_departure(when, leg, day_iso):
+    """`when` (ISO-tid) er ved eller etter planlagd avgang for `leg` den dagen."""
+    try:
+        moment = datetime.fromisoformat(str(when).replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=OSLO)
+    local = moment.astimezone(OSLO)
+    if day_iso and local.date().isoformat() != day_iso:
+        return local.date().isoformat() > day_iso
+    return local.hour * 60 + local.minute >= clock_minutes(leg.get("departure") or "00:00")
+
+
 def vm_sailed_from_payload(payload, legs, day_iso):
     """Signalturar som sanntid (VM) viser at ferja har køyrt i dag.
 
     Bevis er faktisk avgang i MonitoredCall, eller at ferja er framme ved endekaia
-    (ActualArrivalTime, eller VehicleAtStop der). Entur sender ofte den siste
+    etter planlagd avgang (ActualArrivalTime, eller VehicleAtStop der). Entur sender ofte den siste
     aktiviteten ei stund etter at ValidUntilTime er ute, så sjølv ein gammal post
     for ein tur i dag er bevis for den turen.
     """
@@ -472,6 +486,9 @@ def vm_sailed_from_payload(payload, legs, day_iso):
                 when = call.get("ActualArrivalTime")
             elif at_dest and call.get("VehicleAtStop") in (True, "true"):
                 when = activity.get("RecordedAtTime")
+            if when and not call.get("ActualDepartureTime") and not _after_departure(when, leg, day_iso):
+                # Ved endekaia før rutetida: Entur kan ha kopla ferja til neste tur.
+                when = None
             if when and journey not in found:
                 found[journey] = when
     return found
