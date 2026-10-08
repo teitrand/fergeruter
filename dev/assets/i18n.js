@@ -194,6 +194,7 @@ const STRINGS = {
     "signal.sailedHow":
       "Ferja gjekk turen, men vi såg ikkje at nokon hadde tinga. Det kan vere ein tomtur så ein seinare bestilt retur kan gå.",
     "signal.skippedHow": "Entur avlyste turen. Det skjer når ingen har tinga innan fristen kl. {time}.",
+    "signal.skippedLiveHow": "Sanntid frå Entur viser at ferja ikkje gjekk denne turen.",
     "signal.skippedWhen": "Vi såg avlysinga fyrste gong {when}.",
     "signal.caveat": "Sjølv om turen står som bestilt, kan den som tinga gjere om. Då kan Entur avlyse turen. Ring og ting sjølv om du vil vere sikker.",
     "signal.logLate":
@@ -416,6 +417,7 @@ const STRINGS = {
     "signal.sailedHow":
       "The ferry sailed, but we did not see that anyone had booked. It may be an empty run so a later booked return can go.",
     "signal.skippedHow": "Entur cancelled the sailing. That happens when nobody booked by {time}.",
+    "signal.skippedLiveHow": "Live data from Entur shows that the ferry did not make this sailing.",
     "signal.skippedWhen": "We first saw the cancellation at {when}.",
     "signal.caveat": "Even if the sailing is shown as booked, the person who booked can change their mind. Entur may then cancel it. Call and book yourself if you want to be sure.",
     "signal.logLate":
@@ -641,6 +643,7 @@ const STRINGS = {
     "signal.sailedHow":
       "Die Fähre ist gefahren, aber wir haben nicht gesehen, dass jemand angemeldet hatte. Es kann eine Leerfahrt sein, damit eine spätere angemeldete Rückfahrt fahren kann.",
     "signal.skippedHow": "Entur hat die Fahrt abgesagt. Das passiert, wenn niemand bis {time} angemeldet hat.",
+    "signal.skippedLiveHow": "Echtzeitdaten von Entur zeigen, dass die Fähre diese Fahrt nicht gemacht hat.",
     "signal.skippedWhen": "Wir haben die Absage zuerst um {when} gesehen.",
     "signal.caveat": "Auch wenn die Fahrt als angemeldet angezeigt wird, kann die Person es sich anders überlegen. Entur kann die Fahrt dann absagen. Rufen Sie selbst an, wenn Sie sicher sein wollen.",
     "signal.logLate":

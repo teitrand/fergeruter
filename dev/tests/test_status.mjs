@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { beforeEach, test } from "node:test";
 import {
   buildEvents,
@@ -47,7 +48,9 @@ import {
   shouldFetchLive,
   serviceWindowMinutes,
 } from "../assets/app.js";
-import { setLang, t } from "../assets/i18n.js?v=75";
+import { appVersion } from "./helpers/version.mjs";
+
+const { setLang, t } = await import(`../assets/i18n.js?v=${appVersion()}`);
 
 beforeEach(() => {
   setLang("nn");
@@ -548,8 +551,18 @@ test("seinare kjøyretur markerer signalturen som ikkje køyrd", () => {
       arrival: "07:55:00",
     },
   ];
-  assert.equal(signalVerdict(legs[0], live, 8 * 60, legs), "skipped");
-  assert.equal(signalVerdict(legs[1], live, 8 * 60, legs), "skipped");
+  // Ferja kan ha køyrt 06:45 og 07:05 og så 07:40. Sanntid på 07:40 beviser ikkje noko om dei.
+  assert.equal(signalVerdict(legs[0], live, 8 * 60, legs), null);
+  assert.equal(signalVerdict(legs[1], live, 8 * 60, legs), null);
+  // Utan returtur kunne ferja ikkje vore på Standal 07:40 om ho gjekk 06:45 til Trandal.
+  const oneWay = [legs[0], legs[2]];
+  assert.equal(signalVerdict(oneWay[0], live, 8 * 60, oneWay), "skipped");
+  const detailLegs = oneWay.map((item) => ({ ...item, activeDates: [todayIso()] }));
+  setTestState({ live, routes: { lines: { 1136: { legs: detailLegs } } } });
+  const detail = departureDetail(detailLegs[0], 8 * 60);
+  assert.equal(detail.phase, "skipped");
+  assert.equal(detail.skipReason, "live");
+  assert.equal(detail.seenSkip, false);
 });
 
 test("vanleg tur tek framleis med Entur-forseinking", () => {
@@ -676,10 +689,12 @@ test("loggen viser bestilt og ikkje utført ei veke attende", () => {
       },
     },
   });
+  // Dagsens avlysingar gjeld ikkje ein annan dag, og «booked» utan avgangsbevis er ikkje bevis
+  // nokon veg. Utan bevis seier vi ikkje «ikkje utført».
   const detail = departureDetail(bare, 18 * 60);
   assert.equal(detail.booked, false);
-  assert.equal(detail.phase, "skipped");
-  assert.equal(detail.seenSkip, false);
+  assert.equal(detail.skipped, false);
+  assert.equal(detail.phase, "unknown");
 });
 
 test("logga ikkje utført blir ståande når Entur har gløymt avlysinga", () => {
@@ -799,7 +814,8 @@ test("retur i sanntid gjer ikkje ein uttur utan avgangsbevis om til bestilt", ()
       },
     },
   });
-  assert.equal(signalVerdict(out, live, 7 * 60 + 6, [out, back]), "skipped");
+  // Returen går frå Trandal, så ferja kom dit. Utturen er ikkje bestilt, men heller ikkje «ikkje utført».
+  assert.equal(signalVerdict(out, live, 7 * 60 + 6, [out, back]), null);
   assert.equal(signalIsBooked(out, 7 * 60 + 6), false);
   assert.equal(signalIsBooked(back, 7 * 60 + 6), true);
   setTestState({
@@ -1009,11 +1025,12 @@ test("avlyst signaltur før avgang seier ikkje at ferja ligg ved kai", () => {
   setTestState({ cancelledJourneys: new Set([viaId, toSkarId]) });
   assert.equal(signalVerdict(legs[1], null, now, legs), "skipped");
   assert.equal(signalVerdict(legs[2], null, now, legs), "skipped");
-  assert.equal(signalVerdict(legs[3], null, now, legs), "skipped");
+  // Returen frå Skår er ikkje avlyst. Er han tinga, går ferja dit tom, så han er ikkje «ikkje utført».
+  assert.equal(signalVerdict(legs[3], null, now, legs), null);
   assert.equal(signalObservedAtQuay(legs[1], null, now, legs), false);
   assert.equal(signalObservedAtQuay(legs[2], null, now, legs), false);
   const status = currentStatus(legs, now);
-  assert.equal(status.short, "Ferja er ferdig for dagen på Trandal");
+  assert.equal(status.text, "Ferja ligg til kai på Trandal");
   assert.equal(status.underway, undefined);
   assert.doesNotMatch(status.text, /utan passasjerar/);
 });
@@ -1058,7 +1075,7 @@ test("seinare kjøyretur gjev ikkje merknad om kai", () => {
       arrival: "07:55:00",
     },
   ];
-  assert.equal(signalVerdict(legs[0], live, 8 * 60, legs), "skipped");
+  assert.equal(signalVerdict(legs[0], live, 8 * 60, legs), null);
   assert.equal(signalObservedAtQuay(legs[0], live, 8 * 60, legs), false);
 });
 
@@ -1784,3 +1801,309 @@ test("signaltur etter fristen er ikkje «ikkje utført» før avgang (8. oktober
   assert.equal(signalVerdict(legs[1], live, now, legs), null);
   assert.equal(signalVerdict(legs[2], live, now, legs), null);
 });
+
+test("fristen åleine gjer aldri ein signaltur «ikkje utført», same kor seint det er", () => {
+  const trip = signalLeg("Standal", "Trandal", "20:00:00", "20:15:00", "MOR:ServiceJourney:1136_grace");
+  setTestState({ cancelledJourneys: new Set(), seenJourneys: new Set() });
+  for (const now of [19 * 60 + 30, 20 * 60 + 5, 20 * 60 + 15, 21 * 60, 23 * 60 + 59]) {
+    assert.equal(signalVerdict(trip, null, now), null, `kl. ${now}`);
+  }
+  const detail = departureDetail(trip, 21 * 60);
+  assert.equal(detail.phase, "unknown");
+  assert.equal(detail.skipped, false);
+});
+
+test("ferje som ligg ved startkaien er «ikkje utført» fyrst 15 minutt etter avgang", () => {
+  const live = freshLive();
+  const trip = signalMorning[0];
+  assert.equal(signalVerdict(trip, live, 6 * 60 + 50, signalMorning), null);
+  assert.equal(signalVerdict(trip, live, 6 * 60 + 59, signalMorning), null);
+  assert.equal(signalVerdict(trip, live, 7 * 60, signalMorning), "skipped");
+  // Halen etter ein tur som ligg att ventar òg på slingringsmonnet til den fyrste turen.
+  assert.equal(signalVerdict(signalMorning[1], live, 7 * 60 + 5, signalMorning), "skipped");
+});
+
+test("tidlegare dag utan bevis er nøytral, logga avlysing er «ikkje utført»", () => {
+  const ran = signalLeg("Standal", "Trandal", "20:00:00", "20:15:00", "MOR:ServiceJourney:1136_past_ran");
+  const off = signalLeg("Trandal", "Standal", "20:20:00", "20:35:00", "MOR:ServiceJourney:1136_past_off");
+  setTestState({
+    date: "2026-09-30",
+    signalLog: {
+      days: {
+        "2026-09-30": [
+          { id: "MOR:ServiceJourney:1136_past_off", from: "Trandal", to: "Standal", departure: "20:20:00", status: "skipped" },
+        ],
+      },
+    },
+  });
+  assert.equal(signalVerdict(ran, null, 12 * 60), null);
+  assert.equal(departureDetail(ran, 12 * 60).phase, "unknown");
+  assert.equal(signalVerdict(off, null, 12 * 60), "skipped");
+  assert.equal(departureDetail(off, 12 * 60).seenSkip, true);
+});
+
+test("avlyst tur til kaien gjer ikkje neste signaltur «ikkje utført» (ekte 4. oktober 18:35)", () => {
+  // 4. oktober avlyste Entur 17:15, 17:50 og 18:15, men ikkje 18:35 Sæbø–Trandal.
+  // Er ein tur tinga, går ferja tom til startkaien. Berre avlysing av turen sjølv er bevis.
+  const outId = "MOR:ServiceJourney:1136_arr_out";
+  const backId = "MOR:ServiceJourney:1136_arr_back";
+  const legs = [
+    leg("Trandal", "Standal", "19:40:00", "19:55:00"),
+    signalLeg("Standal", "Trandal", "20:00:00", "20:15:00", outId),
+    signalLeg("Trandal", "Standal", "20:20:00", "20:35:00", backId),
+  ].map((item) => ({ ...item, activeDates: [todayIso()] }));
+  setTestState({ cancelledJourneys: new Set([outId]), routes: { lines: { 1136: { legs } } } });
+  for (const now of [19 * 60 + 30, 20 * 60 + 25, 20 * 60 + 50]) {
+    assert.equal(signalVerdict(legs[2], null, now, legs), null, `kl. ${now}`);
+  }
+  assert.equal(signalVerdict(legs[1], null, 19 * 60 + 30, legs), "skipped");
+  assert.equal(departureDetail(legs[2], 20 * 60 + 50).phase, "unknown");
+});
+
+// --- Avspeling av ekte dagar frå signalloggen ---------------------------------------------
+// tests/fixtures/signalturar_replay.json er eit utdrag av data/signalturar.json på main.
+// Rutetabellen er den faste kopien i tests/fixtures/ruter.json. Dagane blir flytta til
+// «i dag» eller «i går», slik at testane ikkje er avhengige av kva dag dei køyrer.
+const replay = JSON.parse(
+  readFileSync(new URL("./fixtures/signalturar_replay.json", import.meta.url), "utf8")
+);
+const fixtureRoutes = JSON.parse(
+  readFileSync(new URL("./fixtures/ruter.json", import.meta.url), "utf8")
+);
+
+function shiftDay(iso, days) {
+  const date = new Date(`${iso}T12:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+const OSLO_CLOCK = new Intl.DateTimeFormat("en-GB", {
+  timeZone: "Europe/Oslo",
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+});
+
+function osloMinutesOf(iso) {
+  const parts = OSLO_CLOCK.formatToParts(new Date(iso));
+  const get = (type) => Number(parts.find((part) => part.type === type).value);
+  return get("hour") * 60 + get("minute");
+}
+
+function clock(minutes) {
+  return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+}
+
+function replayLegs(day, target) {
+  return fixtureRoutes.lines["1136"].legs
+    .filter((item) => item.activeDates.includes(day))
+    .map((item) => ({ ...item, activeDates: [target] }));
+}
+
+function journeyOf(item) {
+  return String(item.id).split("#")[0];
+}
+
+/** Turar som faktisk gjekk: gått, bestilt med faktisk avgang, eller stadfesta i chatten. */
+function ranJourneys(day) {
+  const ran = new Set(replay.confirmedRan?.[day] || []);
+  for (const entry of replay.days[day]) {
+    if (entry.status === "gått" || (entry.status === "booked" && entry.evidence === "departed")) {
+      ran.add(entry.id);
+    }
+  }
+  return ran;
+}
+
+/** Når loggen fyrst kunne ha sett oppføringa. */
+function visibleFrom(entry) {
+  if (entry.status === "skipped") return osloMinutesOf(entry.skippedAt || entry.observedAt);
+  return osloMinutesOf(entry.observedAt || replay.updatedAt);
+}
+
+/** Tilstanden appen hadde hatt kl. `now`: loggen så langt og avlysingane loggen hadde sett. */
+function replayToday(day, now, extra = {}) {
+  const target = todayIso();
+  const legs = replayLegs(day, target);
+  const seen = replay.days[day].filter((entry) => visibleFrom(entry) <= now);
+  resetTestState();
+  setTestState({
+    routes: { lines: { 1136: { legs } } },
+    signalLog: { days: { [target]: seen } },
+    cancelledJourneys: new Set(seen.filter((entry) => entry.status === "skipped").map((entry) => entry.id)),
+    live: null,
+    ...extra,
+  });
+  return legs;
+}
+
+function replayTimes(legs) {
+  const times = new Set();
+  for (let now = 5 * 60; now < 24 * 60; now += 10) times.add(now);
+  for (const item of legs.filter((entry) => entry.signal)) {
+    const dep = Number(item.departure.slice(0, 2)) * 60 + Number(item.departure.slice(3, 5));
+    for (const delta of [-61, -60, -1, 0, 1, 5, 14, 15, 16, 30, 90]) {
+      if (dep + delta >= 0 && dep + delta < 24 * 60) times.add(dep + delta);
+    }
+  }
+  return [...times].sort((a, b) => a - b);
+}
+
+const REPLAY_DAYS = Object.keys(replay.days);
+
+test("avspeling: fixturen har dagane testane ventar", () => {
+  assert.deepEqual(REPLAY_DAYS, ["2026-10-02", "2026-10-04", "2026-10-05", "2026-10-07", "2026-10-08"]);
+  for (const day of REPLAY_DAYS) {
+    const ids = new Set(replayLegs(day, day).map(journeyOf));
+    for (const entry of replay.days[day]) assert.ok(ids.has(entry.id), `${day} ${entry.departure} finst i rutetabellen`);
+  }
+});
+
+test("avspeling i dag utan sanntid: turar som gjekk blir aldri «ikkje utført», avlyste blir det", () => {
+  for (const day of REPLAY_DAYS) {
+    const ran = ranJourneys(day);
+    const legs = replayLegs(day, todayIso()).filter((item) => item.signal);
+    const byId = new Map(replay.days[day].map((entry) => [entry.id, entry]));
+    let cancelledChecks = 0;
+    for (const now of replayTimes(legs)) {
+      replayToday(day, now);
+      for (const item of legs) {
+        const id = journeyOf(item);
+        const entry = byId.get(id);
+        const verdict = signalVerdict(item, null, now);
+        const where = `${day} ${item.departure} ${item.from}–${item.to} kl. ${clock(now)}`;
+        if (entry?.status === "skipped") {
+          const expected = now >= visibleFrom(entry) ? "skipped" : null;
+          assert.equal(verdict, expected, where);
+          if (expected) cancelledChecks += 1;
+        } else {
+          // Gått, bestilt (òg gamle «booked» utan avgangsbevis) og turar loggen ikkje har:
+          // ingen bevis for at turen fall bort, så aldri «ikkje utført».
+          assert.notEqual(verdict, "skipped", where);
+          if (ran.has(id)) assert.notEqual(departureDetail(item, now).phase, "skipped", where);
+        }
+      }
+    }
+    const hasCancelled = replay.days[day].some((entry) => entry.status === "skipped");
+    if (hasCancelled) assert.ok(cancelledChecks > 0, `${day} har avlyste turar som blir sjekka`);
+  }
+});
+
+test("avspeling av tidlegare dagar: berre logga avlysing gir «ikkje utført»", () => {
+  const target = shiftDay(todayIso(), -1);
+  for (const day of REPLAY_DAYS) {
+    const legs = replayLegs(day, target);
+    const byId = new Map(replay.days[day].map((entry) => [entry.id, entry]));
+    resetTestState();
+    setTestState({
+      date: target,
+      routes: { lines: { 1136: { legs } } },
+      signalLog: { days: { [target]: replay.days[day] } },
+    });
+    for (const item of legs.filter((entry) => entry.signal)) {
+      const entry = byId.get(journeyOf(item));
+      const where = `${day} ${item.departure} ${item.from}–${item.to}`;
+      const detail = departureDetail(item, 12 * 60);
+      if (entry?.status === "skipped") {
+        assert.equal(signalVerdict(item, null, 12 * 60), "skipped", where);
+        assert.equal(detail.seenSkip, true, where);
+      } else {
+        assert.equal(signalVerdict(item, null, 12 * 60), null, where);
+        assert.notEqual(detail.phase, "skipped", where);
+      }
+    }
+  }
+});
+
+test("avspeling 7. oktober utan posisjon frå Entur: tur utan logg er nøytral, avlyste er «ikkje utført»", () => {
+  const day = "2026-10-07";
+  const legs = replayLegs(day, todayIso());
+  const find = (dep, from) => legs.find((item) => item.departure === dep && item.from === from);
+  const out = find("11:10:00", "Valderøya");
+  const back = find("12:10:00", "Store Kalvøy");
+  const sabo = find("08:35:00", "Sæbø");
+  const evening = find("19:00:00", "Valderøya");
+  // 11:10 manglar i loggen, men returen 12:10 har faktisk avgang. Den gamle fristregelen
+  // ville sagt «ikkje utført» om 11:10.
+  for (const now of [11 * 60 + 30, 12 * 60, 12 * 60 + 30, 23 * 60]) {
+    replayToday(day, now);
+    assert.equal(signalVerdict(out, null, now), null, `11:10 kl. ${clock(now)}`);
+    assert.equal(departureDetail(out, now).phase, "unknown", `11:10 kl. ${clock(now)}`);
+    assert.notEqual(signalVerdict(back, null, now), "skipped", `12:10 kl. ${clock(now)}`);
+  }
+  replayToday(day, 8 * 60 + 5);
+  assert.equal(signalVerdict(sabo, null, 8 * 60 + 5), null);
+  replayToday(day, 8 * 60 + 10);
+  assert.equal(signalVerdict(sabo, null, 8 * 60 + 10), "skipped");
+  assert.equal(departureDetail(sabo, 8 * 60 + 10).seenSkip, true);
+  replayToday(day, 18 * 60);
+  assert.equal(signalVerdict(evening, null, 18 * 60), "skipped");
+});
+
+test("avspeling 8. oktober: forseinka signaltur blir ikkje «ikkje utført» medan ferja ligg ved kai", () => {
+  // 06:45 Standal–Trandal gjekk 06:45:58 (loggen). Her ligg ferja i tillegg 12 minutt
+  // ved kai, slik Reviewer skildra. Loggen har ikkje sett avgangen enno.
+  const day = "2026-10-08";
+  const target = todayIso();
+  const legs = replayLegs(day, target);
+  const out = legs.find((item) => item.departure === "06:45:00" && item.from === "Standal");
+  const back = legs.find((item) => item.departure === "07:05:00" && item.from === "Trandal");
+  const atQuay = {
+    validUntil: "2099-01-01T00:00:00Z",
+    journeyRef: journeyOf(out),
+    originAimed: `${target}T06:45:00+02:00`,
+    destination: "Trandal",
+    atStop: true,
+    stopName: "Standal",
+    latitude: 62.26652,
+    longitude: 6.42321,
+    actualDeparture: "",
+    delayMinutes: 12,
+  };
+  for (let now = 6 * 60 + 45; now <= 6 * 60 + 57; now += 1) {
+    replayToday(day, 6 * 60, { live: atQuay });
+    assert.equal(signalVerdict(out, atQuay, now), null, `06:45 kl. ${clock(now)}`);
+    assert.equal(signalVerdict(back, atQuay, now), null, `07:05 kl. ${clock(now)}`);
+    const status = currentStatus(legs, now);
+    assert.doesNotMatch(status.text, /ikkje utført/, `status kl. ${clock(now)}`);
+    assert.match(status.text, /ligg til kai på Standal/, `status kl. ${clock(now)}`);
+  }
+  const left = {
+    ...atQuay,
+    atStop: false,
+    stopName: "Trandal",
+    actualDeparture: `${target}T06:57:40+02:00`,
+    latitude: 62.263,
+    longitude: 6.46,
+  };
+  replayToday(day, 6 * 60, { live: left });
+  assert.equal(signalVerdict(out, left, 6 * 60 + 58), "running");
+  // Etter avgangen har loggen faktisk avgang. Då er turen aldri «ikkje utført», same kva sanntid seier.
+  replayToday(day, 7 * 60 + 30, { live: atQuay });
+  assert.notEqual(signalVerdict(out, atQuay, 7 * 60 + 30), "skipped");
+  assert.notEqual(signalVerdict(back, atQuay, 7 * 60 + 30), "skipped");
+});
+
+test("avspeling i kveld 8. oktober: 20:00 og 20:20 gjekk og er aldri «ikkje utført» utan sanntid", () => {
+  const day = "2026-10-08";
+  const legs = replayLegs(day, todayIso());
+  const regular = legs.find((item) => item.departure === "19:40:00" && item.from === "Trandal");
+  const out = legs.find((item) => item.departure === "20:00:00" && item.from === "Standal");
+  const back = legs.find((item) => item.departure === "20:20:00" && item.from === "Trandal");
+  assert.ok(regular && !regular.signal, "19:40 Trandal–Standal er vanleg tur");
+  assert.ok(out?.signal && back?.signal, "20:00 og 20:20 er signalturar");
+  for (const now of [19 * 60 + 40, 20 * 60 + 10, 20 * 60 + 30, 21 * 60, 23 * 60 + 30]) {
+    replayToday(day, now);
+    for (const item of [regular, out, back]) {
+      assert.notEqual(signalVerdict(item, null, now), "skipped", `${item.departure} kl. ${clock(now)}`);
+      assert.notEqual(departureDetail(item, now).phase, "skipped", `${item.departure} kl. ${clock(now)}`);
+    }
+    assert.ok(runningLegsToday(legs, now).some((item) => item === back), `20:20 er med kl. ${clock(now)}`);
+  }
+});
+
+function runningLegsToday(legs, now) {
+  const status = currentStatus(legs, now);
+  assert.doesNotMatch(status.text || "", /ikkje utført/);
+  return legs.filter((item) => !item.signal || signalVerdict(item, null, now) !== "skipped");
+}
