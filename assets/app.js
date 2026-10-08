@@ -7,7 +7,7 @@ import {
   setLang,
   t,
   weekdays,
-} from "./i18n.js?v=77";
+} from "./i18n.js?v=78";
 
 const MESSAGES_URL = "data/trafikkmeldinger.json";
 const SIGNAL_LOG_URL = "data/signalturar.json";
@@ -240,17 +240,23 @@ function feedbackMailto(rating, comment) {
   return `mailto:${FEEDBACK_MAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
 
+// Å lage ein Intl.DateTimeFormat er dyrt, og isToday() blir kalla mange gonger per teikning.
+let osloFormat = null;
+
 function osloParts(date = new Date()) {
-  const parts = new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Europe/Oslo",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hourCycle: "h23",
-  }).formatToParts(date);
+  if (!osloFormat) {
+    osloFormat = new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Europe/Oslo",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hourCycle: "h23",
+    });
+  }
+  const parts = osloFormat.formatToParts(date);
   return Object.fromEntries(parts.map((part) => [part.type, part.value]));
 }
 
@@ -1395,6 +1401,7 @@ function departureDetail(leg, now = nowMinutes()) {
   const signal = Boolean(leg?.signal);
   const verdict = signal ? signalVerdict(leg, state.live, now) : null;
   const skipped = verdict === "skipped";
+  const skipReason = skipped ? signalSkipReason(leg, state.live, now) : null;
   const booked = signal && !skipped && signalIsBooked(leg, now);
   const cancelled = isCancelledDeparture(leg);
   const entry = signal ? signalLogEntry(leg) : null;
@@ -1417,6 +1424,7 @@ function departureDetail(leg, now = nowMinutes()) {
     seenSkip: Boolean(
       signalLogStatus(leg) === "skipped" || (isToday() && journeyCancelled(leg))
     ),
+    skipReason,
     minutesBefore: leg?.signal?.minutesBefore ?? null,
     phone: signal ? signalPhone(leg) : "",
     observedAt: entry?.observedAt || null,
@@ -1918,90 +1926,80 @@ function signalLogStatus(leg, date = selectedDate()) {
   return null;
 }
 
-/**
- * Positivt bevis på at turen var tinga. Manglar det etter fristen, reknar vi
- * turen som ikkje bestilt. Gjetting strander folk på kaien.
- */
-function signalEvidenceBooked(leg, now = nowMinutes()) {
-  if (!leg?.signal || signalLogStatus(leg) === "skipped" || signalLogStatus(leg) === "gått") return false;
-  if (!isToday()) return signalLogBookedCounts(leg);
-  if (journeyCancelled(leg)) return false;
-  if (signalSeenBooked(leg, now)) return true;
-  const id = serviceJourneyId(leg.id);
-  return Boolean(id && state.confirmedBooked.has(id) && !positioningBlocksBooked(leg, now));
-}
-
-/** Slingringsmonn etter avgang før fristregelen seier «ikkje utført». Forseinking eller manglande
- * sanntid skal ikkje gjere ein bestilt tur til «ikkje utført» før loggen har fått sjå han. */
+/** Slingringsmonn etter avgang før sanntid som viser ferja ved startkaien tel som «ikkje utført».
+ * Ei forseinka ferje ligg òg ved kai ei stund etter avgangstida. */
 const SIGNAL_SKIP_GRACE_MIN = 15;
 
-/** Turen som skulle bringe ferja til kaien er avlyst, så ho kan ikkje gå herifrå. */
-function arrivalLegCancelled(leg, legs) {
-  const at = legIndex(legs || [], leg);
-  if (at <= 0) return false;
-  const before = legs[at - 1];
-  if (!before?.signal || before.to !== leg.from) return false;
-  return journeyCancelled(before) || signalLogStatus(before) === "skipped";
+/** Ferja har lege ved startkaien for `leg` lenger enn slingringsmonnet etter avgang. */
+function stuckAtOrigin(live, leg, now) {
+  return leftOrigin(live, leg) === false && now >= clockMinutes(leg.departure) + SIGNAL_SKIP_GRACE_MIN;
+}
+
+/**
+ * Sanntid viser ferja på ein seinare tur. Det beviser berre at `leg` ikkje gjekk
+ * om ferja ikkje kunne ha kome til startkaien for den seinare turen etter å ha
+ * køyrt `leg`. Kvar tur i mellom reknar vi som mogleg, så tvil gjev aldri «ikkje utført».
+ */
+function laterTripRulesOut(legs, leg, monitored) {
+  const from = legIndex(legs, leg);
+  const to = legIndex(legs, monitored);
+  if (from < 0 || to <= from) return false;
+  const reachable = new Set([quayPlace(leg.to)]);
+  for (let i = from + 1; i < to; i += 1) {
+    if (reachable.has(quayPlace(legs[i].from))) reachable.add(quayPlace(legs[i].to));
+  }
+  return !reachable.has(quayPlace(monitored.from));
+}
+
+/**
+ * Kvifor signalturen er «ikkje utført», eller null når vi ikkje har bevis.
+ * «cancelled»: Entur har avlyst turen (i dag, eller logga som avlyst).
+ * «live»: fersk sanntid viser at ferja ikkje gjekk.
+ * Fristen åleine er aldri bevis: telefonbestillingar kjem ikkje til Entur.
+ * At turen som skulle bringe ferja hit er avlyst, er heller ikkje bevis: er turen
+ * herifrå tinga, går ferja dit tom (sjå «gått» i signalloggen).
+ */
+function signalSkipReason(leg, live = state.live, now = nowMinutes(), legs = null) {
+  if (!leg?.signal) return null;
+  if (signalLogStatus(leg) === "gått") return null;
+  if (!isToday()) return signalLogStatus(leg) === "skipped" ? "cancelled" : null;
+  if (journeyCancelled(leg) || signalLogStatus(leg) === "skipped") return "cancelled";
+  // Bevis for at turen gjekk vinn over alle slutningar under.
+  if (signalHasDeparture(leg)) return null;
+  if (!isLiveFresh(live)) return null;
+  if (now < clockMinutes(leg.departure)) return null;
+  const dayLegs = legs || legsForDate(todayIso());
+  const monitored = legForLive(dayLegs, live);
+  if (!monitored) return null;
+  if (sameLeg(monitored, leg)) return stuckAtOrigin(live, monitored, now) ? "live" : null;
+  if (clockMinutes(monitored.departure) > clockMinutes(leg.departure)) {
+    return laterTripRulesOut(dayLegs, leg, monitored) ? "live" : null;
+  }
+  if (
+    monitored.signal &&
+    stuckAtOrigin(live, monitored, now) &&
+    isInUnrunSignalTail(dayLegs, monitored, leg)
+  ) {
+    return "live";
+  }
+  return null;
 }
 
 /**
  * «running» når signalturen har lagt frå kai.
- * «skipped» når ho er avlyst, når fristen er ute utan bevis på bestilling,
- * når ferja framleis ligg ved kai etter avgang, eller ein seinare tur er den som blir køyrd.
+ * «skipped» berre med bevis: avlyst hos Entur, eller fersk sanntid viser at ferja
+ * ikkje gjekk. Elles null («På signal»).
  */
 function signalVerdict(leg, live = state.live, now = nowMinutes(), legs = null) {
   if (!leg?.signal) return null;
-  if (!isToday()) {
-    if (signalLogStatus(leg) === "gått") return null;
-    return signalEvidenceBooked(leg) ? null : "skipped";
-  }
-  if (isLiveFresh(live)) {
+  if (isToday() && isLiveFresh(live)) {
     const dayLegs = legs || legsForDate(todayIso());
     const monitored = legForLive(dayLegs, live);
     if (monitored && sameLeg(monitored, leg) && leftOrigin(live, monitored) === true) {
       return "running";
     }
   }
-  // Tomturen gjekk. Manglande bestilling er ikkje det same som «ikkje utført».
-  if (signalLogStatus(leg) === "gått") return null;
-  if (journeyCancelled(leg) || signalLogStatus(leg) === "skipped") return "skipped";
-  // Ferja har gått, men returen er enno ikkje avgjord. Ikkje sei bestilt, og ikkje «ikkje utført».
-  if (signalHasDeparture(leg) && positioningBlocksBooked(leg, now)) return null;
-  if (arrivalLegCancelled(leg, legs || legsForDate(todayIso()))) return "skipped";
-  // Fristen åleine seier ikkje at turen fell bort: folk kan ha ringt, og det ser vi ikkje.
-  // Difor aldri «ikkje utført» før avgangstida.
-  const deadline = bookingDeadline(leg);
-  if (
-    deadline != null &&
-    now >= deadline &&
-    now >= clockMinutes(leg.departure) + SIGNAL_SKIP_GRACE_MIN &&
-    !signalEvidenceBooked(leg, now)
-  ) {
-    return "skipped";
-  }
-  if (!isLiveFresh(live)) return null;
-  if (now < clockMinutes(leg.departure)) return null;
-  const dayLegs = legs || legsForDate(todayIso());
-  const monitored = legForLive(dayLegs, live);
-  if (!monitored) return null;
-  if (sameLeg(monitored, leg)) {
-    const left = leftOrigin(live, monitored);
-    if (left === true) return "running";
-    if (left === false) return "skipped";
-    return null;
-  }
-  if (clockMinutes(monitored.departure) > clockMinutes(leg.departure)) {
-    if (signalSeenBooked(leg)) return null;
-    return "skipped";
-  }
-  if (
-    monitored.signal &&
-    leftOrigin(live, monitored) === false &&
-    isInUnrunSignalTail(dayLegs, monitored, leg)
-  ) {
-    return "skipped";
-  }
-  return null;
+  return signalSkipReason(leg, live, now, legs) ? "skipped" : null;
 }
 
 /**
@@ -2439,7 +2437,11 @@ function currentStatus(legs, now = nowMinutes()) {
     leftOrigin(live, monitored) === false &&
     now >= clockMinutes(monitored.departure)
   ) {
-    return signalSkippedStatus(monitored, now);
+    // «Ikkje utført» berre med bevis. Innan slingringsmonnet kan ferja berre vere forseinka.
+    if (signalVerdict(monitored, live, now, legs) === "skipped") {
+      return signalSkippedStatus(monitored, now);
+    }
+    return { at: now, ...withSanntid(t("status.mooredAt", { quay: monitored.from }), live) };
   }
   if (planned && delayApplies(live, monitored)) {
     const base = (planned.short || planned.text || "").replace(/\.$/, "");
@@ -3157,7 +3159,6 @@ function signalNote(leg, live) {
   if (signalIsBooked(leg) || signalVerdict(leg) === "skipped" || signalLogStatus(leg) === "gått") {
     return null;
   }
-  if (!isToday() && signalLogStatus(leg) === "skipped") return null;
   const deadline = bookingDeadline(leg);
   if (deadline == null) return null;
   const note = el("span", "stop-note");
@@ -3342,7 +3343,9 @@ function renderDepartureDetail(leg) {
           "",
           detail.seenSkip
             ? t("signal.skippedHow", { time: deadline })
-            : t("signal.unknownHow", { time: deadline })
+            : detail.skipReason === "live"
+              ? t("signal.skippedLiveHow")
+              : t("signal.unknownHow", { time: deadline })
         )
       );
       const when = detail.skippedAt || detail.observedAt;
@@ -5081,6 +5084,7 @@ export {
   currentStatus,
   dayType,
   signalVerdict,
+  signalSkipReason,
   signalObservedAtQuay,
   signalIsBooked,
   signalLogStatus,
