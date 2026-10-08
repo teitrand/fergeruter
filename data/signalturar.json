@@ -598,9 +598,9 @@
         "from": "Trandal",
         "to": "Standal",
         "departure": "20:20:00",
-        "status": "skipped",
-        "observedAt": "2026-10-08T20:37:45.110896+02:00",
-        "skippedAt": "2026-10-08T20:37:45.110896+02:00"
+        "status": "gått",
+        "observedAt": "2026-10-08T20:30:45+02:00",
+        "evidence": "departed"
       }
     ]
   }
