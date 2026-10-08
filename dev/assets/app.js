@@ -7,7 +7,7 @@ import {
   setLang,
   t,
   weekdays,
-} from "./i18n.js?v=78";
+} from "./i18n.js?v=79";
 
 const MESSAGES_URL = "data/trafikkmeldinger.json";
 const SIGNAL_LOG_URL = "data/signalturar.json";
@@ -83,6 +83,11 @@ const PWA_FIRST_KEY = "fergeruter-pwa-first-open";
 const TIMETABLE_CACHE_KEY = "fergeruter-timetable-v1";
 const MESSAGES_CACHE_KEY = "fergeruter-messages-v1";
 const LAST_MODE_KEY = "fergeruter-last-mode";
+/** Turar vi har sett gå i sanntid, per dag. Berre dagen i dag blir teken vare på. */
+const SAILED_KEY = "fergeruter-sailed-v1";
+const SAILED_MAX_PER_DAY = 60;
+/** Signalturar kan gå nokre minutt før rutetida (sett 5 min i signalloggen). */
+const SAILED_EARLY_MIN = 10;
 const MESSAGES_POLL_MS = 3 * 60 * 1000;
 /** GitHub-kopien er gammal når innhaldet ikkje er skrive på nytt. Då spør sida workeren. */
 const MESSAGES_STALE_MS = 8 * 60 * 1000;
@@ -127,6 +132,10 @@ const state = {
   actualDepartures: new Map(),
   /** Turar vi har sett gå (faktisk avgang eller sanntid). Vert ståande ut dagen, til avlysing. */
   confirmedBooked: new Set(),
+  /** Turar sanntid har vist at ferja køyrde i dag, òg om Entur har avlyst dei. */
+  sailedJourneys: new Set(),
+  /** Dagen `sailedJourneys` gjeld. */
+  sailedDate: null,
   signalLog: null,
 };
 
@@ -530,6 +539,8 @@ function isCancelledDeparture(leg, cancelled = cancelledDepartureSet()) {
 function runningLegs(legs, now = nowMinutes()) {
   const cancelled = cancelledDepartureSet();
   return (legs || []).filter((leg) => {
+    // Sanntid viste at ferja køyrde turen. Det vinn over avlysing.
+    if (liveSailed(leg)) return true;
     if (isCancelledDeparture(leg, cancelled) || journeyCancelled(leg)) return false;
     if (leg.signal && signalVerdict(leg, state.live, now, legs) === "skipped") return false;
     return true;
@@ -1311,6 +1322,96 @@ function liveLeftThisLeg(leg) {
   return leftOrigin(state.live, monitored) === true;
 }
 
+/**
+ * Fersk sanntid viser at ferja har køyrt `leg`: faktisk avgang, framme ved endekaia
+ * etter planlagd avgang (ActualArrivalTime eller VehicleAtStop der), eller lagt frå
+ * startkaien etter rutetida.
+ */
+function liveProvesSailed(live, leg, now = nowMinutes()) {
+  if (!leg || !isLiveFresh(live)) return false;
+  if (live.actualDeparture) return true;
+  const dest = quayPlace(leg.to);
+  const stop = quayPlace(live.stopName);
+  if (dest && stop === dest && (live.atStop === true || Boolean(live.actualArrival))) {
+    // Ved endekaia før rutetida kan Entur alt ha kopla ferja til neste tur. Då er det ikkje bevis.
+    // Ferja ved endekaia har heller ikkje «lagt frå startkaien» for denne turen.
+    const seenAt = observationMinutes(live.actualArrival) ?? now;
+    return seenAt >= clockMinutes(leg.departure);
+  }
+  return leftOrigin(live, leg) === true && now >= clockMinutes(leg.departure) - SAILED_EARLY_MIN;
+}
+
+function readSailedJourneys(date = todayIso(), storage) {
+  try {
+    const store =
+      storage ?? (typeof localStorage !== "undefined" ? localStorage : null);
+    if (!store) return new Set();
+    const parsed = JSON.parse(store.getItem(SAILED_KEY) || "null");
+    const ids = parsed?.[date];
+    return new Set(Array.isArray(ids) ? ids.filter((id) => typeof id === "string") : []);
+  } catch {
+    return new Set();
+  }
+}
+
+/** Skriv berre dagen i dag. Eldre dagar fell bort ved neste skriving. */
+function writeSailedJourneys(date, ids, storage) {
+  try {
+    const store =
+      storage ?? (typeof localStorage !== "undefined" ? localStorage : null);
+    if (!store) return;
+    const list = [...ids].slice(-SAILED_MAX_PER_DAY);
+    store.setItem(SAILED_KEY, JSON.stringify({ [date]: list }));
+  } catch {
+    // kvote / privat modus
+  }
+}
+
+function hydrateSailedJourneys(storage) {
+  state.sailedDate = todayIso();
+  state.sailedJourneys = readSailedJourneys(state.sailedDate, storage);
+}
+
+/**
+ * Hugs turen fersk sanntid viser at ferja køyrde, så han står som gått òg når
+ * VM-posten har gått ut (8. oktober: 20:20 gjekk tom til Standal, men var avlyst hos Entur).
+ */
+function rememberLiveSailed(live = state.live, now = nowMinutes(), storage) {
+  if (!isLiveFresh(live)) return false;
+  const today = todayIso();
+  const monitored = legForLive(legsForDate(today), live);
+  if (!monitored || !liveProvesSailed(live, monitored, now)) return false;
+  const id = serviceJourneyId(monitored.id);
+  if (!id) return false;
+  if (state.sailedDate !== today) hydrateSailedJourneys(storage);
+  if (state.sailedJourneys.has(id)) return false;
+  state.sailedJourneys.add(id);
+  writeSailedJourneys(today, state.sailedJourneys, storage);
+  return true;
+}
+
+/** Sanntid har vist at ferja køyrde turen i dag, no eller tidlegare. */
+function liveSailed(leg) {
+  if (!leg || !isToday()) return false;
+  if (state.sailedDate !== todayIso()) hydrateSailedJourneys();
+  const id = serviceJourneyId(leg.id);
+  if (id && state.sailedJourneys.has(id)) return true;
+  if (!isLiveFresh(state.live)) return false;
+  const monitored = legForLive(legsForDate(todayIso()), state.live);
+  return Boolean(monitored && sameLeg(monitored, leg) && liveProvesSailed(state.live, monitored));
+}
+
+/**
+ * Turen gjekk utan at vi veit om nokon tinga: «gått» i loggen, eller avlyst
+ * (Entur eller loggen) men sett køyrd i sanntid. Då er han «Gått», ikkje «Ikkje utført».
+ */
+function signalSailed(leg) {
+  if (!leg?.signal) return false;
+  if (signalLogStatus(leg) === "gått") return true;
+  if (!journeyCancelled(leg) && signalLogStatus(leg) !== "skipped") return false;
+  return liveSailed(leg);
+}
+
 const POSITIONING_GAP_MINUTES = 45;
 
 function oppositeReturns(leg) {
@@ -1337,7 +1438,7 @@ function returnHasDeparture(other) {
   if (feedDepartureIso(other)) return true;
   const entry = signalLogEntry(other);
   if (entry?.status === "booked" && entry?.evidence === "departed") return true;
-  return liveLeftThisLeg(other);
+  return liveLeftThisLeg(other) || liveSailed(other);
 }
 
 function returnStillOpen(other, now) {
@@ -1367,7 +1468,7 @@ function signalHasDeparture(leg) {
   if (signalLogBookedCounts(leg)) return true;
   if (signalLogStatus(leg) === "gått" && signalLogEntry(leg)?.evidence === "departed") return true;
   if (feedDepartureProvesBooking(leg)) return true;
-  return liveLeftThisLeg(leg);
+  return liveLeftThisLeg(leg) || liveSailed(leg);
 }
 
 function signalSeenBooked(leg, now = nowMinutes()) {
@@ -1380,6 +1481,7 @@ function signalIsBooked(leg, now = nowMinutes()) {
   if (!leg?.signal) return false;
   if (signalLogStatus(leg) === "skipped" || signalLogStatus(leg) === "gått") return false;
   if (!isToday()) return signalLogBookedCounts(leg);
+  if (signalSailed(leg)) return false;
   if (signalVerdict(leg, state.live, now) === "skipped") return false;
   const id = serviceJourneyId(leg.id);
   if (positioningBlocksBooked(leg, now)) {
@@ -1406,7 +1508,7 @@ function departureDetail(leg, now = nowMinutes()) {
   const cancelled = isCancelledDeparture(leg);
   const entry = signal ? signalLogEntry(leg) : null;
   const deadline = signal ? bookingDeadline(leg) : null;
-  const sailed = signal && signalLogStatus(leg) === "gått";
+  const sailed = signal && signalSailed(leg);
   let phase = "regular";
   if (cancelled && !signal) phase = "cancelled";
   else if (skipped) phase = "skipped";
@@ -1961,7 +2063,8 @@ function laterTripRulesOut(legs, leg, monitored) {
  */
 function signalSkipReason(leg, live = state.live, now = nowMinutes(), legs = null) {
   if (!leg?.signal) return null;
-  if (signalLogStatus(leg) === "gått") return null;
+  // Gått (logg eller sanntid) vinn over avlysing.
+  if (signalSailed(leg)) return null;
   if (!isToday()) return signalLogStatus(leg) === "skipped" ? "cancelled" : null;
   if (journeyCancelled(leg) || signalLogStatus(leg) === "skipped") return "cancelled";
   // Bevis for at turen gjekk vinn over alle slutningar under.
@@ -2419,8 +2522,57 @@ function ferryStatus(legs, now = nowMinutes(), allLegs = null) {
   return null;
 }
 
+/**
+ * Ferja ligg over natta på heimkaia. Er turen heim avlyst, går ho dit likevel, tom
+ * (8. oktober: 20:20 Trandal–Standal var avlyst hos Entur, men ferja gjekk).
+ * Returnerer turen heim når dagen etter siste køyrde tur elles ville slutta på feil kai.
+ */
+function cancelledReturnHome(legs, running) {
+  if (isCombinedTimetable() || !legs?.length || !running?.length) return null;
+  const home = quayPlace(homeQuay(legs));
+  const last = running[running.length - 1];
+  const plannedLast = legs[legs.length - 1];
+  if (sameLeg(plannedLast, last) || quayPlace(plannedLast.to) !== home) return null;
+  if (quayPlace(last.to) === home) return null;
+  const at = legIndex(legs, last);
+  return (
+    legs
+      .slice(at + 1)
+      .find((leg) => quayPlace(leg.from) === quayPlace(last.to) && quayPlace(leg.to) === home) || null
+  );
+}
+
+function returnHomeStatus(last, back, now) {
+  const arrived = clockMinutes(last.arrival);
+  const leaves = clockMinutes(back.departure);
+  const home = back.to;
+  if (now < leaves) {
+    return withSpan({ at: arrived + 0.5, text: t("status.mooredAt", { quay: last.to }) }, arrived, leaves, now);
+  }
+  const ends = clockMinutes(back.arrival || back.departure);
+  if (now < ends) {
+    return withSpan(
+      {
+        at: leaves + 0.5,
+        underway: true,
+        short: t("status.backEmpty", { home }),
+        text: t("status.backEmptyText", { to: last.to, home }),
+      },
+      leaves,
+      ends,
+      now
+    );
+  }
+  return { at: 1441, short: t("status.doneAt", { home }), text: t("status.doneAtPeriod", { home }) };
+}
+
 function currentStatus(legs, now = nowMinutes()) {
-  const planned = ferryStatus(runningLegs(legs, now), now);
+  const runningNow = runningLegs(legs, now);
+  let planned = ferryStatus(runningNow, now);
+  const back = cancelledReturnHome(legs, runningNow);
+  if (back && now >= clockMinutes(runningNow[runningNow.length - 1].arrival)) {
+    planned = returnHomeStatus(runningNow[runningNow.length - 1], back, now);
+  }
   const live = isLiveFresh(state.live) ? state.live : null;
   if (!live) return planned;
   const monitored = legForLive(legs, live);
@@ -3156,7 +3308,7 @@ function connectionNote(index, kind, leg) {
  * enn i dag, ville ei nedteljing mot dagens klokke vore feil.
  */
 function signalNote(leg, live) {
-  if (signalIsBooked(leg) || signalVerdict(leg) === "skipped" || signalLogStatus(leg) === "gått") {
+  if (signalIsBooked(leg) || signalVerdict(leg) === "skipped" || signalSailed(leg)) {
     return null;
   }
   const deadline = bookingDeadline(leg);
@@ -3211,7 +3363,7 @@ function departureRow(leg, past, connections, journey = null) {
   const cancelled = isCancelledDeparture(leg);
   const verdict = leg.signal ? signalVerdict(leg) : null;
   const booked = Boolean(leg.signal) && verdict !== "skipped" && signalIsBooked(leg);
-  const sailed = signalLogStatus(leg) === "gått";
+  const sailed = signalSailed(leg);
   const onward = isOnwardLeg(leg, journey);
   const row = el(
     "div",
@@ -4657,11 +4809,15 @@ async function loadLivePosition() {
       if (found.some((item) => isLiveFresh(item))) break;
     }
     state.live = pickFreshest(found);
+    rememberLiveSailed();
     state.liveBackoffMs = 0;
     state.liveBlockedUntil = 0;
     state.liveFailed = false;
   } catch (error) {
-    if (found.length) state.live = pickFreshest(found);
+    if (found.length) {
+      state.live = pickFreshest(found);
+      rememberLiveSailed();
+    }
     state.liveFailed = true;
     noteLiveFailure();
     console.error(error);
@@ -5053,6 +5209,8 @@ function resetTestState() {
   state.seenJourneys = new Set();
   state.actualDepartures = new Map();
   state.confirmedBooked = new Set();
+  state.sailedJourneys = new Set();
+  state.sailedDate = null;
   state.signalLog = null;
   lastLiveStructureKey = null;
   messagesHydrated = false;
@@ -5085,6 +5243,11 @@ export {
   dayType,
   signalVerdict,
   signalSkipReason,
+  signalSailed,
+  liveProvesSailed,
+  rememberLiveSailed,
+  readSailedJourneys,
+  writeSailedJourneys,
   signalObservedAtQuay,
   signalIsBooked,
   signalLogStatus,
@@ -5199,6 +5362,7 @@ if (typeof document !== "undefined") {
   syncLangButtons();
   state.hideArrivals = readHideArrivals();
   state.routeChoice = readRouteChoice();
+  hydrateSailedJourneys();
   hydrateCachedMessages();
   bindControls();
   renderRouteFilter();
