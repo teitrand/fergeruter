@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { ferryStatus, messageTimeLines } from "../assets/app.js";
-import {
+import { appVersion } from "./helpers/version.mjs";
+
+const {
   SUPPORTED,
   STORAGE_KEY,
   detectLang,
@@ -10,7 +12,7 @@ import {
   stringKeys,
   stringsFor,
   t,
-} from "../assets/i18n.js?v=75";
+} = await import(`../assets/i18n.js?v=${appVersion()}`);
 
 function leg(from, to, departure, arrival, dates = ["2026-08-26"]) {
   return { from, to, departure, arrival, activeDates: dates };
