@@ -1,4 +1,5 @@
 import importlib.util
+import json
 import sys
 import unittest
 from datetime import datetime
@@ -610,6 +611,96 @@ class SignalLogHeartbeatTests(unittest.TestCase):
         self.assertFalse(log_is_late("2026-10-03T21:30:00Z", early))
         late = datetime(2026, 10, 4, 5, 15, tzinfo=ZoneInfo("UTC"))
         self.assertTrue(log_is_late("2026-10-03T21:30:00Z", late))
+
+
+class SailedDespiteCancelTests(unittest.TestCase):
+    """8. oktober 20:20 Trandal–Standal: avlyst hos Entur, men ferja gjekk tom heim."""
+
+    BACK = "MOR:ServiceJourney:1136_129_9150000046366348"
+    OUT = "MOR:ServiceJourney:1136_128_9150000047474268"
+    DAY = "2026-10-08"
+
+    @classmethod
+    def setUpClass(cls):
+        cls.routes = json.loads((ROOT / "tests" / "fixtures" / "ruter.json").read_text(encoding="utf-8"))
+        cls.vm = json.loads(
+            (ROOT / "tests" / "fixtures" / "vm_2026-10-08_2030.json").read_text(encoding="utf-8")
+        )
+        cls.legs = mod.signal_legs(cls.routes, cls.DAY)
+
+    def test_vm_viser_at_2020_kom_fram_til_standal(self):
+        found = mod.vm_sailed_from_payload(self.vm, self.legs, self.DAY)
+        self.assertEqual(found, {self.BACK: "2026-10-08T20:30:45+02:00"})
+
+    def test_vm_frå_ein_annan_dag_tel_ikkje(self):
+        self.assertEqual(mod.vm_sailed_from_payload(self.vm, self.legs, "2026-10-09"), {})
+
+    def test_vm_ved_startkaia_er_ikkje_bevis(self):
+        payload = json.loads(json.dumps(self.vm))
+        activity = payload["Siri"]["ServiceDelivery"]["VehicleMonitoringDelivery"][0]["VehicleActivity"][0]
+        call = activity["MonitoredVehicleJourney"]["MonitoredCall"]
+        call["StopPointName"] = [{"value": "Trandal ferjekai"}]
+        call.pop("ActualArrivalTime")
+        self.assertEqual(mod.vm_sailed_from_payload(payload, self.legs, self.DAY), {})
+
+    def _observe(self, actual):
+        trips = observe_signal_trips(
+            self.legs,
+            now_minutes=20 * 60 + 37,
+            cancelled_ids={self.BACK},
+            seen_ids={self.BACK, self.OUT},
+            actual_departures=actual,
+        )
+        return {trip["id"]: trip for trip in trips}
+
+    def test_utan_sanntid_blir_den_avlyste_turen_ikkje_utført(self):
+        by_id = self._observe({self.OUT: "2026-10-08T20:00:03+02:00"})
+        self.assertEqual(by_id[self.BACK]["status"], "skipped")
+        self.assertEqual(by_id[self.OUT]["status"], "booked")
+
+    def test_avlyst_tur_som_vm_viser_køyrd_er_gått_med_bevis(self):
+        actual = {self.OUT: "2026-10-08T20:00:03+02:00"}
+        actual.update(mod.vm_sailed_from_payload(self.vm, self.legs, self.DAY))
+        by_id = self._observe(actual)
+        self.assertEqual(by_id[self.BACK]["status"], "gått")
+        self.assertEqual(by_id[self.BACK]["evidence"], "departed")
+        self.assertEqual(by_id[self.BACK]["observedAt"], "2026-10-08T20:30:45+02:00")
+        self.assertEqual(by_id[self.OUT]["status"], "booked")
+
+    def test_seinare_gått_med_bevis_skriv_over_tidlegare_skipped(self):
+        earlier = apply_observations(
+            [],
+            [self._observe({})[self.BACK]],
+            "2026-10-08T20:37:45+02:00",
+        )
+        self.assertEqual(earlier[0]["status"], "skipped")
+        actual = mod.vm_sailed_from_payload(self.vm, self.legs, self.DAY)
+        merged = apply_observations(earlier, [self._observe(actual)[self.BACK]], "2026-10-08T21:07:45+02:00")
+        self.assertEqual(merged[0]["status"], "gått")
+        self.assertEqual(merged[0]["evidence"], "departed")
+        self.assertEqual(merged[0]["observedAt"], "2026-10-08T20:30:45+02:00")
+        self.assertNotIn("skippedAt", merged[0])
+        # Eit nytt svar utan sanntid gjer ikkje gått om til skipped att.
+        again = apply_observations(merged, [self._observe({})[self.BACK]], "2026-10-08T21:37:45+02:00")
+        self.assertEqual(again[0]["status"], "gått")
+
+    def test_vm_kall_berre_for_linjer_med_signalturar_og_feil_stoppar_ikkje_loggen(self):
+        asked = []
+
+        def get(line):
+            asked.append(line)
+            if line == "1136":
+                return self.vm
+            raise OSError("nett")
+
+        found = mod.fetch_vm_sailed(self.routes, self.DAY, self.legs, get=get)
+        self.assertEqual(asked, ["1136"])
+        self.assertEqual(found, {self.BACK: "2026-10-08T20:30:45+02:00"})
+
+        def broken(line):
+            raise OSError("nett")
+
+        self.assertEqual(mod.fetch_vm_sailed(self.routes, self.DAY, self.legs, get=broken), {})
 
 
 if __name__ == "__main__":

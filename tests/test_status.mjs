@@ -19,6 +19,11 @@ import {
   positionNoteKey,
   currentStatus,
   signalVerdict,
+  signalSailed,
+  liveProvesSailed,
+  rememberLiveSailed,
+  readSailedJourneys,
+  writeSailedJourneys,
   signalObservedAtQuay,
   signalIsBooked,
   departureDetail,
@@ -2107,3 +2112,130 @@ function runningLegsToday(legs, now) {
   assert.doesNotMatch(status.text || "", /ikkje utført/);
   return legs.filter((item) => !item.signal || signalVerdict(item, null, now) !== "skipped");
 }
+
+// --- 8. oktober 20:20: avlyst hos Entur, men ferja gjekk tom heim til Standal -------------
+// tests/fixtures/vm_2026-10-08_2030.json er det ekte VM-svaret (RecordedAtTime 20:30:47,
+// ValidUntilTime 20:32:47). Journey Planner hadde 1136_129 avlyst og 1136_128 med faktisk
+// avgang 20:00:03.
+const vm2030 = JSON.parse(
+  readFileSync(new URL("./fixtures/vm_2026-10-08_2030.json", import.meta.url), "utf8")
+);
+const BACK_2020 = "MOR:ServiceJourney:1136_129_9150000046366348";
+const OUT_2000 = "MOR:ServiceJourney:1136_128_9150000047474268";
+
+function fakeStorage(initial = {}) {
+  const data = { ...initial };
+  return {
+    data,
+    getItem: (key) => (key in data ? data[key] : null),
+    setItem: (key, value) => {
+      data[key] = String(value);
+    },
+  };
+}
+
+function evening2030(live, extra = {}) {
+  const day = "2026-10-08";
+  const legs = replayLegs(day, todayIso());
+  resetTestState();
+  setTestState({
+    routes: { lines: { 1136: { legs } } },
+    signalLog: { days: { [todayIso()]: replay.days[day] } },
+    cancelledJourneys: new Set([BACK_2020]),
+    seenJourneys: new Set([BACK_2020, OUT_2000]),
+    actualDepartures: new Map([[OUT_2000, `${todayIso()}T20:00:03+02:00`]]),
+    live,
+    ...extra,
+  });
+  const back = legs.find((item) => journeyOf(item) === BACK_2020);
+  const out = legs.find((item) => journeyOf(item) === OUT_2000);
+  return { legs, back, out };
+}
+
+const vmLive = parseVehicleMonitoring(vm2030);
+const freshVm = { ...vmLive, validUntil: "2099-01-01T00:00:00Z" };
+const staleVm = { ...vmLive, validUntil: "2000-01-01T00:00:00Z", recordedAt: "2000-01-01T00:00:00Z" };
+
+test("VM-svaret 20:30 har faktisk ankomst på Standal for 20:20-turen", () => {
+  assert.equal(vmLive.journeyRef, BACK_2020);
+  assert.equal(vmLive.stopName, "Standal");
+  assert.equal(vmLive.atStop, true);
+  assert.equal(vmLive.actualArrival, "2026-10-08T20:30:45+02:00");
+  const { back } = evening2030(freshVm);
+  assert.equal(liveProvesSailed(freshVm, back, 20 * 60 + 30), true);
+  assert.equal(liveProvesSailed(staleVm, back, 20 * 60 + 33), false);
+});
+
+test("20:20 avlyst men køyrd (ekte 8. oktober): «Gått» og Standal, òg etter at sanntid har gått ut", () => {
+  const storage = fakeStorage();
+  const previous = globalThis.localStorage;
+  globalThis.localStorage = storage;
+  try {
+    const { legs, back, out } = evening2030(freshVm);
+    const now = 20 * 60 + 30;
+    assert.equal(rememberLiveSailed(freshVm, now), true);
+    assert.deepEqual(JSON.parse(storage.data["fergeruter-sailed-v1"]), { [todayIso()]: [BACK_2020] });
+    assert.notEqual(signalVerdict(back, freshVm, now), "skipped");
+    assert.equal(signalSailed(back), true);
+    assert.equal(departureDetail(back, now).phase, "sailed");
+    const fresh = currentStatus(legs, now);
+    assert.match(fresh.text, /Standal/);
+    assert.doesNotMatch(fresh.text, /ikkje utført|Trandal/);
+
+    // Sanntid har gått ut, avlysinga frå Entur står. Same økt.
+    for (const later of [20 * 60 + 33, 21 * 60]) {
+      setTestState({ live: staleVm });
+      assert.equal(signalVerdict(back, staleVm, later), null, `kl. ${clock(later)}`);
+      assert.equal(signalSailed(back), true);
+      const detail = departureDetail(back, later);
+      assert.equal(detail.phase, "sailed", `kl. ${clock(later)}`);
+      assert.equal(detail.skipped, false);
+      assert.equal(detail.booked, false);
+      assert.match(currentStatus(legs, later).text, /Standal/, `kl. ${clock(later)}`);
+      assert.doesNotMatch(currentStatus(legs, later).text, /Trandal/);
+      // 20:00 var ikkje avlyst og har faktisk avgang: bestilt, ikkje «gått».
+      assert.equal(departureDetail(out, later).phase, "booked");
+    }
+    assert.equal(currentStatus(legs, 21 * 60).short, "Ferja er ferdig for dagen på Standal");
+
+    // Ny innlasting etter at VM-posten har gått ut: minnet ligg i localStorage.
+    const reloaded = evening2030(staleVm);
+    assert.equal(signalVerdict(reloaded.back, staleVm, 21 * 60), null);
+    assert.equal(departureDetail(reloaded.back, 21 * 60).phase, "sailed");
+    assert.equal(currentStatus(reloaded.legs, 21 * 60).short, "Ferja er ferdig for dagen på Standal");
+  } finally {
+    if (previous === undefined) delete globalThis.localStorage;
+    else globalThis.localStorage = previous;
+  }
+});
+
+test("utan sanntid i det heile seier status framleis Standal når turen heim er avlyst", () => {
+  const { legs, back } = evening2030(null);
+  // Ingen bevis for at 20:20 gjekk: avlysinga frå Entur står. Men ferja ligg over natta på Standal.
+  assert.equal(signalVerdict(back, null, 21 * 60), "skipped");
+  assert.equal(currentStatus(legs, 20 * 60 + 17).text, "Ferja ligg til kai på Trandal");
+  assert.match(currentStatus(legs, 20 * 60 + 25).text, /tilbake til Standal utan passasjerar/);
+  assert.equal(currentStatus(legs, 21 * 60).short, "Ferja er ferdig for dagen på Standal");
+});
+
+test("hugsa turar gjeld berre dagen i dag og blir få", () => {
+  const storage = fakeStorage({
+    "fergeruter-sailed-v1": JSON.stringify({ "2026-10-07": ["MOR:ServiceJourney:old"] }),
+  });
+  assert.deepEqual([...readSailedJourneys(todayIso(), storage)], []);
+  const many = Array.from({ length: 80 }, (_, i) => `MOR:ServiceJourney:x${i}`);
+  writeSailedJourneys(todayIso(), new Set(many), storage);
+  const saved = JSON.parse(storage.data["fergeruter-sailed-v1"]);
+  assert.deepEqual(Object.keys(saved), [todayIso()]);
+  assert.equal(saved[todayIso()].length, 60);
+  assert.equal(readSailedJourneys("2026-10-07", storage).size, 0);
+  const broken = fakeStorage({ "fergeruter-sailed-v1": "{ikkje json" });
+  assert.equal(readSailedJourneys(todayIso(), broken).size, 0);
+});
+
+test("sanntid før rutetida gjer ikkje ein tur gått", () => {
+  const { back } = evening2030(null);
+  const early = { ...freshVm, atStop: false, actualArrival: "", stopName: "", latitude: 62.263, longitude: 6.46 };
+  assert.equal(liveProvesSailed(early, back, 20 * 60 + 5), false);
+  assert.equal(liveProvesSailed(early, back, 20 * 60 + 12), true);
+});

@@ -12,6 +12,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 ENTUR_URL = "https://api.entur.io/journey-planner/v3/graphql"
+VM_URL = "https://api.entur.io/realtime/v1/rest/vm?datasetId=MOR&LineRef=MOR:Line:{line}"
 ENTUR_CLIENT = "teitrand-fergeruter"
 KEPT_DAYS = 7
 OSLO = ZoneInfo("Europe/Oslo")
@@ -124,6 +125,11 @@ def _positioning_pending(leg, legs, now_minutes, cancelled_ids, actual_departure
 def observe_signal_trips(legs, now_minutes, cancelled_ids, seen_ids, actual_departures=None):
     """Alle signalturar i dag som har passert fristen, òg dei eit hol hoppa over.
 
+    `actual_departures` er faktisk avgang frå Journey Planner, eventuelt fylt ut med
+    bevis frå sanntid (VM): faktisk avgang, eller turen framme ved endekaia.
+
+    Avlyst tur med slikt bevis er `gått`: ferja køyrde han utan at nokon hadde tinga.
+
     `booked` krev faktisk avgang (`actualDepartureTime`). At kallet ligg i
     feeden utan avlysing etter fristen er ikkje nok: avlysinga kan kome seinare,
     og då ville turen stå som tinga før han i det heile har gått.
@@ -145,11 +151,12 @@ def observe_signal_trips(legs, now_minutes, cancelled_ids, seen_ids, actual_depa
         evidence_at = actual_departures.get(journey)
         positioning = _positioning_for_booked_return(leg, legs, cancelled_ids, actual_departures)
         if journey in cancelled_ids:
-            if _after_arrival(leg, now_minutes) and evidence_at and positioning:
+            # Avlyst, men faktisk avgang eller sanntid viser at ferja køyrde turen
+            # (t.d. tom heim til Standal for natta). Då har han gått.
+            if evidence_at:
                 status = "gått"
             else:
                 status = "skipped"
-                evidence_at = None
         elif journey in seen_ids and evidence_at:
             if positioning:
                 status = "gått"
@@ -412,6 +419,93 @@ def fetch_cancelled(moment, stop_ids, post=None, page_size=PAGE_SIZE):
     return cancelled, seen, actual
 
 
+def _siri_value(value):
+    if isinstance(value, list):
+        value = value[0] if value else None
+    if isinstance(value, dict):
+        return value.get("value")
+    return value
+
+
+def _quay_place(name):
+    text = re.sub(r"\s+(ferjekai|kai)$", "", str(name or "").strip(), flags=re.IGNORECASE)
+    return "Leknes" if text == "Lekneset" else text
+
+
+def vm_sailed_from_payload(payload, legs, day_iso):
+    """Signalturar som sanntid (VM) viser at ferja har køyrt i dag.
+
+    Bevis er faktisk avgang i MonitoredCall, eller at ferja er framme ved endekaia
+    (ActualArrivalTime, eller VehicleAtStop der). Entur sender ofte den siste
+    aktiviteten ei stund etter at ValidUntilTime er ute, så sjølv ein gammal post
+    for ein tur i dag er bevis for den turen.
+    """
+    by_journey = {service_journey_id(leg.get("id")): leg for leg in legs or []}
+    deliveries = (((payload or {}).get("Siri") or {}).get("ServiceDelivery") or {}).get(
+        "VehicleMonitoringDelivery"
+    ) or []
+    if isinstance(deliveries, dict):
+        deliveries = [deliveries]
+    found = {}
+    for delivery in deliveries:
+        activities = (delivery or {}).get("VehicleActivity") or []
+        if isinstance(activities, dict):
+            activities = [activities]
+        for activity in activities:
+            journey_data = (activity or {}).get("MonitoredVehicleJourney") or {}
+            framed = journey_data.get("FramedVehicleJourneyRef") or {}
+            journey = service_journey_id(framed.get("DatedVehicleJourneyRef"))
+            leg = by_journey.get(journey)
+            if not leg:
+                continue
+            frame = _siri_value(framed.get("DataFrameRef")) or ""
+            origin = str(journey_data.get("OriginAimedDepartureTime") or "")
+            if day_iso and not (str(frame).startswith(day_iso) or origin.startswith(day_iso)):
+                continue
+            call = journey_data.get("MonitoredCall") or {}
+            stop = _quay_place(_siri_value(call.get("StopPointName")))
+            at_dest = bool(stop) and stop == _quay_place(leg.get("to"))
+            when = None
+            if call.get("ActualDepartureTime"):
+                when = call.get("ActualDepartureTime")
+            elif at_dest and call.get("ActualArrivalTime"):
+                when = call.get("ActualArrivalTime")
+            elif at_dest and call.get("VehicleAtStop") in (True, "true"):
+                when = activity.get("RecordedAtTime")
+            if when and journey not in found:
+                found[journey] = when
+    return found
+
+
+def _http_vm(line):
+    request = urllib.request.Request(
+        VM_URL.format(line=line),
+        headers={"ET-Client-Name": ENTUR_CLIENT, "Accept": "application/json"},
+    )
+    with urllib.request.urlopen(request, timeout=30) as response:
+        return json.loads(response.read().decode())
+
+
+def fetch_vm_sailed(routes, date_iso, legs, get=None):
+    """Eitt VM-kall per linje som har signalturar i dag. Feil gjer ingenting: loggen går vidare."""
+    get = get or _http_vm
+    found = {}
+    for line, data in (routes.get("lines") or {}).items():
+        if not any(
+            leg.get("signal") and date_iso in (leg.get("activeDates") or [])
+            for leg in data.get("legs") or []
+        ):
+            continue
+        try:
+            payload = get(line)
+        except Exception as error:  # noqa: BLE001 - sanntid er berre eit tillegg
+            print(f"VM for {line} feila: {error}", file=sys.stderr)
+            continue
+        for journey, when in vm_sailed_from_payload(payload, legs, date_iso).items():
+            found.setdefault(journey, when)
+    return found
+
+
 def update_log(
     existing,
     routes,
@@ -511,6 +605,8 @@ def main(argv=None):
     names = {leg.get("from") for leg in signal_legs(routes, today)}
     stop_ids = [STOPS[name] for name in names if name in STOPS]
     cancelled, seen, actual = fetch_cancelled(moment, stop_ids)
+    for journey, when in fetch_vm_sailed(routes, today, signal_legs(routes, today)).items():
+        actual.setdefault(journey, when)
     payload = update_log(existing, routes, moment, cancelled, seen, actual_departures=actual)
     LOG_PATH.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return 0
