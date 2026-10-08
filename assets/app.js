@@ -7,7 +7,7 @@ import {
   setLang,
   t,
   weekdays,
-} from "./i18n.js?v=75";
+} from "./i18n.js?v=77";
 
 const MESSAGES_URL = "data/trafikkmeldinger.json";
 const SIGNAL_LOG_URL = "data/signalturar.json";
@@ -1931,6 +1931,10 @@ function signalEvidenceBooked(leg, now = nowMinutes()) {
   return Boolean(id && state.confirmedBooked.has(id) && !positioningBlocksBooked(leg, now));
 }
 
+/** Slingringsmonn etter avgang før fristregelen seier «ikkje utført». Forseinking eller manglande
+ * sanntid skal ikkje gjere ein bestilt tur til «ikkje utført» før loggen har fått sjå han. */
+const SIGNAL_SKIP_GRACE_MIN = 15;
+
 /** Turen som skulle bringe ferja til kaien er avlyst, så ho kan ikkje gå herifrå. */
 function arrivalLegCancelled(leg, legs) {
   const at = legIndex(legs || [], leg);
@@ -1970,7 +1974,7 @@ function signalVerdict(leg, live = state.live, now = nowMinutes(), legs = null) 
   if (
     deadline != null &&
     now >= deadline &&
-    now >= clockMinutes(leg.departure) &&
+    now >= clockMinutes(leg.departure) + SIGNAL_SKIP_GRACE_MIN &&
     !signalEvidenceBooked(leg, now)
   ) {
     return "skipped";

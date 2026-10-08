@@ -47,7 +47,7 @@ import {
   shouldFetchLive,
   serviceWindowMinutes,
 } from "../assets/app.js";
-import { setLang, t } from "../assets/i18n.js?v=75";
+import { setLang, t } from "../assets/i18n.js?v=77";
 
 beforeEach(() => {
   setLang("nn");
@@ -1783,4 +1783,12 @@ test("signaltur etter fristen er ikkje «ikkje utført» før avgang (8. oktober
   setTestState({ live });
   assert.equal(signalVerdict(legs[1], live, now, legs), null);
   assert.equal(signalVerdict(legs[2], live, now, legs), null);
+});
+
+test("fristregelen ventar 15 minutt etter avgang før «ikkje utført»", () => {
+  const trip = signalLeg("Standal", "Trandal", "20:00:00", "20:15:00", "MOR:ServiceJourney:1136_grace");
+  setTestState({ cancelledJourneys: new Set(), seenJourneys: new Set() });
+  assert.equal(signalVerdict(trip, null, 20 * 60 + 5), null);
+  assert.equal(signalVerdict(trip, null, 20 * 60 + 14), null);
+  assert.equal(signalVerdict(trip, null, 20 * 60 + 15), "skipped");
 });
