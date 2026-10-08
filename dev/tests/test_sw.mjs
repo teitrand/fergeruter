@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { coreFiles, coreSource } from "./helpers/source.mjs";
 import { appVersion } from "./helpers/version.mjs";
 
 const sw = readFileSync(new URL("../sw.js", import.meta.url), "utf8");
 const app = readFileSync(new URL("../assets/app.js", import.meta.url), "utf8");
+const core = coreSource();
 
 function isTimetableJson(url) {
   return /\/data\/(ruter|kombirute|korrespondanse)\.json$/.test(url.pathname);
@@ -49,7 +51,7 @@ test("trafikkmeldingar blir revaliderte utan cache-buster, rutetabellen ikkje", 
   assert.doesNotMatch(app, /FJORD1_GRAPHQL/);
   const liveFn = app.slice(app.indexOf("async function fetchFjord1Messages"));
   assert.ok(liveFn.indexOf("fetchFjord1Api") < liveFn.indexOf("fetchFjord1Html"));
-  assert.match(app, /MESSAGES_STALE_MS = 8 \* 60 \* 1000/);
+  assert.match(core, /MESSAGES_STALE_MS = 8 \* 60 \* 1000/);
   assert.match(app, /fetch\(ROUTES_URL\)/);
   assert.match(app, /TIMETABLE_CACHE_KEY/);
   assert.match(app, /MESSAGES_POLL_MS = 3 \* 60 \* 1000/);
@@ -78,6 +80,7 @@ test("versjonsnummeret er likt i index.html, sw.js og app.js", () => {
   assetVersions("index.html", html);
   assetVersions("sw.js", sw);
   assetVersions("assets/app.js", app);
+  assetVersions("packages/core", core);
   collect("sw.js", sw, /"fergeruter-(?:dev-)?v(\d+)"/g);
   const where = (file, re) => found.filter((item) => item.file === file && re.test(item.what));
   // Kvar av desse skal finnast, elles kan testen bli grøn utan å sjekke noko.
@@ -87,6 +90,8 @@ test("versjonsnummeret er likt i index.html, sw.js og app.js", () => {
   assert.equal(where("sw.js", /^i18n\.js/).length, 1, "i18n.js i sw.js");
   assert.equal(where("sw.js", /^styles\.css/).length, 1, "styles.css i sw.js");
   assert.equal(where("assets/app.js", /^i18n\.js/).length, 1, "i18n.js-importen i app.js");
+  // Core må importere i18n med same ?v= som app.js. Elles blir det to i18n-modular med kvart sitt språk.
+  assert.ok(where("packages/core", /^i18n\.js/).length >= 1, "i18n.js-importen i packages/core");
   assert.equal(where("sw.js", /fergeruter-v/).length, 1, "prod-cachen i sw.js");
   assert.equal(where("sw.js", /fergeruter-dev-v/).length, 1, "dev-cachen i sw.js");
   const versions = new Set(found.map((item) => item.version));
@@ -96,4 +101,11 @@ test("versjonsnummeret er likt i index.html, sw.js og app.js", () => {
     `ulike versjonar: ${found.map((item) => `${item.file} ${item.what}`).join(", ")}`
   );
   assert.equal([...versions][0], appVersion());
+});
+
+test("service workeren lagrar alle filene i packages/core", () => {
+  for (const name of coreFiles()) {
+    assert.match(sw, new RegExp(`"\\./packages/core/${name.replace(".", "\\.")}"`), name);
+  }
+  assert.match(app, /from "\.\.\/packages\/core\/index\.js"/);
 });
