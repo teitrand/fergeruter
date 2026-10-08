@@ -1,7 +1,27 @@
 {
   "source": "https://www.fjord1.no/trafikkmeldingar",
-  "fetchedAt": "2026-10-08T13:42:48.765470+00:00",
+  "fetchedAt": "2026-10-08T19:26:15.652145+00:00",
   "messages": [
+    {
+      "id": "RG9tYWluQ29udGVudDoyMTk4NzkzMA==",
+      "heading": "Askvoll-Fure-Værlandet",
+      "text": "Rute 1141 Askvoll - Værlandet: Pga forsinket båt fra Bergen blir det en mindre forsinkelse i sambandet. Mvh Fjord1 på vegner av Skyss.",
+      "publishedAt": "2026-10-08T19:06:41+02:00",
+      "validFrom": "2026-10-08T17:06:41+00:00",
+      "validTo": "2026-10-09T17:05:58+00:00",
+      "countyNumber": 14,
+      "connectionNumber": 434,
+      "important": false,
+      "severity": "delay",
+      "isRoute1136": false,
+      "isLocal": false,
+      "isRouteControl": false,
+      "routeMode": "1136",
+      "routeWindow": null,
+      "activateAt": null,
+      "vessel": null,
+      "routeSwitch": null
+    },
     {
       "id": "RG9tYWluQ29udGVudDoyMTk4Njc2OQ==",
       "heading": "Husavik - Sandvikvåg",
