@@ -15,6 +15,7 @@ import {
   setTestState,
   track,
 } from "../assets/app.js";
+import { coreSource } from "./helpers/source.mjs";
 import { appVersion } from "./helpers/version.mjs";
 
 const { setLang } = await import(`../assets/i18n.js?v=${appVersion()}`);
@@ -101,7 +102,7 @@ test("sida har den dekorative stiplede streken øverst", () => {
   assert.match(css, /\.messages-details:not\(\[hidden\]\)/);
   assert.match(css, /\.stop-tag-call/);
   assert.match(app, /stop-tag-call/);
-  assert.match(app, /tel:\+47/);
+  assert.match(coreSource(), /tel:\+47/);
   assert.doesNotMatch(css, /1\.05fr 0\.95fr/);
   assert.doesNotMatch(css, /@media \(min-width: 860px\)/);
   const sw = readFileSync(new URL("../sw.js", import.meta.url), "utf8");

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { ferryStatus, messageTimeLines } from "../assets/app.js";
+import { ferryStatus } from "../assets/app.js";
+import { messageTimeLines } from "../packages/core/index.js";
 import { appVersion } from "./helpers/version.mjs";
 
 const {
