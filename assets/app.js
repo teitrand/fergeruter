@@ -2,12 +2,115 @@ import {
   applyStaticTranslations,
   detectLang,
   getLang,
-  months,
-  monthsShort,
   setLang,
   t,
-  weekdays,
-} from "./i18n.js?v=79";
+} from "./i18n.js?v=80";
+import {
+  FJORD1_MESSAGES_PAGE,
+  SAEBØ,
+  STOP_PLACES,
+  TRANSFER_DESTINATIONS,
+  TRANSFER_MARGIN_MIN,
+  activityTime,
+  actualDeparturesFromPayload,
+  asTransferTrip,
+  beforeModeFor,
+  boardingFromDest,
+  bookingDeadline,
+  cameFromDest,
+  cancellationQuery,
+  cancelledJourneyIds,
+  cancelledSailingsFromText,
+  clockFromInstant,
+  clockFromNow,
+  clockMinutes,
+  compareTimelineEvents,
+  countdown,
+  crossingMinutes,
+  cutBeforeSwitch,
+  cutFromSwitch,
+  dayType,
+  defaultVesselName,
+  delayApplies,
+  delayMinutes,
+  driftNeedsOperationalTable,
+  durationText,
+  filterMessageKey,
+  fjord1Payload,
+  formatDateOnly,
+  formatDateTime,
+  hasPassed,
+  headingDay,
+  hhmm,
+  homeQuay,
+  inboundConnection,
+  isEmptyReposition,
+  isFerryTransfer,
+  isInUnrunSignalTail,
+  isLiveFresh,
+  isOnwardLeg,
+  isParallelFerrySplit,
+  isPlannedFerrySwitch,
+  isVisibleDeparture,
+  journeyForLeg,
+  journeyNote,
+  laterTripRulesOut,
+  layoverAfter,
+  leftOrigin,
+  legForLive,
+  legIndex,
+  legKey,
+  liveProvesSailed,
+  mergeMessagePayloads,
+  messageBlob,
+  messageMode,
+  messageTimeLines,
+  messageVessel,
+  messagesAreStale,
+  messagesFingerprint,
+  minutesLeft,
+  minutesToClock,
+  normalizeFjord1Node,
+  nowMinutes,
+  osloDayStartIso,
+  osloIsoFromInstant,
+  osloIsoFromMs,
+  outboundConnection,
+  overnightStatus,
+  parseClockToken,
+  parseFjord1TrafficHtml,
+  passengerJourneysFrom,
+  pickFreshest,
+  publishedMs,
+  quayPlace,
+  quaysInDay,
+  reachesDest,
+  resolveRoutePlan,
+  retainHeldMessages,
+  returnHomeStatus,
+  routeNameFlags,
+  sameLeg,
+  seenJourneyIds,
+  serviceJourneyId,
+  shiftIso,
+  signalLogWatchActive,
+  signalReachedDestination,
+  signalSkippedStatus,
+  siriBool,
+  sortDayLegs,
+  statusProgress,
+  stuckAtOrigin,
+  tableName,
+  telHref,
+  timetableFingerprint,
+  todayIso,
+  transferDestFromId,
+  transferLineId,
+  unwrapSiri,
+  validMessages,
+  withSanntid,
+  withSpan,
+} from "../packages/core/index.js";
 
 const MESSAGES_URL = "data/trafikkmeldinger.json";
 const SIGNAL_LOG_URL = "data/signalturar.json";
@@ -20,18 +123,6 @@ const LIVE_VM_URLS = {
 };
 const ENTUR_JOURNEY_URL = "https://api.entur.io/journey-planner/v3/graphql";
 const ENTUR_CLIENT = "teitrand-fergeruter";
-/** Stoppestader der vi spør Entur om avlyste avgangar. */
-const STOP_PLACES = {
-  Standal: "NSR:StopPlace:39713",
-  Trandal: "NSR:StopPlace:58521",
-  Sæbø: "NSR:StopPlace:58765",
-  Skår: "NSR:StopPlace:41385",
-  Leknes: "NSR:StopPlace:58766",
-  Valderøya: "NSR:StopPlace:61752",
-  "Store Kalvøy": "NSR:StopPlace:58525",
-};
-const HOME_QUAY = "Standal";
-const LIVE_MAX_AGE_MS = 3 * 60 * 1000;
 /**
  * Signalloggen skal skrivast kvart 30. minutt, cron :07 og :37 frå 04 til 21 UTC.
  * 70 minutt er eitt uteblitt køyrd pluss litt kø. Etter det seier vi frå.
@@ -39,8 +130,6 @@ const LIVE_MAX_AGE_MS = 3 * 60 * 1000;
  * Nattpausen tel ikkje: alderen blir rekna frå 04:00 UTC om det er nyare enn updatedAt.
  */
 const SIGNAL_LOG_MAX_AGE_MS = 70 * 60 * 1000;
-const SIGNAL_LOG_WATCH_START_UTC = 4 * 60;
-const SIGNAL_LOG_WATCH_END_UTC = 22 * 60 + 40;
 const FEEDBACK_MAIL = "teitrand@hotmail.com";
 const FEEDBACK_GITHUB = "https://github.com/teitrand/fergeruter/issues/new";
 const KOMBI_PDF =
@@ -49,7 +138,6 @@ const FJORD1_PDF =
   "https://www.fjord1.no/ruteoversikt/moere-og-romsdal/standal-trandal-valderoeya-store-kalvoey/(page)/pdf";
 const FJORD1_PDF_1135 =
   "https://www.fjord1.no/ruteoversikt/moere-og-romsdal/leknes-saeboe/(page)/pdf";
-const FJORD1_MESSAGES_PAGE = "https://www.fjord1.no/trafikkmeldingar";
 /**
  * CORS-JSON frå cloudflare/trafikkmeldinger/. Må vere lik MESSAGES_API_URL der.
  * Det gamle Fjord1-endepunktet svarar 404 og blir ikkje kalla.
@@ -59,25 +147,7 @@ const FJORD1_MESSAGES_API = "https://fergeruter-trafikkmeldinger.fergeruter-teit
 const FJORD1_HTML_READER = `https://r.jina.ai/${FJORD1_MESSAGES_PAGE}`;
 const ALLOWED_MODES = new Set(["1136", "1135", "kombi"]);
 const CHOOSABLE_ROUTES = new Set(["1136", "1135"]);
-const NORMAL_RE = /normal drift/i;
-const CANCEL_RE = /innstilt|innstilling/i;
-const PARTIAL_CANCEL_RE =
-  /følgjande avgangar|avgangar innstilt|avgang(?:en|ar)?\s+(?:kl\.?|klokka)/i;
-const KOMBI_RE = /kombinasjon|kombirute|kombinert rute/i;
-const DELAY_RE = /forsink/i;
-const CAPACITY_RE = /kapasitet|kapasistet|farleg last|farlig last/i;
-const HAS_1135_RE = /\b1135\b/;
-const HAS_1136_RE = /\b1136\b/;
-const ROUTE_1136_HINT_RE =
-  /\b1136\b|trandal|standal|valderøy|store kalvøy|sæbø|skår/i;
-const LOCAL_ROUTE_RE = /\b(1136|1135|1049)\b/i;
-const LOCAL_PLACE_RE =
-  /trandal|standal|sæbø|skår|store kalvøy|valderøy|bjørke|urke|festøy|hundeidvik/i;
-const CONN_1136 = 132;
-const CONN_1135 = 134;
 const HIDE_ARRIVALS_KEY = "fergeruter-hide-arrivals";
-/** Opphald på kai som er langt nok til å visast som liggetid, t.d. matpause. */
-const LAYOVER_MIN_MINUTES = 20;
 const ROUTE_CHOICE_KEY = "fergeruter-route-choice";
 const PWA_FIRST_KEY = "fergeruter-pwa-first-open";
 const TIMETABLE_CACHE_KEY = "fergeruter-timetable-v1";
@@ -86,17 +156,12 @@ const LAST_MODE_KEY = "fergeruter-last-mode";
 /** Turar vi har sett gå i sanntid, per dag. Berre dagen i dag blir teken vare på. */
 const SAILED_KEY = "fergeruter-sailed-v1";
 const SAILED_MAX_PER_DAY = 60;
-/** Signalturar kan gå nokre minutt før rutetida (sett 5 min i signalloggen). */
-const SAILED_EARLY_MIN = 10;
 const MESSAGES_POLL_MS = 3 * 60 * 1000;
-/** GitHub-kopien er gammal når innhaldet ikkje er skrive på nytt. Då spør sida workeren. */
-const MESSAGES_STALE_MS = 8 * 60 * 1000;
 const LIVE_MIN_INTERVAL_MS = 55 * 1000;
 const LIVE_BACKOFF_START_MS = 60 * 1000;
 const LIVE_MAX_BACKOFF_MS = 15 * 60 * 1000;
 const LIVE_SERVICE_MARGIN_MIN = 30;
 const WAKE_DEBOUNCE_MS = 400;
-const VESSEL_UTFORT_RE = /utført av\s+(?:m\/?f\.?\s*)?(geiranger|kvernes)/i;
 const DEFAULT_VESSELS = [
   { name: "M/F Geiranger", phone: "916 69 321" },
   { name: "M/F Kvernes", phone: "916 69 340" },
@@ -249,56 +314,6 @@ function feedbackMailto(rating, comment) {
   return `mailto:${FEEDBACK_MAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
 
-// Å lage ein Intl.DateTimeFormat er dyrt, og isToday() blir kalla mange gonger per teikning.
-let osloFormat = null;
-
-function osloParts(date = new Date()) {
-  if (!osloFormat) {
-    osloFormat = new Intl.DateTimeFormat("en-GB", {
-      timeZone: "Europe/Oslo",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hourCycle: "h23",
-    });
-  }
-  const parts = osloFormat.formatToParts(date);
-  return Object.fromEntries(parts.map((part) => [part.type, part.value]));
-}
-
-function osloSecondsOfDay() {
-  const parts = osloParts();
-  return Number(parts.hour) * 3600 + Number(parts.minute) * 60 + Number(parts.second);
-}
-
-function clockSeconds(time) {
-  const [hours, minutes, seconds = 0] = time.split(":").map(Number);
-  return hours * 3600 + minutes * 60 + seconds;
-}
-
-/** Minutt att, alltid runda ned, så vi aldri lovar meir tid enn det er. */
-function minutesLeft(time) {
-  return Math.floor((clockSeconds(time) - osloSecondsOfDay()) / 60);
-}
-
-function hasPassed(time) {
-  return clockSeconds(time) <= osloSecondsOfDay();
-}
-
-function todayIso() {
-  const parts = osloParts();
-  return `${parts.year}-${parts.month}-${parts.day}`;
-}
-
-function shiftIso(iso, days) {
-  const date = new Date(`${iso}T12:00:00Z`);
-  date.setUTCDate(date.getUTCDate() + days);
-  return date.toISOString().slice(0, 10);
-}
-
 function selectedDate() {
   // Lagra som dato, ikkje som forskyving, slik at ei sida som står open
   // over midnatt held fram med å vise den dagen du faktisk ser på.
@@ -307,111 +322,6 @@ function selectedDate() {
 
 function isToday() {
   return selectedDate() === todayIso();
-}
-
-function nowMinutes(ms = Date.now()) {
-  const parts = osloParts(new Date(ms));
-  return Number(parts.hour) * 60 + Number(parts.minute);
-}
-
-function clockMinutes(time) {
-  const [hours, minutes] = time.split(":").map(Number);
-  return hours * 60 + minutes;
-}
-
-function minutesToClock(total) {
-  const wrapped = ((total % 1440) + 1440) % 1440;
-  const hours = String(Math.floor(wrapped / 60)).padStart(2, "0");
-  const minutes = String(wrapped % 60).padStart(2, "0");
-  return `${hours}:${minutes}`;
-}
-
-function hhmm(time) {
-  return time ? time.slice(0, 5) : "";
-}
-
-function weekdayOf(isoDate) {
-  return weekdays()[new Date(`${isoDate}T12:00:00Z`).getUTCDay()];
-}
-
-function formatDay(isoDate) {
-  const [, month, day] = isoDate.split("-").map(Number);
-  return t("date.full", {
-    weekday: weekdayOf(isoDate),
-    day: String(day),
-    month: months()[month - 1],
-  });
-}
-
-function headingDay(isoDate) {
-  const text = formatDay(isoDate);
-  return text.charAt(0).toUpperCase() + text.slice(1);
-}
-
-function excerptText(text, max = 140) {
-  const raw = String(text || "").replace(/\s+/g, " ").trim();
-  if (raw.length <= max) return raw;
-  const cut = raw.slice(0, max);
-  const at = cut.lastIndexOf(" ");
-  return `${(at > 80 ? cut.slice(0, at) : cut).trim()}…`;
-}
-
-function formatDateOnly(iso) {
-  if (!iso) return "";
-  const parts = osloParts(new Date(iso));
-  return t("date.only", {
-    day: String(Number(parts.day)),
-    month: months()[Number(parts.month) - 1],
-    year: parts.year,
-  });
-}
-
-function formatDateTime(iso) {
-  if (!iso) return "";
-  const parts = osloParts(new Date(iso));
-  const date = `${parts.year}-${parts.month}-${parts.day}`;
-  return t("date.time", {
-    weekday: weekdayOf(date),
-    day: String(Number(parts.day)),
-    month: monthsShort()[Number(parts.month) - 1],
-    hour: parts.hour,
-    minute: parts.minute,
-  });
-}
-
-/** Publisert-tid og «gyldig til» frå Fjord1, med klokkeslett. */
-function messageTimeLines(msg) {
-  const lines = [];
-  const published = msg?.publishedAt || msg?.validFrom || null;
-  if (published) {
-    lines.push({
-      iso: published,
-      text: t("messages.published", { when: formatDateTime(published) }),
-    });
-  }
-  if (msg?.validTo) {
-    lines.push({
-      iso: msg.validTo,
-      text: t("messages.validTo", { when: formatDateTime(msg.validTo) }),
-    });
-  }
-  return lines;
-}
-
-function durationText(minutes) {
-  if (minutes < 1) return t("duration.now");
-  if (minutes < 60) return t("duration.minutes", { n: minutes });
-  const hours = Math.floor(minutes / 60);
-  const rest = minutes % 60;
-  return rest
-    ? t("duration.hoursMinutes", { n: hours, m: rest })
-    : t("duration.hours", { n: hours });
-}
-
-function countdown(time) {
-  const minutes = minutesLeft(time);
-  if (minutes < 1) return t("duration.now");
-  return t("countdown.in", { duration: durationText(minutes) });
 }
 
 function previewLocation(loc) {
@@ -464,61 +374,6 @@ function routeOverride(loc) {
   }
 }
 
-function parseClockToken(raw) {
-  const text = String(raw || "").trim();
-  const match = text.match(/^(\d{1,2})[:.](\d{2})$/) || text.match(/^(\d{2})(\d{2})$/);
-  if (!match) return null;
-  const hour = Number(match[1]);
-  const minute = Number(match[2]);
-  if (hour > 23 || minute > 59) return null;
-  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}:00`;
-}
-
-function beforeModeFor(after, text) {
-  if (after === "1136") return KOMBI_RE.test(text || "") ? "kombi" : "1135";
-  return "1136";
-}
-
-const HJORUNDFJORD_RE =
-  /\b(?:1135|1136)\b|trandal|standal|sæbø|skår|lekne|valderøy|store kalvøy|kombinasjon|kombirute|kombinert rute/i;
-const ONLY_1049_RE = /\b1049\b|festøy|hundeidvik/i;
-const WEEKDAY_TOKEN =
-  "(?:mandag|måndag|tysdag|tirsdag|onsdag|torsdag|fredag|laurdag|lørdag|søndag)\\s+";
-const NUMDATE_TOKEN = "(\\d{1,2})\\.(\\d{1,2})(?:\\.(\\d{2,4}))?";
-
-function messageBlob(msg) {
-  if (typeof msg === "string") return msg || "";
-  return `${msg?.heading || ""} ${msg?.text || ""}`;
-}
-
-function is1049Only(heading, text) {
-  const blob = `${heading || ""} ${text || ""}`;
-  return ONLY_1049_RE.test(blob) && !HJORUNDFJORD_RE.test(blob);
-}
-
-function isPartialCancel(text) {
-  const blob = text || "";
-  if (!CANCEL_RE.test(blob) && !/kanseller/i.test(blob)) return false;
-  return PARTIAL_CANCEL_RE.test(blob);
-}
-
-function cancelledSailingsFromText(text) {
-  const blob = String(text || "");
-  const found = [];
-  const groupRe =
-    /((?:\d{1,2}[:.]?\d{2})(?:\s+og\s+(?:\d{1,2}[:.]?\d{2}))*)\s+(?:frå|fra)\s+([^\s,.;:]+)/gi;
-  for (const group of blob.matchAll(groupRe)) {
-    const quay = quayPlace(group[2]);
-    if (!quay) continue;
-    for (const clock of group[1].matchAll(/\b(\d{1,2})[:.](\d{2})\b|\b(\d{4})\b/g)) {
-      const raw = clock[3] || `${clock[1]}:${clock[2]}`;
-      const time = parseClockToken(raw);
-      if (time) found.push({ time, from: quay });
-    }
-  }
-  return found;
-}
-
 function cancelledDepartureSet(messages = state.messages?.messages) {
   const set = new Set();
   for (const msg of validMessages(messages || [])) {
@@ -547,108 +402,6 @@ function runningLegs(legs, now = nowMinutes()) {
   });
 }
 
-function isRouteControl(msg) {
-  if (!msg) return false;
-  if (isPartialCancel(messageBlob(msg))) return false;
-  if (msg.isRouteControl === true) return true;
-  if (msg.isRouteControl === false) return false;
-  const heading = msg.heading || "";
-  const text = msg.text || "";
-  if (is1049Only(heading, text)) return false;
-  if (msg.isLocal === false) return false;
-  if (msg.isLocal === true) return true;
-  return HJORUNDFJORD_RE.test(`${heading} ${text}`);
-}
-
-function osloIsoFromMs(ms = Date.now()) {
-  const parts = osloParts(new Date(ms));
-  return `${parts.year}-${parts.month}-${parts.day}`;
-}
-
-function parseNumDate(day, month, year, refIso) {
-  const d = Number(day);
-  const m = Number(month);
-  if (!d || !m || m > 12 || d > 31) return null;
-  const ref = refIso || osloIsoFromMs();
-  const refYear = Number(ref.slice(0, 4));
-  let y = year ? Number(year) : refYear;
-  if (y && y < 100) y += 2000;
-  if (!year) {
-    const candidate = `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-    const diff =
-      (Date.parse(`${ref}T12:00:00Z`) - Date.parse(`${candidate}T12:00:00Z`)) /
-      86400000;
-    if (diff > 45) y += 1;
-  }
-  const iso = `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-  return Number.isNaN(Date.parse(`${iso}T12:00:00Z`)) ? null : iso;
-}
-
-function windowFromText(text, published) {
-  const blob = text || "";
-  const ref = osloIsoFromInstant(published) || osloIsoFromMs();
-  const range = blob.match(
-    new RegExp(
-      `(?:frå|fra)\\s+(?:rutestart\\s+)?(?:${WEEKDAY_TOKEN})?${NUMDATE_TOKEN}\\s+(?:til(?:\\s+og\\s+med)?|tom)\\s+(?:${WEEKDAY_TOKEN})?${NUMDATE_TOKEN}`,
-      "i"
-    )
-  );
-  if (range) {
-    const start = parseNumDate(range[1], range[2], range[3], ref);
-    const end = parseNumDate(range[4], range[5], range[6], ref);
-    if (start || end) return { from: start, to: end };
-  }
-  const fromMatch = blob.match(
-    new RegExp(`(?:frå|fra)\\s+(?:rutestart\\s+)?(?:${WEEKDAY_TOKEN})?${NUMDATE_TOKEN}`, "i")
-  );
-  const untilMatch = blob.match(
-    new RegExp(`til\\s+og\\s+med\\s+(?:${WEEKDAY_TOKEN})?${NUMDATE_TOKEN}`, "i")
-  );
-  const start = fromMatch ? parseNumDate(fromMatch[1], fromMatch[2], fromMatch[3], ref) : null;
-  const end = untilMatch
-    ? parseNumDate(untilMatch[1], untilMatch[2], untilMatch[3], ref)
-    : null;
-  if (start || end) return { from: start, to: end };
-  const alsoMatch = blob.match(
-    new RegExp(`(?:også|òg)\\s+(?:på\\s+)?(?:${WEEKDAY_TOKEN})?${NUMDATE_TOKEN}`, "i")
-  );
-  if (alsoMatch) {
-    const extra = parseNumDate(alsoMatch[1], alsoMatch[2], alsoMatch[3], ref);
-    if (extra) return { from: null, to: extra };
-  }
-  return null;
-}
-
-function activateAtFromText(text) {
-  const match = String(text || "").match(
-    /normal drift.{0,40}(?:frå|fra)\s+(?:klokka|kl\.?)\s*(?:ca\.?\s*)?(\d{1,2})[:.](\d{2})/is
-  );
-  return match ? parseClockToken(`${match[1]}:${match[2]}`) : null;
-}
-
-/** Skøyt berre når meldinga seier at tabellen byter («kombirute frå klokka»). */
-function switchFromText(text, afterMode = null) {
-  const blob = text || "";
-  const after = afterMode || modeFromText(blob);
-  const kombiClock = blob.match(
-    /(?:kombinasjon\w*|kombirute|kombinert rute)[\s\S]{0,80}(?:frå|fra)\s+(?:klokka|kl\.?)\s*(?:ca\.?\s*)?(\d{1,2})[:.](\d{2})/i
-  );
-  const performed = blob.match(
-    /(?:utført|gjeld)\s+frå\s+(?:klokka\s+|kl\.?\s*)?(?:ca\.?\s*)?(\d{1,2})[:.](\d{2})/i
-  );
-  const match = kombiClock || performed;
-  if (!match) return null;
-  const time = parseClockToken(`${match[1]}:${match[2]}`);
-  if (!time) return null;
-  return {
-    time,
-    quay: null,
-    before: beforeModeFor(after, blob),
-    after,
-    acute: null,
-  };
-}
-
 function switchOverride(loc) {
   const here = previewLocation(loc);
   if (!isPreview(here)) return null;
@@ -672,14 +425,6 @@ function switchOverride(loc) {
   }
 }
 
-function osloIsoFromInstant(iso) {
-  if (!iso) return null;
-  const when = new Date(iso);
-  if (Number.isNaN(when.getTime())) return null;
-  const parts = osloParts(when);
-  return `${parts.year}-${parts.month}-${parts.day}`;
-}
-
 function quayAtStart(mode, date, time) {
   const hits = sortDayLegs(legsForMode(mode, date).filter((leg) => leg.departure === time));
   return hits[0] ? quayPlace(hits[0].from) : null;
@@ -695,19 +440,6 @@ function resolveSwitch(raw, date) {
   };
 }
 
-function clockFromInstant(iso) {
-  if (!iso) return null;
-  const when = new Date(iso);
-  if (Number.isNaN(when.getTime())) return null;
-  const parts = osloParts(when);
-  return `${parts.hour}:${parts.minute}:00`;
-}
-
-function clockFromNow() {
-  const parts = osloParts();
-  return `${parts.hour}:${parts.minute}:00`;
-}
-
 /** Klokka meldinga kom. Berre same dag som tabellen gjev eit usikkert hol. */
 function resolveNotice(raw, date) {
   if (raw?.notice) return raw.notice;
@@ -719,154 +451,12 @@ function resolveNotice(raw, date) {
   return clockFromInstant(iso);
 }
 
-function isUncertainDeparture(departure, notice, switchTime) {
-  if (!notice || !switchTime) return false;
-  const dep = clockMinutes(departure);
-  return dep > clockMinutes(notice) && dep < clockMinutes(switchTime);
-}
-
-function modeFromText(text) {
-  const blob = text || "";
-  const hasNormal = NORMAL_RE.test(blob);
-  const hasCancel = CANCEL_RE.test(blob);
-  const hasKombi = KOMBI_RE.test(blob);
-  const has1135 = HAS_1135_RE.test(blob);
-  const has1136 = HAS_1136_RE.test(blob);
-  if (hasNormal && hasCancel && !hasKombi) return "1136";
-  if (hasKombi || (hasCancel && has1135 && has1136)) return "kombi";
-  if (hasCancel && has1136 && !has1135) {
-    return isPartialCancel(blob) ? "1136" : "1135";
-  }
-  return "1136";
-}
-
-function messageMode(msg) {
-  if (!msg) return "1136";
-  if (isPartialCancel(messageBlob(msg))) return "1136";
-  return msg.routeMode || modeFromText(messageBlob(msg));
-}
-
-function publishedMs(msg) {
-  const ms = Date.parse(msg?.publishedAt || msg?.validFrom || "");
-  return Number.isFinite(ms) ? ms : 0;
-}
-
-function textRouteWindow(msg) {
-  if (!msg) return null;
-  return (
-    msg.routeWindow ||
-    windowFromText(messageBlob(msg), msg.publishedAt || msg.validFrom)
-  );
-}
-
-function textWindowCoversToday(msg, now = Date.now()) {
-  const win = textRouteWindow(msg);
-  return Boolean(win?.to && osloIsoFromMs(now) <= win.to);
-}
-
-/** Hald meldinga ut CMS-dagen i Oslo, éin time etter validTo, eller ut tekstvindauget. */
-function messageIsHeld(msg, now = Date.now()) {
-  if (!msg?.validTo) return true;
-  const until = Date.parse(msg.validTo);
-  if (Number.isFinite(until) && until >= now - 60 * 60 * 1000) return true;
-  const validDay = osloIsoFromInstant(msg.validTo);
-  if (validDay && osloIsoFromMs(now) <= validDay) return true;
-  return textWindowCoversToday(msg, now);
-}
-
-/** Behald berre når vi veit at meldinga framleis gjeld etter at Fjord1 droppa ho. */
-function messageShouldBeRetained(msg, now = Date.now()) {
-  if (!msg) return false;
-  if (textWindowCoversToday(msg, now)) return true;
-  if (!msg.validTo) return false;
-  const until = Date.parse(msg.validTo);
-  if (Number.isFinite(until) && until >= now - 60 * 60 * 1000) return true;
-  const validDay = osloIsoFromInstant(msg.validTo);
-  return Boolean(validDay && osloIsoFromMs(now) <= validDay);
-}
-
-function retainHeldMessages(fresh, previous, now = Date.now()) {
-  const byKey = new Map();
-  for (const msg of previous || []) {
-    if (messageShouldBeRetained(msg, now)) byKey.set(messageMergeKey(msg), msg);
-  }
-  for (const msg of fresh || []) byKey.set(messageMergeKey(msg), msg);
-  return [...byKey.values()].sort((a, b) => publishedMs(b) - publishedMs(a));
-}
-
-function messageWindow(msg) {
-  const textWin = textRouteWindow(msg);
-  const fromDate =
-    textWin?.from || osloIsoFromInstant(msg.validFrom) || osloIsoFromInstant(msg.publishedAt);
-  const toDate = textWin?.to || osloIsoFromInstant(msg.validTo);
-  return { from: fromDate || null, to: toDate || null };
-}
-
-function messageAppliesToDate(msg, date, now = Date.now()) {
-  if (!isRouteControl(msg)) return false;
-  const today = osloIsoFromMs(now);
-  if (date >= today && !messageIsHeld(msg, now)) return false;
-  const win = messageWindow(msg);
-  if (win.from && date < win.from) return false;
-  if (win.to && date > win.to) return false;
-  return true;
-}
-
-function controllingMessages(messages, date, now = Date.now()) {
-  return validMessages(messages || [], now)
-    .filter((msg) => messageAppliesToDate(msg, date, now))
-    .sort((a, b) => publishedMs(b) - publishedMs(a));
-}
-
-function firstDayOf(msg) {
-  const win = messageWindow(msg);
-  return win.from || osloIsoFromInstant(msg.publishedAt) || osloIsoFromInstant(msg.validFrom);
-}
-
-function resolveRoutePlan(messages, now = Date.now(), date = osloIsoFromMs(now)) {
-  const matches = controllingMessages(messages, date, now);
-  const latest = matches[0];
-  if (!latest) return { mode: "1136", switch: null, message: null };
-  const mode = messageMode(latest);
-  const blob = messageBlob(latest);
-  let parsed = latest.routeSwitch || switchFromText(blob, mode);
-  const activateAt = latest.activateAt || activateAtFromText(blob);
-  if (!parsed && activateAt && date === firstDayOf(latest)) {
-    const previous = matches[1];
-    const before = previous ? messageMode(previous) : null;
-    if (before && before !== mode) {
-      parsed = { time: activateAt, quay: null, before, after: mode, acute: null };
-    }
-  }
-  return { mode, switch: parsed, message: latest };
-}
-
-function routeModeFromMessages(messages, now = Date.now(), date = osloIsoFromMs(now)) {
-  return resolveRoutePlan(messages, now, date).mode;
-}
-
-function routeSwitchFromMessages(messages, now = Date.now(), date = osloIsoFromMs(now)) {
-  return resolveRoutePlan(messages, now, date).switch;
-}
-
 function chosenRoute() {
   return CHOOSABLE_ROUTES.has(state.routeChoice) ? state.routeChoice : "1136";
 }
 
 function operationalMode(date = selectedDate()) {
   return resolveRoutePlan(state.messages?.messages, Date.now(), date).mode || "1136";
-}
-
-function driftNeedsOperationalTable(resolved, parsed) {
-  const mode = resolved?.mode || "1136";
-  if (mode === "kombi" || mode === "1135") return true;
-  if (!parsed) return false;
-  return (
-    parsed.after === "kombi" ||
-    parsed.before === "kombi" ||
-    parsed.after === "1135" ||
-    parsed.before === "1135"
-  );
 }
 
 function applySwitchPlan(mode, parsed, date) {
@@ -897,243 +487,6 @@ function activePlan(date = selectedDate()) {
     return applySwitchPlan(mode, parsed, date);
   }
   return { mode: chosenRoute(), switch: null, notice: null, uncertain: false };
-}
-
-function titleVessel(name) {
-  const key = String(name || "").toLowerCase();
-  if (key === "geiranger") return "Geiranger";
-  if (key === "kvernes") return "Kvernes";
-  return null;
-}
-
-function vesselFromText(text) {
-  const blob = text || "";
-  const performed = blob.match(VESSEL_UTFORT_RE);
-  if (performed) return titleVessel(performed[1]);
-  const names = [...blob.matchAll(/\b(?:m\/?f\.?\s*)?(geiranger|kvernes)\b/gi)].map((match) =>
-    match[1].toLowerCase()
-  );
-  const unique = [...new Set(names)];
-  if (unique.length === 1) return titleVessel(unique[0]);
-  return null;
-}
-
-function pad2(n) {
-  return String(n).padStart(2, "0");
-}
-
-function fromOsloWall(year, month, day, hour = 0, minute = 0, second = 0) {
-  const wall = `${year}-${pad2(month)}-${pad2(day)}T${pad2(hour)}:${pad2(minute)}:${pad2(second)}`;
-  for (const offset of ["+02:00", "+01:00"]) {
-    const ms = Date.parse(wall + offset);
-    if (!Number.isFinite(ms)) continue;
-    const parts = osloParts(new Date(ms));
-    if (
-      Number(parts.year) === year &&
-      Number(parts.month) === month &&
-      Number(parts.day) === day &&
-      Number(parts.hour) === hour &&
-      Number(parts.minute) === minute &&
-      Number(parts.second) === second
-    ) {
-      return new Date(ms).toISOString();
-    }
-  }
-  const ms = Date.parse(`${wall}Z`);
-  return Number.isFinite(ms) ? new Date(ms).toISOString() : null;
-}
-
-function isoFromUnix(ts) {
-  const n = Number(ts);
-  if (!n) return null;
-  return new Date(n * 1000).toISOString();
-}
-
-function parseFjord1Published(dateStr, fallbackTs) {
-  const raw = String(dateStr || "").trim();
-  const match = raw.match(
-    /^(\d{1,2})\.(\d{1,2})\.(\d{4})(?:[,\s]+(?:kl\.?\s*)?(\d{1,2})[:.](\d{2})(?::(\d{2}))?)?/i
-  );
-  if (match) {
-    const iso = fromOsloWall(
-      Number(match[3]),
-      Number(match[2]),
-      Number(match[1]),
-      Number(match[4] || 0),
-      Number(match[5] || 0),
-      Number(match[6] || 0)
-    );
-    if (iso) return iso;
-  }
-  return isoFromUnix(fallbackTs);
-}
-
-function classifyMessage(text) {
-  if (!text) return "info";
-  const hasNormal = NORMAL_RE.test(text);
-  const hasCancel = CANCEL_RE.test(text);
-  const hasDelay = DELAY_RE.test(text);
-  const hasCapacity = CAPACITY_RE.test(text);
-  if (hasCancel && hasNormal) return hasDelay ? "delay" : "normal";
-  if (hasCancel) return "cancelled";
-  if (hasDelay) return "delay";
-  if (hasNormal) return "normal";
-  if (hasCapacity) return "capacity";
-  return "info";
-}
-
-function isRoute1136Message(heading, text, connectionNumber) {
-  if (Number(connectionNumber) === CONN_1136) return true;
-  return ROUTE_1136_HINT_RE.test(`${heading || ""} ${text || ""}`);
-}
-
-function isLocalMessage(heading, text, connectionNumber) {
-  if (isRoute1136Message(heading, text, connectionNumber)) return true;
-  const blob = `${heading || ""} ${text || ""}`;
-  return LOCAL_ROUTE_RE.test(blob) || LOCAL_PLACE_RE.test(blob);
-}
-
-function compactMessageText(value) {
-  return String(value || "").replace(/\s+/g, " ").trim();
-}
-
-function messageMergeKey(msg) {
-  return `${compactMessageText(msg?.heading)}|${compactMessageText(msg?.text)}`;
-}
-
-function liveMessageId(heading, text) {
-  const key = messageMergeKey({ heading, text });
-  let hash = 0;
-  for (let i = 0; i < key.length; i += 1) hash = (hash * 31 + key.charCodeAt(i)) | 0;
-  return `live:${(hash >>> 0).toString(16)}`;
-}
-
-function decodeHtmlEntities(value) {
-  return String(value || "")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)));
-}
-
-function normalizeFjord1Node(node) {
-  const heading = compactMessageText(node?.heading);
-  const text = compactMessageText(node?.content ?? node?.text);
-  const connection = node?.connectionNumber ?? null;
-  const validFromTs = node?.validFrom?.timestamp ?? node?.validFrom;
-  const validToTs = node?.validTo?.timestamp ?? node?.validTo;
-  const published = parseFjord1Published(node?.date || "", validFromTs);
-  const blob = `${heading} ${text}`;
-  const local = isLocalMessage(heading, text, connection);
-  return {
-    id: node?.id || liveMessageId(heading, text),
-    heading,
-    text,
-    publishedAt: published,
-    validFrom: isoFromUnix(validFromTs),
-    validTo: isoFromUnix(validToTs),
-    countyNumber: node?.countyNumber ?? null,
-    connectionNumber: connection,
-    important: Boolean(node?.importantMessage || node?.important),
-    severity: classifyMessage(text),
-    isRoute1136: isRoute1136Message(heading, text, connection),
-    isLocal: local,
-    isRouteControl:
-      !isPartialCancel(blob) &&
-      !is1049Only(heading, text) &&
-      (local || HJORUNDFJORD_RE.test(blob)),
-    routeMode: modeFromText(blob),
-    routeWindow: windowFromText(blob, published),
-    activateAt: activateAtFromText(blob),
-    vessel: vesselFromText(blob),
-    routeSwitch: switchFromText(blob),
-  };
-}
-
-function parseFjord1TrafficHtml(html) {
-  const source = decodeHtmlEntities(html || "");
-  const found = [];
-  const blockRe =
-    /fjord1-alert__header">\s*<span class="ezstring-field">([^<]*)<\/span>[\s\S]*?fjord1-alert__content">\s*<span class="ezstring-field">([^<]*)<\/span>[\s\S]*?fjord1-alert__footer">\s*([^<]+)/g;
-  for (const match of source.matchAll(blockRe)) {
-    found.push(
-      normalizeFjord1Node({
-        heading: match[1],
-        content: match[2],
-        date: compactMessageText(match[3]),
-      })
-    );
-  }
-  if (found.length) return found;
-  for (const chunk of source.split(/\n{2,}/)) {
-    const line = compactMessageText(chunk);
-    const match = line.match(/^Rute\s+\d+\s+(.+?):\s*(.+)$/i);
-    if (!match) continue;
-    found.push(
-      normalizeFjord1Node({
-        heading: match[1],
-        content: line,
-      })
-    );
-  }
-  return found;
-}
-
-function fjord1Payload(messages, { fetchedAt = null, live = true, complete = false } = {}) {
-  return {
-    source: FJORD1_MESSAGES_PAGE,
-    fetchedAt: fetchedAt || new Date().toISOString(),
-    fetchedLive: live,
-    complete,
-    messages,
-  };
-}
-
-function messagesAreStale(payload, now = Date.now()) {
-  const ms = Date.parse(payload?.fetchedAt || "");
-  if (!Number.isFinite(ms)) return true;
-  return now - ms > MESSAGES_STALE_MS;
-}
-
-function mergeMessagePayloads(base, live, now = Date.now()) {
-  if (!live?.messages?.length) return base || null;
-  if (!base?.messages?.length) return live;
-  if (live.complete) {
-    return {
-      source: live.source || base.source,
-      fetchedAt: live.fetchedAt || base.fetchedAt,
-      fetchedLive: Boolean(live.fetchedLive),
-      complete: true,
-      messages: retainHeldMessages(live.messages, base.messages, now),
-    };
-  }
-  const byKey = new Map();
-  for (const msg of base.messages) byKey.set(messageMergeKey(msg), msg);
-  let added = false;
-  for (const msg of live.messages) {
-    const key = messageMergeKey(msg);
-    const existing = byKey.get(key);
-    if (!existing) {
-      byKey.set(key, msg);
-      added = true;
-      continue;
-    }
-    if (publishedMs(msg) > publishedMs(existing)) {
-      byKey.set(key, { ...existing, ...msg, id: existing.id || msg.id });
-      added = true;
-    }
-  }
-  if (!added && !live.fetchedLive) return base;
-  const messages = [...byKey.values()].sort((a, b) => publishedMs(b) - publishedMs(a));
-  return {
-    source: live.source || base.source,
-    fetchedAt: live.fetchedAt || base.fetchedAt,
-    fetchedLive: Boolean(live.fetchedLive || added),
-    messages,
-  };
 }
 
 async function fetchWithTimeout(url, options = {}, ms = 12000) {
@@ -1191,17 +544,6 @@ function latestLocalMessage(now = Date.now()) {
   return resolveRoutePlan(state.messages?.messages, now, selectedDate()).message || null;
 }
 
-function messageVessel(msg) {
-  if (!msg) return null;
-  return msg.vessel || vesselFromText(`${msg.heading || ""} ${msg.text || ""}`) || null;
-}
-
-function defaultVesselName(table) {
-  if (table === "1135") return "Geiranger";
-  if (table === "1136") return "Kvernes";
-  return null;
-}
-
 /** Ferja som køyrer denne tabellen denne dagen, ikkje ei utgått kombirute-melding. */
 function vesselNameForTable(table, date = selectedDate()) {
   const plan = resolveRoutePlan(state.messages?.messages, Date.now(), date);
@@ -1232,18 +574,6 @@ function vesselInfo(name) {
       phone: null,
     }
   );
-}
-
-function phoneDigits(phone) {
-  const digits = String(phone || "").replace(/\D+/g, "");
-  if (!digits) return "";
-  if (digits.startsWith("47") && digits.length >= 10) return digits.slice(-8);
-  return digits;
-}
-
-function telHref(phone) {
-  const digits = phoneDigits(phone);
-  return digits ? `tel:+47${digits}` : "";
 }
 
 function defaultSignalPhone(leg) {
@@ -1286,14 +616,6 @@ function phoneIcon() {
   return svg;
 }
 
-function observationMinutes(iso) {
-  if (!iso) return null;
-  const ms = Date.parse(iso);
-  if (!Number.isFinite(ms)) return null;
-  const parts = osloParts(new Date(ms));
-  return Number(parts.hour) * 60 + Number(parts.minute);
-}
-
 /**
  * Loggen seier bestilt berre når rada er skriven frå faktisk avgang.
  * `booked` utan `evidence: "departed"` er eit gammalt gjett (kallet låg i
@@ -1320,25 +642,6 @@ function liveLeftThisLeg(leg) {
   const monitored = legForLive(legsForDate(todayIso()), state.live);
   if (!monitored || !sameLeg(monitored, leg)) return false;
   return leftOrigin(state.live, monitored) === true;
-}
-
-/**
- * Fersk sanntid viser at ferja har køyrt `leg`: faktisk avgang, framme ved endekaia
- * etter planlagd avgang (ActualArrivalTime eller VehicleAtStop der), eller lagt frå
- * startkaien etter rutetida.
- */
-function liveProvesSailed(live, leg, now = nowMinutes()) {
-  if (!leg || !isLiveFresh(live)) return false;
-  if (live.actualDeparture) return true;
-  const dest = quayPlace(leg.to);
-  const stop = quayPlace(live.stopName);
-  if (dest && stop === dest && (live.atStop === true || Boolean(live.actualArrival))) {
-    // Ved endekaia før rutetida kan Entur alt ha kopla ferja til neste tur. Då er det ikkje bevis.
-    // Ferja ved endekaia har heller ikkje «lagt frå startkaien» for denne turen.
-    const seenAt = observationMinutes(live.actualArrival) ?? now;
-    return seenAt >= clockMinutes(leg.departure);
-  }
-  return leftOrigin(live, leg) === true && now >= clockMinutes(leg.departure) - SAILED_EARLY_MIN;
 }
 
 function readSailedJourneys(date = todayIso(), storage) {
@@ -1565,72 +868,6 @@ function activeMode() {
   return routeOverride() || activePlan().mode || "1136";
 }
 
-/** Påskesøndag, anonym gregoriansk utrekning (Meeus). */
-function easterSundayIso(year) {
-  const a = year % 19;
-  const b = Math.floor(year / 100);
-  const c = year % 100;
-  const d = Math.floor(b / 4);
-  const e = b % 4;
-  const f = Math.floor((b + 8) / 25);
-  const g = Math.floor((b - f + 1) / 3);
-  const h = (19 * a + b - d - g + 15) % 30;
-  const i = Math.floor(c / 4);
-  const k = c % 4;
-  const l = (32 + 2 * e + 2 * i - h - k) % 7;
-  const m = Math.floor((a + 11 * h + 22 * l) / 451);
-  const month = Math.floor((h + l - 7 * m + 114) / 31);
-  const day = ((h + l - 7 * m + 114) % 31) + 1;
-  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-}
-
-function isoShift(iso, days) {
-  const date = new Date(`${iso}T12:00:00Z`);
-  date.setUTCDate(date.getUTCDate() + days);
-  return date.toISOString().slice(0, 10);
-}
-
-const publicHolidayYears = new Map();
-
-/**
- * Offisielle norske høgtidsdagar som ikkje alltid er søndag.
- * Påskesøndag og pinsedag er alltid søndag og trengst ikkje her.
- */
-function publicHolidays(year) {
-  const cached = publicHolidayYears.get(year);
-  if (cached) return cached;
-  const easter = easterSundayIso(year);
-  const set = new Set([
-    `${year}-01-01`,
-    `${year}-05-01`,
-    `${year}-05-17`,
-    `${year}-12-25`,
-    `${year}-12-26`,
-    isoShift(easter, -3),
-    isoShift(easter, -2),
-    isoShift(easter, 1),
-    isoShift(easter, 39),
-    isoShift(easter, 50),
-  ]);
-  publicHolidayYears.set(year, set);
-  return set;
-}
-
-function isNorwegianPublicHoliday(iso) {
-  const year = Number(String(iso || "").slice(0, 4));
-  if (!Number.isFinite(year)) return false;
-  return publicHolidays(year).has(iso);
-}
-
-function dayType(iso) {
-  // FRAM-PDF for kombiruta: «Søndagsruter på andre helge- og høgtidsdagar».
-  if (isNorwegianPublicHoliday(iso)) return "sunday";
-  const dow = new Date(`${iso}T12:00:00Z`).getUTCDay();
-  if (dow === 0) return "sunday";
-  if (dow === 6) return "saturday";
-  return "weekday";
-}
-
 function lineLegs(mode) {
   if (mode === "kombi") return state.kombirute?.legs || [];
   return state.routes?.lines?.[mode]?.legs || state.routes?.legs || [];
@@ -1657,32 +894,6 @@ function legsForMode(mode, date) {
   return tagged;
 }
 
-function cutBeforeSwitch(legs, routeSwitch, notice = null) {
-  const at = clockMinutes(routeSwitch.time);
-  return legs.filter((leg) => {
-    const dep = clockMinutes(leg.departure);
-    if (dep >= at) return false;
-    return !isUncertainDeparture(leg.departure, notice, routeSwitch.time);
-  });
-}
-
-function cutFromSwitch(legs, routeSwitch) {
-  const at = clockMinutes(routeSwitch.time);
-  const quay = routeSwitch.quay ? quayPlace(routeSwitch.quay) : null;
-  return legs.filter((leg) => {
-    const dep = clockMinutes(leg.departure);
-    if (dep > at) return true;
-    if (dep < at) return false;
-    return !quay || quayPlace(leg.from) === quay;
-  });
-}
-
-function sortDayLegs(legs) {
-  return [...legs].sort(
-    (a, b) => a.departure.localeCompare(b.departure) || a.from.localeCompare(b.from)
-  );
-}
-
 function legsForDate(date) {
   const plan = activePlan(date);
   const after = legsForMode(plan.mode, date);
@@ -1704,27 +915,6 @@ function crossesArea(from, to) {
   const inside = hjorundfjordQuays();
   if (!inside.length) return false;
   return inside.includes(from) !== inside.includes(to);
-}
-
-function quaysInDay(legs) {
-  const seen = [];
-  for (const leg of legs) {
-    for (const quay of [leg.from, leg.to]) {
-      if (!seen.includes(quay)) seen.push(quay);
-    }
-  }
-  return seen;
-}
-
-function bookingDeadline(leg) {
-  if (!leg.signal) return null;
-  return clockMinutes(leg.departure) - leg.signal.minutesBefore;
-}
-
-function quayPlace(name) {
-  if (!name) return "";
-  const place = String(name).replace(/\s+(ferjekai|kai)$/i, "").trim();
-  return place === "Lekneset" ? "Leknes" : place;
 }
 
 const LINE_QUAYS = [
@@ -1760,47 +950,6 @@ function firstKnownQuay(name, quays = knownQuays()) {
   return text;
 }
 
-function unwrapSiri(value) {
-  if (value == null) return "";
-  if (typeof value === "string" || typeof value === "number") return String(value);
-  if (Array.isArray(value)) return unwrapSiri(value[0]);
-  if (typeof value === "object") return unwrapSiri(value.value ?? value["#text"]);
-  return "";
-}
-
-function delayMinutes(value) {
-  if (value == null || value === "") return null;
-  if (typeof value === "number") return Math.floor(value / 60);
-  const text = String(value);
-  const iso = text.match(/^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+(?:\.\d+)?)S)?$/i);
-  if (iso) {
-    const hours = Number(iso[1] || 0);
-    const minutes = Number(iso[2] || 0);
-    const seconds = Number(iso[3] || 0);
-    return Math.floor(hours * 60 + minutes + seconds / 60);
-  }
-  const numeric = Number(text);
-  return Number.isFinite(numeric) ? Math.floor(numeric / 60) : null;
-}
-
-/** Stoppestader frå Entur. Nærare enn dette reknar vi ferja som liggjande til kai. */
-const QUAY_RADIUS_M = 250;
-const QUAY_COORDS = {
-  Standal: { latitude: 62.266216, longitude: 6.423177 },
-  Trandal: { latitude: 62.260997, longitude: 6.500688 },
-  Sæbø: { latitude: 62.210998, longitude: 6.475821 },
-  Skår: { latitude: 62.17922, longitude: 6.533571 },
-  Leknes: { latitude: 62.205859, longitude: 6.5345 },
-  Valderøya: { latitude: 62.495872, longitude: 6.128569 },
-  "Store Kalvøy": { latitude: 62.526923, longitude: 6.20374 },
-};
-
-function serviceJourneyId(value) {
-  const text = unwrapSiri(value);
-  const match = String(text || "").match(/MOR:ServiceJourney:[^#\s]+/);
-  return match ? match[0] : "";
-}
-
 /** Avlyst hos Entur i dag. Rute-id blir brukt fleire datoar, så berre dagsens status bruker settet. */
 function journeyCancelled(leg, cancelled = state.cancelledJourneys) {
   const id = serviceJourneyId(leg?.id);
@@ -1808,192 +957,10 @@ function journeyCancelled(leg, cancelled = state.cancelledJourneys) {
   return cancelled.has(id);
 }
 
-function osloOffsetMinutes(ms) {
-  const parts = osloParts(new Date(ms));
-  const asUtc = Date.UTC(
-    Number(parts.year),
-    Number(parts.month) - 1,
-    Number(parts.day),
-    Number(parts.hour),
-    Number(parts.minute),
-    Number(parts.second)
-  );
-  return Math.round((asUtc - ms) / 60000);
-}
-
-function osloDayStartIso(date = todayIso()) {
-  const [year, month, day] = date.split("-").map(Number);
-  const utcMidnight = Date.UTC(year, month - 1, day, 0, 0, 0);
-  const offset = osloOffsetMinutes(utcMidnight);
-  const abs = Math.abs(offset);
-  const hh = String(Math.floor(abs / 60)).padStart(2, "0");
-  const mm = String(abs % 60).padStart(2, "0");
-  const sign = offset >= 0 ? "+" : "-";
-  return `${date}T00:00:00${sign}${hh}:${mm}`;
-}
-
 function cancellationStops(date = todayIso()) {
   const names = new Set();
   for (const leg of legsForDate(date)) names.add(quayPlace(leg.from));
   return [...names].filter((name) => STOP_PLACES[name]);
-}
-
-function cancellationQuery(stops) {
-  const fields = stops
-    .map((name, index) => {
-      const id = STOP_PLACES[name];
-      return `s${index}: stopPlace(id: "${id}") { estimatedCalls(startTime: $start, timeRange: 86400, numberOfDepartures: 40, includeCancelledTrips: true, whiteListed: { lines: ["MOR:Line:1136", "MOR:Line:1135"] }) { cancellation aimedDepartureTime actualDepartureTime serviceJourney { id } } }`;
-    })
-    .join("\n");
-  return `query Cancelled($start: DateTime!) { ${fields} }`;
-}
-
-function callsFromCancellationPayload(payload) {
-  const data = payload?.data && typeof payload.data === "object" ? payload.data : payload;
-  if (!data || typeof data !== "object") return [];
-  const groups = Array.isArray(data) ? data : Object.values(data);
-  const calls = [];
-  for (const group of groups) {
-    const list = Array.isArray(group) ? group : group?.estimatedCalls;
-    if (Array.isArray(list)) calls.push(...list);
-  }
-  return calls;
-}
-
-function cancelledJourneyIds(payload) {
-  const ids = new Set();
-  for (const call of callsFromCancellationPayload(payload)) {
-    if (!call?.cancellation) continue;
-    const id = serviceJourneyId(call.serviceJourney?.id || call.id);
-    if (id) ids.add(id);
-  }
-  return ids;
-}
-
-function seenJourneyIds(payload) {
-  const ids = new Set();
-  for (const call of callsFromCancellationPayload(payload)) {
-    const id = serviceJourneyId(call.serviceJourney?.id || call.id);
-    if (id) ids.add(id);
-  }
-  return ids;
-}
-
-function actualDeparturesFromPayload(payload, dayIso = todayIso()) {
-  const found = new Map();
-  for (const call of callsFromCancellationPayload(payload)) {
-    const aimed = call?.aimedDepartureTime || "";
-    if (aimed && dayIso && !String(aimed).startsWith(dayIso)) continue;
-    const id = serviceJourneyId(call.serviceJourney?.id || call.id);
-    const actual = call?.actualDepartureTime;
-    if (id && actual && !found.has(id)) found.set(id, actual);
-  }
-  return found;
-}
-
-function siriBool(value) {
-  if (value === true || value === false) return value;
-  const text = unwrapSiri(value).toLowerCase();
-  if (text === "true") return true;
-  if (text === "false") return false;
-  return null;
-}
-
-function distanceMeters(lat1, lon1, lat2, lon2) {
-  const radius = 6371000;
-  const toRad = (degrees) => (degrees * Math.PI) / 180;
-  const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon2 - lon1);
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
-  return 2 * radius * Math.asin(Math.min(1, Math.sqrt(a)));
-}
-
-function distanceToQuay(live, quay) {
-  const place = QUAY_COORDS[quayPlace(quay)];
-  const lat = Number(live?.latitude);
-  const lon = Number(live?.longitude);
-  if (!place || !Number.isFinite(lat) || !Number.isFinite(lon)) return null;
-  if (lat === 0 && lon === 0) return null;
-  return distanceMeters(lat, lon, place.latitude, place.longitude);
-}
-
-function osloHm(iso) {
-  if (!iso) return "";
-  const ms = Date.parse(iso);
-  if (!Number.isFinite(ms)) return "";
-  const parts = osloParts(new Date(ms));
-  return `${parts.hour}:${parts.minute}`;
-}
-
-function sameLeg(a, b) {
-  if (!a || !b) return false;
-  const aId = serviceJourneyId(a.id);
-  const bId = serviceJourneyId(b.id);
-  if (aId && bId) return aId === bId;
-  return a.departure === b.departure && a.from === b.from && a.to === b.to;
-}
-
-function legForLive(legs, live) {
-  if (!live) return null;
-  const ref = serviceJourneyId(live.journeyRef);
-  if (ref) {
-    const hit = (legs || []).find((leg) => serviceJourneyId(leg.id) === ref);
-    if (hit) return hit;
-  }
-  const aimed = osloHm(live.originAimed);
-  if (!aimed) return null;
-  const stop = quayPlace(live.stopName);
-  return (
-    (legs || []).find((leg) => {
-      if (hhmm(leg.departure) !== aimed) return false;
-      if (!stop) return true;
-      if (quayPlace(leg.from) === stop) return true;
-      const dist = distanceToQuay(live, leg.from);
-      return dist != null && dist <= QUAY_RADIUS_M;
-    }) || null
-  );
-}
-
-/**
- * Har ferja lagt frå kaien turen startar på?
- * true = lagt frå, false = ligg framleis der, null = veit ikkje.
- */
-function leftOrigin(live, leg) {
-  if (!live || !leg) return null;
-  if (live.actualDeparture) return true;
-  const origin = quayPlace(leg.from);
-  const stop = quayPlace(live.stopName);
-  if (live.atStop === true && stop === origin) return false;
-  if (live.atStop === true && stop && stop !== origin) return true;
-  const dist = distanceToQuay(live, origin);
-  if (dist != null) return dist > QUAY_RADIUS_M;
-  if (live.atStop === false && stop && stop !== origin) return true;
-  if (live.atStop === true) return false;
-  return null;
-}
-
-function legIndex(legs, leg) {
-  return (legs || []).findIndex((item) => sameLeg(item, leg));
-}
-
-/** Signalturar som kjem etter ein tur som ikkje la frå kai, før neste vanlege avgang. */
-function isInUnrunSignalTail(legs, stuck, leg) {
-  const start = legIndex(legs, stuck);
-  const at = legIndex(legs, leg);
-  if (start < 0 || at <= start) return false;
-  for (let i = start + 1; i <= at; i += 1) {
-    if (!legs[i].signal) return false;
-  }
-  return true;
-}
-
-/** Cron skal ha skrive loggen i dette UTC-vindauget. Natta er planlagt pause. */
-function signalLogWatchActive(nowMs = Date.now()) {
-  const now = new Date(nowMs);
-  const minutes = now.getUTCHours() * 60 + now.getUTCMinutes();
-  return minutes >= SIGNAL_LOG_WATCH_START_UTC && minutes <= SIGNAL_LOG_WATCH_END_UTC;
 }
 
 /** True når bakgrunnsjobben skulle ha køyrt, men loggen er for gammal. */
@@ -2026,31 +993,6 @@ function signalLogStatus(leg, date = selectedDate()) {
     return hit.status;
   }
   return null;
-}
-
-/** Slingringsmonn etter avgang før sanntid som viser ferja ved startkaien tel som «ikkje utført».
- * Ei forseinka ferje ligg òg ved kai ei stund etter avgangstida. */
-const SIGNAL_SKIP_GRACE_MIN = 15;
-
-/** Ferja har lege ved startkaien for `leg` lenger enn slingringsmonnet etter avgang. */
-function stuckAtOrigin(live, leg, now) {
-  return leftOrigin(live, leg) === false && now >= clockMinutes(leg.departure) + SIGNAL_SKIP_GRACE_MIN;
-}
-
-/**
- * Sanntid viser ferja på ein seinare tur. Det beviser berre at `leg` ikkje gjekk
- * om ferja ikkje kunne ha kome til startkaien for den seinare turen etter å ha
- * køyrt `leg`. Kvar tur i mellom reknar vi som mogleg, så tvil gjev aldri «ikkje utført».
- */
-function laterTripRulesOut(legs, leg, monitored) {
-  const from = legIndex(legs, leg);
-  const to = legIndex(legs, monitored);
-  if (from < 0 || to <= from) return false;
-  const reachable = new Set([quayPlace(leg.to)]);
-  for (let i = from + 1; i < to; i += 1) {
-    if (reachable.has(quayPlace(legs[i].from))) reachable.add(quayPlace(legs[i].to));
-  }
-  return !reachable.has(quayPlace(monitored.from));
 }
 
 /**
@@ -2123,45 +1065,6 @@ function signalObservedAtQuay(leg, live = state.live, now = nowMinutes(), legs =
   );
 }
 
-function signalSkippedStatus(leg, now) {
-  const short = t("signal.notRunningShort", { from: leg.from });
-  const detail = t("signal.notRunningText", {
-    from: leg.from,
-    to: leg.to,
-    time: hhmm(leg.departure),
-    quay: leg.from,
-  });
-  return {
-    at: now,
-    live: true,
-    signal: "skipped",
-    short,
-    text: t("live.fromEntur", { text: detail }),
-  };
-}
-
-/**
- * Framme på leg.to. VehicleAtStop der, eller planlagd/forventa ankomst er passert
- * utan at VM seier at ferja enno er ein annan stad.
- */
-function signalReachedDestination(leg, live, now) {
-  if (!leg) return false;
-  const dest = quayPlace(leg.to);
-  const stop = quayPlace(live?.stopName);
-  if (dest && stop === dest && live?.atStop === true) return true;
-  const onDestCall = Boolean(dest && stop === dest);
-  const expected = onDestCall ? observationMinutes(live?.expectedArrival) : null;
-  const aimed = onDestCall ? observationMinutes(live?.aimedArrival) : null;
-  const actual = onDestCall ? observationMinutes(live?.actualArrival) : null;
-  if (onDestCall && actual != null && now >= actual) return true;
-  if (onDestCall && expected != null && now >= expected) return true;
-  if (onDestCall && expected == null && aimed != null && now >= aimed) return true;
-  if (!leg.arrival || now < clockMinutes(leg.arrival)) return false;
-  if (onDestCall && expected != null && now < expected) return false;
-  if (live?.atStop === false && stop && dest && stop !== dest) return false;
-  return true;
-}
-
 /** Same kai-tekst som tabellen bruker mellom ankomst og neste avgang. */
 function signalArrivedQuayStatus(legs, leg, now) {
   const quay = quayPlace(leg?.to) || leg?.to || "";
@@ -2200,16 +1103,6 @@ function signalRunningStatus(leg, live, now, legs = null) {
   );
 }
 
-function delayApplies(live, monitored) {
-  if (!live || !(live.delayMinutes >= 1)) return false;
-  if (monitored?.signal && leftOrigin(live, monitored) !== true) return false;
-  return true;
-}
-
-function homeQuay(legs) {
-  return legs[0]?.from || HOME_QUAY;
-}
-
 /**
  * Éi ferje køyrer både 1135 og 1136 som éi tabell. PDF-en har òg
  * signalturar som overlappar i klokka (t.d. Skår og Leknes samstundes).
@@ -2218,82 +1111,6 @@ function homeQuay(legs) {
 function isCombinedTimetable() {
   const plan = activePlan();
   return plan.mode === "kombi" || Boolean(plan.switch);
-}
-
-function catalogKeys(leg) {
-  if (leg.activeDates?.length) return leg.activeDates;
-  if (leg.days?.length) return leg.days;
-  return ["*"];
-}
-
-/** Valderøya og Store Kalvøy. Tomtur til eller frå Hjørundfjorden står ikkje i tabellen. */
-const OUTER_QUAYS = new Set(["Valderøya", "Store Kalvøy"]);
-
-/**
- * Tomtur Valderøya/Store Kalvøy ↔ Hjørundfjorden.
- * AIS for M/F Kvernes (MMSI 257297400, feb–mars 2026) viser om lag 110–125 min
- * (målt 109, 110, 114, 117, 117, 120, 125, 126 og 134; nattur 114 min).
- * Fast 120 min, så «på veg» ikkje fyller heile holet. Resten ligg ferja til kai.
- */
-const OUTER_DEADHEAD_MINUTES = 120;
-
-function isOuterQuay(quay) {
-  return OUTER_QUAYS.has(quayPlace(quay));
-}
-
-/** Fast seglingstid når eine kaia er ytre (Valderøya/Store Kalvøy) og den andre ikkje. */
-function outerDeadheadMinutes(fromQuay, toQuay) {
-  const from = quayPlace(fromQuay);
-  const to = quayPlace(toQuay);
-  if (!from || !to || from === to) return null;
-  if (isOuterQuay(from) === isOuterQuay(to)) return null;
-  return OUTER_DEADHEAD_MINUTES;
-}
-
-/** Kortaste hol mellom to kaier i tabellen, t.d. Valderøya 12:30 → Standal 14:40. */
-function minDeadheadMinutes(allLegs, fromQuay, toQuay) {
-  const byDate = new Map();
-  for (const leg of allLegs || []) {
-    for (const date of catalogKeys(leg)) {
-      if (!byDate.has(date)) byDate.set(date, []);
-      byDate.get(date).push(leg);
-    }
-  }
-  let shortest = null;
-  for (const dayLegs of byDate.values()) {
-    dayLegs.sort((a, b) => a.departure.localeCompare(b.departure));
-    for (let i = 0; i < dayLegs.length - 1; i += 1) {
-      const leg = dayLegs[i];
-      const next = dayLegs[i + 1];
-      if (leg.to !== fromQuay || next.from !== toQuay) continue;
-      const gap = clockMinutes(next.departure) - clockMinutes(leg.arrival);
-      if (gap > 0 && (shortest == null || gap < shortest)) shortest = gap;
-    }
-  }
-  return shortest;
-}
-
-/** Kortaste planlagde overfarten mellom to kaier. Tomturen tek ikkje heile holet. */
-function crossingMinutes(allLegs, fromQuay, toQuay) {
-  const from = quayPlace(fromQuay);
-  const to = quayPlace(toQuay);
-  if (!from || !to || from === to) return null;
-  let shortest = null;
-  for (const leg of allLegs || []) {
-    if (quayPlace(leg.from) !== from || quayPlace(leg.to) !== to) continue;
-    if (!leg.departure || !leg.arrival) continue;
-    const minutes = clockMinutes(leg.arrival) - clockMinutes(leg.departure);
-    if (minutes > 0 && (shortest == null || minutes < shortest)) shortest = minutes;
-  }
-  return shortest ?? outerDeadheadMinutes(from, to);
-}
-
-/** Tidspunkt for ei VM-aktivitet: RecordedAtTime, elles ValidUntilTime. */
-function activityTime(activity) {
-  const recorded = Date.parse(activity?.RecordedAtTime);
-  if (Number.isFinite(recorded)) return recorded;
-  const until = Date.parse(activity?.ValidUntilTime);
-  return Number.isFinite(until) ? until : -Infinity;
 }
 
 function parseVehicleMonitoring(data) {
@@ -2333,88 +1150,11 @@ function parseVehicleMonitoring(data) {
   };
 }
 
-function isLiveFresh(live) {
-  if (!live) return false;
-  if (live.validUntil) {
-    const until = Date.parse(live.validUntil);
-    if (Number.isFinite(until)) return until > Date.now();
-  }
-  if (live.recordedAt) {
-    const recorded = Date.parse(live.recordedAt);
-    if (Number.isFinite(recorded)) return Date.now() - recorded < LIVE_MAX_AGE_MS;
-  }
-  return false;
-}
-
-function delayBit(minutes) {
-  if (minutes >= 1) return t("delay.about", { n: minutes });
-  return "";
-}
-
-function statusProgress(from, until, now) {
-  if (!Number.isFinite(from) || !Number.isFinite(until) || !Number.isFinite(now)) return null;
-  const span = until - from;
-  if (span <= 0) return null;
-  return Math.min(1, Math.max(0, (now - from) / span));
-}
-
-function withSpan(status, from, until, now) {
-  const progress = statusProgress(from, until, now);
-  if (progress == null) return status;
-  return { ...status, from, until, progress };
-}
-
-function withSanntid(base, live) {
-  const delay = delayBit(live.delayMinutes);
-  const short = delay ? `${base}, ${delay}` : base;
-  return {
-    live: true,
-    short,
-    text: t("live.fromEntur", { text: short }),
-  };
-}
-
 function liveStatus(live) {
   if (!isLiveFresh(live)) return null;
   const dest = firstKnownQuay(live.destination);
   const base = dest ? t("status.underwayTo", { dest }) : t("status.onSchedule");
   return { underway: true, ...withSanntid(base, live) };
-}
-
-function isEmptyReposition(fromQuay, toQuay) {
-  return outerDeadheadMinutes(fromQuay, toQuay) != null;
-}
-
-function overnightStatus(last, home, now) {
-  const deadhead = outerDeadheadMinutes(last.to, home);
-  if (deadhead == null) {
-    const quay = last.to;
-    return {
-      at: 1441,
-      short: t("status.doneAt", { home: quay }),
-      text: t("status.doneAtPeriod", { home: quay }),
-    };
-  }
-  const since = now - clockMinutes(last.arrival);
-  if (since < deadhead) {
-    const start = clockMinutes(last.arrival);
-    return withSpan(
-      {
-        at: start + 0.5,
-        underway: true,
-        short: t("status.backEmpty", { home }),
-        text: t("status.backEmptyText", { to: last.to, home }),
-      },
-      start,
-      start + deadhead,
-      now
-    );
-  }
-  return {
-    at: 1441,
-    short: t("status.mooredAt", { quay: home }),
-    text: t("status.doneMoored", { home }),
-  };
 }
 
 /** Kvar ferja er akkurat no, rekna ut frå rutetabellen. */
@@ -2542,30 +1282,6 @@ function cancelledReturnHome(legs, running) {
   );
 }
 
-function returnHomeStatus(last, back, now) {
-  const arrived = clockMinutes(last.arrival);
-  const leaves = clockMinutes(back.departure);
-  const home = back.to;
-  if (now < leaves) {
-    return withSpan({ at: arrived + 0.5, text: t("status.mooredAt", { quay: last.to }) }, arrived, leaves, now);
-  }
-  const ends = clockMinutes(back.arrival || back.departure);
-  if (now < ends) {
-    return withSpan(
-      {
-        at: leaves + 0.5,
-        underway: true,
-        short: t("status.backEmpty", { home }),
-        text: t("status.backEmptyText", { to: last.to, home }),
-      },
-      leaves,
-      ends,
-      now
-    );
-  }
-  return { at: 1441, short: t("status.doneAt", { home }), text: t("status.doneAtPeriod", { home }) };
-}
-
 function currentStatus(legs, now = nowMinutes()) {
   const runningNow = runningLegs(legs, now);
   let planned = ferryStatus(runningNow, now);
@@ -2601,10 +1317,6 @@ function currentStatus(legs, now = nowMinutes()) {
   }
   if (planned) return planned;
   return liveStatus(live);
-}
-
-function isVisibleDeparture(leg) {
-  return !leg.hideDeparture;
 }
 
 function readHideArrivals(storage) {
@@ -2650,31 +1362,6 @@ function writeRouteChoice(choice, storage) {
   } catch {
     // localStorage kan vere stengt.
   }
-}
-
-/** Rutetabellen endrar seg sjeldan; hugsa sist vising så oppdatering av sida ikkje ventar på 400 KB JSON. */
-function timetableFingerprint(routes, kombirute, connections) {
-  return JSON.stringify({
-    routes: routes?.fetchedAt || null,
-    kombi: kombirute?.source || null,
-    kombiFrom: kombirute?.validFrom || null,
-    conn: connections?.fetchedAt || null,
-  });
-}
-
-function messagesFingerprint(payload) {
-  const messages = payload?.messages || [];
-  return JSON.stringify(
-    messages.map((msg) => [
-      msg.id || "",
-      msg.text || "",
-      msg.validTo || "",
-      msg.severity || "",
-      msg.routeMode || "",
-      msg.routeSwitch || null,
-      msg.activateAt || null,
-    ])
-  );
 }
 
 function readCachedTimetable(storage) {
@@ -2800,297 +1487,12 @@ function nextDepartureFrom(legs, quay, skipPassed = false) {
   );
 }
 
-function nextArrivalAt(legs, quay, skipPassed = false) {
-  if (!quay) return null;
-  return (
-    legs.find((leg) => {
-      if (leg.to !== quay) return false;
-      if (skipPassed && hasPassed(leg.arrival)) return false;
-      return true;
-    }) || null
-  );
-}
-
-/**
- * Turane over Storfjorden som gjeld den valde dagen, delte etter retning.
- * Reisevegen avgjer kva veg det korresponderer: skal du inn fjorden treng du
- * ei ferje som er framme på knutepunktet i tide, skal du ut treng du ei som
- * går derifrå etterpå.
- */
-const SAEBØ = "Sæbø";
-const TRANSFER_MARGIN_MIN = 5;
-const TRANSFER_DESTINATIONS = ["Trandal", "Standal", "Skår"];
-
 function otherFerryMode() {
   if (isCombinedTimetable()) return null;
   const mode = activeMode();
   if (mode === "1135") return "1136";
   if (mode === "1136") return "1135";
   return null;
-}
-
-function transferLineId(dest) {
-  const slug = dest === "Skår" ? "skar" : String(dest || "").toLowerCase();
-  return `saebo-${slug}`;
-}
-
-function transferDestFromId(id) {
-  return TRANSFER_DESTINATIONS.find((dest) => transferLineId(dest) === id) || null;
-}
-
-function isFerryTransfer(id) {
-  return Boolean(transferDestFromId(id));
-}
-
-function legKey(leg) {
-  return leg.id || `${leg.from}|${leg.departure}|${leg.to}|${leg.arrival || ""}`;
-}
-
-function nextSameSailing(legs, current, seen) {
-  const from = quayPlace(current.to);
-  const earliest = clockMinutes(current.arrival);
-  let found = null;
-  for (const leg of legs) {
-    if (seen.has(legKey(leg))) continue;
-    if (quayPlace(leg.from) !== from) continue;
-    const dep = clockMinutes(leg.departure);
-    const gap = dep - earliest;
-    if (gap < 0 || gap >= LAYOVER_MIN_MINUTES) continue;
-    if (!found || dep < clockMinutes(found.departure)) found = leg;
-  }
-  return found;
-}
-
-function prevSameSailing(legs, current, seen) {
-  const to = quayPlace(current.from);
-  const latest = clockMinutes(current.departure);
-  let found = null;
-  for (const leg of legs) {
-    if (seen.has(legKey(leg))) continue;
-    if (quayPlace(leg.to) !== to) continue;
-    const arr = clockMinutes(leg.arrival);
-    const gap = latest - arr;
-    if (gap < 0 || gap >= LAYOVER_MIN_MINUTES) continue;
-    if (!found || arr > clockMinutes(found.arrival)) found = leg;
-  }
-  return found;
-}
-
-/** Går same segling vidare frå eit Sæbø-bein til destinasjonen. */
-function reachesDest(legs, start, dest) {
-  if (quayPlace(start.to) === dest) return true;
-  let current = start;
-  const seen = new Set([legKey(start)]);
-  for (let i = 0; i < 8; i++) {
-    const next = nextSameSailing(legs, current, seen);
-    if (!next) return false;
-    seen.add(legKey(next));
-    if (quayPlace(next.to) === dest) return true;
-    if (quayPlace(next.to) === SAEBØ) return false;
-    current = next;
-  }
-  return false;
-}
-
-/** Fyrste bein i same segling, der ein stig på ved destinasjonen. */
-function boardingFromDest(legs, arrival, dest) {
-  if (quayPlace(arrival.from) === dest) return arrival;
-  let current = arrival;
-  const seen = new Set([legKey(arrival)]);
-  for (let i = 0; i < 8; i++) {
-    const prev = prevSameSailing(legs, current, seen);
-    if (!prev) return null;
-    seen.add(legKey(prev));
-    if (quayPlace(prev.from) === dest) return prev;
-    if (quayPlace(prev.from) === SAEBØ) return null;
-    current = prev;
-  }
-  return null;
-}
-
-function cameFromDest(legs, arrival, dest) {
-  return Boolean(boardingFromDest(legs, arrival, dest));
-}
-
-function tableGroup(leg) {
-  return leg.table || "same";
-}
-
-function collectSailings(legs) {
-  const used = new Set();
-  const sailings = [];
-  for (const leg of legs) {
-    const key = legKey(leg);
-    if (used.has(key)) continue;
-    if (prevSameSailing(legs, leg, new Set())) continue;
-    const chain = [leg];
-    used.add(key);
-    let current = leg;
-    for (let i = 0; i < 24; i++) {
-      const next = nextSameSailing(legs, current, used);
-      if (!next) break;
-      used.add(legKey(next));
-      chain.push(next);
-      current = next;
-    }
-    sailings.push(chain);
-  }
-  return sailings;
-}
-
-function rideOnSailing(chain, from, to) {
-  const rides = [];
-  for (let i = 0; i < chain.length; i++) {
-    if (quayPlace(chain[i].from) !== from) continue;
-    const slice = [];
-    for (let j = i; j < chain.length; j++) {
-      slice.push(chain[j]);
-      const arrived = quayPlace(chain[j].to);
-      if (arrived === to) {
-        rides.push(slice.slice());
-        break;
-      }
-      if (arrived === from) break;
-    }
-  }
-  if (!rides.length) return [];
-  rides.sort((a, b) => a.length - b.length || clockMinutes(a[0].departure) - clockMinutes(b[0].departure));
-  const shortest = rides[0].length;
-  return rides.filter((ride) => ride.length === shortest);
-}
-
-function hubOnwardReaches(legs, start, hub, dest) {
-  for (let j = start; j < legs.length; j++) {
-    const arrived = quayPlace(legs[j].to);
-    if (arrived === dest) return true;
-    if (arrived === hub) return false;
-  }
-  return false;
-}
-
-function firstHubOnwardIndex(legs, hub, dest) {
-  for (let i = 0; i < legs.length; i++) {
-    if (quayPlace(legs[i].from) !== hub) continue;
-    if (hubOnwardReaches(legs, i, hub, dest)) return i;
-  }
-  return -1;
-}
-
-/** Hopp over Sæbø–Leknes-pendel; passasjeren ventar på knutepunktet. */
-function collapseHubWait(legs, hub = SAEBØ) {
-  if (!legs.length) return { legs, wait: null };
-  const dest = quayPlace(legs[legs.length - 1].to);
-  if (dest === hub) return { legs, wait: null };
-  const firstArr = legs.findIndex((leg) => quayPlace(leg.to) === hub);
-  const onward = firstHubOnwardIndex(legs, hub, dest);
-  if (firstArr < 0 || onward < 0 || onward <= firstArr) return { legs, wait: null };
-  const arrive = legs[firstArr];
-  const depart = legs[onward];
-  const minutes = clockMinutes(depart.departure) - clockMinutes(arrive.arrival);
-  const dropped = onward > firstArr + 1;
-  if (minutes < 1) return { legs, wait: null };
-  if (!dropped && minutes < LAYOVER_MIN_MINUTES) return { legs, wait: null };
-  return {
-    legs: [...legs.slice(0, firstArr + 1), ...legs.slice(onward)],
-    wait: {
-      quay: hub,
-      minutes,
-      from: arrive.arrival,
-      until: depart.departure,
-      afterKey: legKey(arrive),
-    },
-  };
-}
-
-function asPassengerJourney(parts, extra = {}) {
-  const collapsed = collapseHubWait(parts);
-  return {
-    transfer: Boolean(extra.transfer),
-    hub: extra.hub,
-    onwardAt: extra.onwardAt,
-    legs: collapsed.legs,
-    wait: collapsed.wait,
-  };
-}
-
-function sameTableJourneys(legs, from, to) {
-  if (!from || !to || from === to) return [];
-  return collectSailings(legs).flatMap((chain) => rideOnSailing(chain, from, to));
-}
-
-function hubTransfers(feederLegs, onwardLegs, from, to, hub) {
-  const feeders = sameTableJourneys(feederLegs, from, hub);
-  const onwards = sameTableJourneys(onwardLegs, hub, to);
-  const journeys = [];
-  for (const onward of onwards) {
-    const departHub = clockMinutes(onward[0].departure);
-    const latest = departHub - TRANSFER_MARGIN_MIN;
-    const candidates = feeders.filter(
-      (feeder) => clockMinutes(feeder[feeder.length - 1].arrival) <= latest
-    );
-    if (!candidates.length) continue;
-    candidates.sort(
-      (a, b) =>
-        clockMinutes(b[b.length - 1].arrival) - clockMinutes(a[a.length - 1].arrival)
-    );
-    journeys.push({
-      legs: [...candidates[0], ...onward],
-      transfer: true,
-      hub,
-      onwardAt: onward[0].departure,
-    });
-  }
-  return journeys;
-}
-
-function passengerJourneysFrom(legs, from, to) {
-  if (!from || !to || from === to) return [];
-  const groups = new Map();
-  for (const leg of legs) {
-    const key = tableGroup(leg);
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key).push(leg);
-  }
-  const tables = [...groups.values()];
-  const same = tables.flatMap((group) => sameTableJourneys(group, from, to));
-  if (same.length) return same.map((parts) => asPassengerJourney(parts));
-  if (tables.length < 2) return [];
-  const transfers = [];
-  for (let i = 0; i < tables.length; i++) {
-    for (let j = 0; j < tables.length; j++) {
-      if (i === j) continue;
-      transfers.push(...hubTransfers(tables[i], tables[j], from, to, SAEBØ));
-    }
-  }
-  return transfers.map((journey) => asPassengerJourney(journey.legs, journey));
-}
-
-function journeyForLeg(journeys, leg) {
-  if (!journeys || !leg) return null;
-  const key = legKey(leg);
-  return journeys.find((journey) => journey.legs.some((part) => legKey(part) === key)) || null;
-}
-
-/** Seinare bein i same reisa. Fyrste avgang er den du faktisk tek frå filteret. */
-function isOnwardLeg(leg, journey) {
-  if (!journey || journey.legs.length < 2 || !leg) return false;
-  return legKey(journey.legs[0]) !== legKey(leg);
-}
-
-function journeyNote(leg, journey) {
-  if (!journey || journey.legs.length < 2) return null;
-  if (legKey(journey.legs[0]) !== legKey(leg)) return null;
-  const last = journey.legs[journey.legs.length - 1];
-  const via = journey.legs.slice(0, -1).map((part) => quayPlace(part.to));
-  if (journey.transfer) {
-    return t("place.transferVia", {
-      hub: journey.hub || SAEBØ,
-      to: quayPlace(last.to),
-      time: hhmm(journey.onwardAt),
-      arrival: hhmm(last.arrival),
-    });
-  }
-  return t("place.via", { via: via.join(", "), time: hhmm(last.arrival) });
 }
 
 function otherFerryLegs(date) {
@@ -3127,17 +1529,6 @@ function transferDestinationsFor(date) {
         (quayPlace(leg.to) === SAEBØ && cameFromDest(legs, leg, dest))
     )
   );
-}
-
-function asTransferTrip(leg, { from, to, departure, arrival, signal }) {
-  return {
-    from,
-    to,
-    departure: departure || leg.departure,
-    arrival: arrival || leg.arrival,
-    signal: signal === undefined ? leg.signal : signal,
-    table: leg.table,
-  };
 }
 
 function ferryTransferIndex(date) {
@@ -3243,21 +1634,6 @@ function visibleConnectionLines(legs) {
     return !dest || quays.includes(dest);
   });
   return lines.concat(road);
-}
-
-function inboundConnection(index, departure) {
-  const latest = clockMinutes(departure) - index.buffer;
-  let found = null;
-  for (const trip of index.toHub) {
-    if (clockMinutes(trip.arrival) <= latest) found = trip;
-    else break;
-  }
-  return found;
-}
-
-function outboundConnection(index, arrival) {
-  const earliest = clockMinutes(arrival) + index.buffer;
-  return index.fromHub.find((trip) => clockMinutes(trip.departure) >= earliest) || null;
 }
 
 function connectionSignalText(trip, route) {
@@ -3523,19 +1899,6 @@ function openDepartureDetail(leg) {
   else dialog.setAttribute("open", "");
 }
 
-function layoverAfter(leg, next) {
-  if (!next || !leg?.arrival || !next.departure) return null;
-  if (leg.to !== next.from) return null;
-  const minutes = clockMinutes(next.departure) - clockMinutes(leg.arrival);
-  if (minutes < LAYOVER_MIN_MINUTES) return null;
-  return {
-    quay: leg.to,
-    minutes,
-    from: leg.arrival,
-    until: next.departure,
-  };
-}
-
 function layoverRow(stay, past) {
   const row = el("div", `stop stop-layover${past ? " is-past" : ""}`);
   row.append(el("span", "stop-time", hhmm(stay.from)));
@@ -3688,28 +2051,6 @@ function matchesStop(event) {
   if (state.fromFilter && event.quays.includes(state.fromFilter)) return true;
   if (state.toFilter && event.quays.includes(state.toFilter)) return true;
   return false;
-}
-
-const EVENT_SEQ = { arr: 0, split: 1, transfer: 2, layover: 3, wait: 3, dep: 4, status: 5 };
-
-function compareTimelineEvents(a, b) {
-  const seq = (event) => EVENT_SEQ[event.kind] ?? 0;
-  return a.at - b.at || seq(a) - seq(b);
-}
-
-function tableName(mode) {
-  if (mode === "kombi" || mode === "1135" || mode === "1136") return mode;
-  return "1136";
-}
-
-function isParallelFerrySplit(fromTable, toTable) {
-  const pair = new Set([fromTable, toTable]);
-  return pair.has("1135") && pair.has("1136");
-}
-
-function isPlannedFerrySwitch(routeSwitch) {
-  if (!routeSwitch) return false;
-  return isParallelFerrySplit(routeSwitch.before, routeSwitch.after);
 }
 
 /** Raud merkelapp ved fyrste avgang når kombiruta tek til eller sluttar heile dagen. */
@@ -4316,23 +2657,6 @@ function renderTimeline() {
   renderLive();
 }
 
-function validMessages(messages, now = Date.now()) {
-  return (messages || []).filter((msg) => messageIsHeld(msg, now));
-}
-
-function routeNameFlags(msg) {
-  const blob = messageBlob(msg);
-  const heading = String(msg?.heading || "");
-  const conn = Number(msg?.connectionNumber);
-  return {
-    named1136:
-      conn === CONN_1136 ||
-      /\b1136\b/.test(blob) ||
-      /standal|trandal|valderøy|store kalvøy/i.test(heading),
-    named1135: conn === CONN_1135 || /\b1135\b/.test(blob) || /lekne/i.test(heading),
-  };
-}
-
 function matchesChosenRouteNotice(msg, route = chosenRoute()) {
   const flags = routeNameFlags(msg);
   if (route === "1135") return flags.named1135;
@@ -4352,10 +2676,6 @@ function messagesForFilter(messages, filter = state.messageFilter, route = chose
 
 function applyMessageFilter(messages) {
   return messagesForFilter(messages, state.messageFilter);
-}
-
-function filterMessageKey(messages) {
-  return messages.map((msg) => msg.id || messageMergeKey(msg)).join("\n");
 }
 
 function usefulMessageFilters(messages, route = chosenRoute()) {
@@ -4671,19 +2991,6 @@ function scheduleMessagesPoll() {
     }
     scheduleMessagesPoll();
   }, MESSAGES_POLL_MS);
-}
-
-function recordedMs(live) {
-  if (!live) return 0;
-  const raw = live.recordedAt || live.validUntil;
-  const ms = raw ? Date.parse(raw) : 0;
-  return Number.isFinite(ms) ? ms : 0;
-}
-
-function pickFreshest(lives) {
-  const fresh = lives.filter((live) => isLiveFresh(live));
-  const pool = fresh.length ? fresh : lives;
-  return pool.slice().sort((a, b) => recordedMs(b) - recordedMs(a))[0] || null;
 }
 
 async function fetchLive(url) {
@@ -5219,18 +3526,15 @@ function resetTestState() {
 
 export {
   FEEDBACK_MAIL,
-  LAYOVER_MIN_MINUTES,
   LIVE_MAX_BACKOFF_MS,
   LIVE_SERVICE_MARGIN_MIN,
   MESSAGES_POLL_MS,
-  MESSAGES_STALE_MS,
   TIMETABLE_CACHE_KEY,
   MESSAGES_CACHE_KEY,
   LAST_MODE_KEY,
   ROUTE_CHOICE_KEY,
   PWA_FIRST_KEY,
   WAKE_DEBOUNCE_MS,
-  activateAtFromText,
   activeMode,
   activePlan,
   appMode,
@@ -5238,13 +3542,10 @@ export {
   chosenRoute,
   connectionIndex,
   connectionNote,
-  compareTimelineEvents,
   currentStatus,
-  dayType,
   signalVerdict,
   signalSkipReason,
   signalSailed,
-  liveProvesSailed,
   rememberLiveSailed,
   readSailedJourneys,
   writeSailedJourneys,
@@ -5254,40 +3555,17 @@ export {
   signalLogStale,
   signalLogUrl,
   departureDetail,
-  delayMinutes,
   emptyPlaceMessage,
   feedbackMailto,
   ferryStatus,
-  headingDay,
-  statusProgress,
   firstKnownQuay,
-  homeQuay,
   highlightInstallHint,
   installHint,
   isCancelledDeparture,
-  cancelledSailingsFromText,
-  cancelledJourneyIds,
-  seenJourneyIds,
-  actualDeparturesFromPayload,
   journeyCancelled,
-  osloDayStartIso,
-  classifyMessage,
-  isPartialCancel,
-  isLiveFresh,
-  isUncertainDeparture,
   isPreview,
-  isRouteControl,
-  mergeMessagePayloads,
-  messageIsHeld,
-  retainHeldMessages,
-  messagesAreStale,
   messagesUrl,
-  normalizeFjord1Node,
-  parseFjord1Published,
-  parseFjord1TrafficHtml,
   keepTimelineEvent,
-  excerptText,
-  layoverAfter,
   legsForDate,
   legsForPlaceFilter,
   liveBlockedUntil,
@@ -5301,49 +3579,32 @@ export {
   matchesChosenRouteNotice,
   applyMessageFilter,
   usefulMessageFilters,
-  messageTimeLines,
   pastDepartureCount,
-  passengerJourneysFrom,
   plausibleContext,
   plausibleRoute,
   positionNoteKey,
   sortMessagesForRoute,
-  messagesFingerprint,
-  minDeadheadMinutes,
-  OUTER_DEADHEAD_MINUTES,
-  modeFromText,
-  nextArrivalAt,
   nextDepartureFrom,
   noteLiveFailure,
   operationalMode,
   parseVehicleMonitoring,
   quayAtStart,
-  quayPlace,
-  quaysInDay,
   readCachedTimetable,
   readCachedMessages,
   readLastMode,
   readHideArrivals,
   readRouteChoice,
   resetTestState,
-  resolveRoutePlan,
-  routeModeFromMessages,
   routeOverride,
-  switchFromText,
   switchOverride,
   swapPlaceFilters,
   setTestState,
   shouldFetchLive,
   showArrivals,
   signalPhone,
-  telHref,
   vesselNameForTable,
   serviceWindowMinutes,
-  timetableFingerprint,
-  todayIso,
   track,
-  vesselFromText,
-  windowFromText,
   visibleConnectionLines,
   writeCachedTimetable,
   writeCachedMessages,
