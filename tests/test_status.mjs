@@ -2107,3 +2107,28 @@ function runningLegsToday(legs, now) {
   assert.doesNotMatch(status.text || "", /ikkje utført/);
   return legs.filter((item) => !item.signal || signalVerdict(item, null, now) !== "skipped");
 }
+
+test("ferja ved ankomstkaien har gått sjølv om Entur melder avgangskaien (8. oktober kl. 20:30)", () => {
+  const legs = [
+    leg("Trandal", "Standal", "19:40:00", "19:55:00"),
+    signalLeg("Standal", "Trandal", "20:00:00", "20:15:00", "MOR:ServiceJourney:1136_128_kai"),
+    signalLeg("Trandal", "Standal", "20:20:00", "20:35:00", "MOR:ServiceJourney:1136_129_kai"),
+  ];
+  const live = freshLive({
+    journeyRef: "MOR:ServiceJourney:1136_129_kai",
+    originAimed: "2026-10-01T20:20:00+02:00",
+    destination: "Standal",
+    atStop: true,
+    stopName: "Trandal ferjekai",
+    latitude: 62.2665,
+    longitude: 6.4233,
+    delayMinutes: 0,
+  });
+  for (const now of [20 * 60 + 30, 20 * 60 + 40, 21 * 60]) {
+    setTestState({ live });
+    assert.notEqual(signalVerdict(legs[2], live, now, legs), "skipped");
+    assert.notEqual(signalVerdict(legs[1], live, now, legs), "skipped");
+    const status = currentStatus(legs, now);
+    assert.doesNotMatch(status.text, /Trandal/);
+  }
+});

@@ -7,7 +7,7 @@ import {
   setLang,
   t,
   weekdays,
-} from "./i18n.js?v=78";
+} from "./i18n.js?v=79";
 
 const MESSAGES_URL = "data/trafikkmeldinger.json";
 const SIGNAL_LOG_URL = "data/signalturar.json";
@@ -1863,10 +1863,14 @@ function leftOrigin(live, leg) {
   if (live.actualDeparture) return true;
   const origin = quayPlace(leg.from);
   const stop = quayPlace(live.stopName);
+  // Posisjonen vinn over stoppnamnet: Entur kan melde avgangskaien som «MonitoredCall»
+  // og «VehicleAtStop» medan ferja alt ligg ved ankomstkaien.
+  const dist = distanceToQuay(live, origin);
+  const destDist = distanceToQuay(live, quayPlace(leg.to));
+  if (destDist != null && destDist <= QUAY_RADIUS_M) return true;
+  if (dist != null) return dist > QUAY_RADIUS_M;
   if (live.atStop === true && stop === origin) return false;
   if (live.atStop === true && stop && stop !== origin) return true;
-  const dist = distanceToQuay(live, origin);
-  if (dist != null) return dist > QUAY_RADIUS_M;
   if (live.atStop === false && stop && stop !== origin) return true;
   if (live.atStop === true) return false;
   return null;
