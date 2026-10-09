@@ -162,6 +162,54 @@ test("tripStatus: utturen er tomtur for ein retur som gjekk, så han er ikkje be
   assert.deepEqual(status.remember, { id: J(4), booked: false });
 });
 
+test("tripStatus: tomtur med avgangsbevis er «gått», ikkje «ukjent»", () => {
+  const out2 = leg("Standal", "Trandal", "17:30:00", "17:45:00", 4);
+  const legs = [out2, back];
+  const returned = [J(2), "2026-10-08T18:00:00+02:00"];
+  const base = { dayLegs: legs, dateLegs: legs };
+  const at = min("18:30");
+  const ctx = { past: true, departed: true, today: true };
+  // Entur: faktisk avgang for utturen.
+  const entur = tripStatus(
+    out2,
+    evidence({ ...base, actualDepartures: new Map([[J(4), "2026-10-08T17:31:00+02:00"], returned]) }),
+    at
+  );
+  assert.equal(entur.booked, false);
+  assert.equal(entur.kind, "sailed");
+  assert.equal(entur.source, "entur");
+  assert.equal(entur.at, "2026-10-08T17:31:00+02:00");
+  assert.equal(departureStateKey(entur, ctx), "gone");
+  // Loggen: «departed» på utturen.
+  const fromLog = tripStatus(
+    out2,
+    evidence({
+      ...base,
+      actualDepartures: new Map([returned]),
+      log: logged([{ id: J(4), status: "booked", evidence: "departed", observedAt: "2026-10-08T15:31:00Z" }]),
+    }),
+    at
+  );
+  assert.equal(fromLog.booked, false);
+  assert.equal(fromLog.kind, "sailed");
+  assert.equal(fromLog.source, "log");
+  assert.equal(departureStateKey(fromLog, ctx), "gone");
+  // Sanntid: ferja køyrde utturen (hugsa frå sanntida tidlegare i dag).
+  const live = tripStatus(
+    out2,
+    evidence({ ...base, actualDepartures: new Map([returned]), sailedJourneys: new Set([J(4)]) }),
+    at
+  );
+  assert.equal(live.booked, false);
+  assert.equal(live.kind, "sailed");
+  assert.equal(live.source, "live");
+  assert.equal(departureStateKey(live, ctx), "gone");
+  // Utan bevis for sjølve utturen er han framleis «ukjent».
+  const none = tripStatus(out2, evidence({ ...base, actualDepartures: new Map([returned]) }), at);
+  assert.equal(none.kind, "unknown");
+  assert.equal(departureStateKey(none, ctx), "unknown");
+});
+
 test("tripStatus: avlyst hos Entur er «ikkje utført»", () => {
   const status = tripStatus(out, evidence({ cancelledJourneys: new Set([J(1)]) }), min("13:30"));
   assert.equal(status.kind, "skipped");

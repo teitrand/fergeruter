@@ -155,10 +155,24 @@ export function legacyRowKey(app, leg, { past, departed, today }, fields) {
   return today ? "countdown" : "";
 }
 
-/** Samanliknar to køyringar. Einaste lovlege skilnad: «Gått» blir «Ukjent» på rada. */
+/**
+ * Den gamle koden sette detaljfasen til «unknown» når ein tomtur hadde avgangsbevis.
+ * tripStatus seier «sailed» der, med beviset. Rada var og er «Gått».
+ */
+function provenSailed(a, b) {
+  if (a.detail?.phase !== "unknown" || b.detail?.phase !== "sailed") return false;
+  const strip = ({ row, detail, ...rest }) => JSON.stringify({ ...rest, detail: { ...detail, phase: null } });
+  return strip(a) === strip(b) && a.row === b.row;
+}
+
+/**
+ * Samanliknar to køyringar. Lovlege skilnader: «Gått» blir «Ukjent» på rada (`unknown`),
+ * og tomtur med avgangsbevis blir «sailed» i detaljvindauget (`proven`).
+ */
 export function compareReplays(oldRecords, newRecords) {
   if (oldRecords.length !== newRecords.length) throw new Error(`ulikt tal rader: ${oldRecords.length} mot ${newRecords.length}`);
   const unknown = [];
+  const proven = [];
   const other = [];
   for (let i = 0; i < oldRecords.length; i += 1) {
     const a = oldRecords[i];
@@ -171,11 +185,13 @@ export function compareReplays(oldRecords, newRecords) {
     if (same && rowA === rowB) continue;
     if (same && rowA === "gone" && rowB === "unknown" && b.fields.detail?.phase === "unknown") {
       unknown.push({ where, record: b });
+    } else if (provenSailed(a.fields, b.fields)) {
+      proven.push({ where, record: b });
     } else {
       other.push({ where, old: a.fields, new: b.fields });
     }
   }
-  return { compared: oldRecords.length, unknown, other };
+  return { compared: oldRecords.length, unknown, proven, other };
 }
 
 /** Grovare rutenett for fasiten i CI: kvar time og rundt kvar signaltur. */

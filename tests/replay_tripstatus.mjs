@@ -37,6 +37,7 @@ try {
   console.log(`Gammal kode: ${ref}`);
   console.log(`Samanlikna: ${result.compared} rader (${departures.size} avgangar, ${oldRecords.filter((r) => r.signal).length} av radene er signalturar).`);
   console.log(`Skilnader som blir «Ukjent»: ${result.unknown.length}`);
+  console.log(`Tomtur med avgangsbevis, detalj «ukjent» → «gått» (rada «Gått» som før): ${result.proven.length}`);
   console.log(`Andre skilnader: ${result.other.length}`);
   const byDay = {};
   for (const item of result.unknown) {
@@ -44,6 +45,13 @@ try {
     byDay[key] = (byDay[key] || 0) + 1;
   }
   for (const [key, n] of Object.entries(byDay)) console.log(`  «Ukjent» ${key}: ${n}`);
+  const provenByDay = {};
+  for (const item of result.proven) {
+    const key = `${item.record.scenario} | ${item.record.day}`;
+    provenByDay[key] = (provenByDay[key] || 0) + 1;
+  }
+  for (const [key, n] of Object.entries(provenByDay)) console.log(`  tomtur ${key}: ${n}`);
+  for (const item of result.proven.slice(0, 5)) console.log(`  døme tomtur: ${item.where} (${item.record.fields.row})`);
   for (const item of result.unknown.slice(0, 5)) console.log(`  døme: ${item.where}: «Gått» → «Ukjent»`);
   for (const item of result.other.slice(0, 10)) console.log(`  ANNA: ${item.where}\n    før: ${JSON.stringify(item.old)}\n    no:  ${JSON.stringify(item.new)}`);
   process.exitCode = result.other.length ? 1 : 0;

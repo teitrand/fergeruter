@@ -396,6 +396,10 @@ export function tripStatus(leg, ev, now, opts = {}) {
   const deadline = signal ? bookingDeadline(leg) : null;
   const sailedProof = signal ? sailedEvidence(leg, ev) : null;
   const sailed = Boolean(sailedProof);
+  // Bevis for avgang (Entur, «departed» i loggen, sanntid) er bevis for at turen gjekk,
+  // òg når han ikkje tel som bestilt fordi han var tomtur for ein retur.
+  const departedProof =
+    signal && !skipped && !booked && !sailed ? departureEvidence(leg, ev) : null;
   let kind = "regular";
   let proof = { source: "timetable", reason: "timetable", at: null };
   if (cancelled && !signal) {
@@ -410,9 +414,9 @@ export function tripStatus(leg, ev, now, opts = {}) {
   } else if (booked) {
     kind = "booked";
     proof = booking.proof;
-  } else if (sailed) {
+  } else if (sailed || departedProof) {
     kind = "sailed";
-    proof = sailedProof;
+    proof = sailedProof || departedProof;
   } else if (signal && deadline != null && today && now < deadline) {
     kind = "open";
     proof = { source: "timetable", reason: "before-deadline", at: null };
