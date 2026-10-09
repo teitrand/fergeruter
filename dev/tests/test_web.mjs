@@ -6,15 +6,17 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import * as app from "../assets/app.js";
-import { departureStateKey } from "../packages/core/index.js";
+import { LIVE_MIN_INTERVAL_MS, SAILED_KEY, departureStateKey, loadEnturEvidence, parseVehicleMonitoring } from "../packages/core/index.js";
 import { stripVersionQuery } from "../web/build/strip-version-query.js";
 import { renderServiceWorker } from "../web/scripts/build-sw.mjs";
-import { memoryOnly, planContext, routeOverride, statusEvidence } from "../web/src/model/context.js";
+import { memoryOnly, planContext, rememberBookings, routeOverride, statusEvidence } from "../web/src/model/context.js";
 import { dataBase, fetchAppData } from "../web/src/model/data.js";
+import { emptyEntur, enturDue, enturReducer, enturRequest, rememberEntur, withEntur } from "../web/src/model/entur.js";
 import { ledeModel, routeChrome } from "../web/src/model/header.js";
+import { browserMemory } from "../web/src/model/storage.js";
 import { buildTimeline } from "../web/src/model/timeline.js";
 import { initialUi, uiReducer } from "../web/src/state.js";
-import { DAYS, LOG, ROUTES, osloMs } from "./helpers/replay.mjs";
+import { DAYS, LOG, ROUTES, VM_2030, osloMs } from "./helpers/replay.mjs";
 import { appVersion } from "./helpers/version.mjs";
 
 const { setLang } = await import(`../assets/i18n.js?v=${appVersion()}`);
@@ -214,4 +216,228 @@ test("web: service workeren for skalet kjem frå sw.js og rører ikkje vanilla-c
     assert.equal(own("fergeruter-web-dev-old"), dev);
   }
   assert.throws(() => renderServiceWorker("const X = 1;", { version: "x", files: [] }), /CACHE/);
+});
+
+// --- Entur-bevis (5a) ----------------------------------------------------------------------
+
+function fakeStorage(initial = {}) {
+  const data = { ...initial };
+  return {
+    data,
+    getItem: (key) => (key in data ? data[key] : null),
+    setItem: (key, value) => {
+      data[key] = String(value);
+    },
+  };
+}
+
+/** Teikn til minnet ikkje endrar seg meir, slik App gjer med effekten og ny teikning. */
+function settledTimeline(data, ui, memory, now) {
+  for (let round = 0; round < 5; round += 1) {
+    const timeline = buildTimeline(data, ui, memory, { now });
+    if (!rememberBookings(memory, timeline.remember)) return timeline;
+  }
+  throw new Error("minnet roar seg ikkje");
+}
+
+test("timeline endrar ikkje minnet; rememberBookings legg inn det tripStatus bad om", () => {
+  const memory = memoryOnly();
+  assert.equal(rememberBookings(memory, [{ id: "a", booked: true }, { id: "b", booked: false }]), true);
+  assert.deepEqual([...memory.confirmedBooked], ["a"]);
+  assert.equal(rememberBookings(memory, [{ id: "a", booked: true }]), false);
+  assert.equal(rememberBookings(memory, [{ id: "a", booked: false }]), true);
+  assert.equal(memory.confirmedBooked.size, 0);
+  assert.equal(rememberBookings(memory, undefined), false);
+
+  // Ein signaltur Entur har faktisk avgang for, ber om å bli hugsa, men buildTimeline lèt minnet vere.
+  atOslo("2026-10-08", 21 * 60, () => {
+    const ev = new Map([[OUT_2000, "2026-10-08T20:00:03+02:00"]]);
+    const data = { ...eveningData(), actualDepartures: ev };
+    const fresh = memoryOnly();
+    const timeline = buildTimeline(data, { ...initialUi(), showPast: true }, fresh, { now: 21 * 60 });
+    assert.equal(fresh.confirmedBooked.size, 0);
+    assert.ok(Array.isArray(timeline.remember));
+  });
+});
+
+test("enturReducer: svar, backoff, avlysingar og byte av samband", () => {
+  let state = enturReducer(emptyEntur(), { type: "start", at: 1000 });
+  assert.equal(state.fetchedAt, 1000);
+  const live = { journeyRef: "x" };
+  const journeys = { cancelled: new Set(["c"]), actualDepartures: new Map([["d", "t"]]) };
+  state = enturReducer(state, { type: "loaded", at: 2000, result: { live, liveError: null, journeys, journeysError: null } });
+  assert.equal(state.live, live);
+  assert.equal(state.liveFailed, false);
+  assert.deepEqual([...state.cancelledJourneys], ["c"]);
+  assert.equal(state.actualDepartures.get("d"), "t");
+  assert.equal(state.journeysAt, 2000);
+
+  // VM feilar: behald posisjonen, slå på backoff; Journey Planner feilar: behald avlysingane.
+  const failed = enturReducer(state, {
+    type: "loaded",
+    at: 3000,
+    result: { live: undefined, liveError: new Error("429"), journeys: null, journeysError: new Error("x") },
+  });
+  assert.equal(failed.live, live);
+  assert.equal(failed.liveFailed, true);
+  assert.ok(failed.backoffMs >= 60_000);
+  assert.equal(failed.blockedUntil, 3000 + failed.backoffMs);
+  assert.equal(failed.cancelledJourneys, state.cancelledJourneys);
+  assert.equal(failed.journeysAt, 2000);
+  const twice = enturReducer(failed, { type: "loaded", at: 4000, result: { live: undefined, liveError: new Error("429"), journeys: null } });
+  assert.ok(twice.backoffMs > failed.backoffMs);
+  const ok = enturReducer(twice, { type: "loaded", at: 5000, result: { live: null, liveError: null, journeys: null } });
+  assert.deepEqual([ok.live, ok.liveFailed, ok.backoffMs, ok.blockedUntil], [null, false, 0, 0]);
+
+  const reset = enturReducer(state, { type: "reset" });
+  assert.deepEqual([reset.live, reset.fetchedAt], [null, 0]);
+  assert.equal(reset.cancelledJourneys, state.cancelledJourneys);
+  assert.throws(() => enturReducer(state, { type: "x" }), /ukjend/);
+});
+
+test("enturDue: driftsvindauge, 55 s mellom kall, backoff og gøymd fane", () => {
+  const data = { routes: ROUTES, kombirute: null, messages: null, signalLog: null };
+  const ui = initialUi({ date: "2026-10-10" });
+  atOslo("2026-10-08", 12 * 60, () => {
+    const now = Date.now();
+    assert.equal(enturDue(emptyEntur(), data, ui, now), true, "vald dag påverkar ikkje");
+    assert.equal(enturDue(emptyEntur(), data, ui, now, true), false);
+    assert.equal(enturDue({ ...emptyEntur(), fetchedAt: now - LIVE_MIN_INTERVAL_MS + 1 }, data, ui, now), false);
+    assert.equal(enturDue({ ...emptyEntur(), fetchedAt: now - LIVE_MIN_INTERVAL_MS }, data, ui, now), true);
+    assert.equal(enturDue({ ...emptyEntur(), blockedUntil: now + 1 }, data, ui, now), false);
+    assert.equal(enturDue(emptyEntur(), { routes: null, kombirute: null }, ui, now), false);
+    const request = enturRequest(data, ui, ["Q"]);
+    assert.equal(request.mode, "1136");
+    assert.ok(request.todayLegs.length > 10);
+    assert.deepEqual(request.quays, ["Q"]);
+  });
+  atOslo("2026-10-08", 3 * 60, () => {
+    assert.equal(enturDue(emptyEntur(), data, initialUi(), Date.now()), false, "utanfor driftstida");
+  });
+});
+
+test("loadEnturEvidence med falsk fetch gjev det reduceren treng", async () => {
+  const calls = [];
+  const fetchImpl = async (url, options = {}) => {
+    calls.push(options.method || "GET");
+    const body = options.method === "POST" ? { data: {} } : VM_2030;
+    return { ok: true, status: 200, statusText: "OK", json: async () => body };
+  };
+  const legs = atOslo("2026-10-08", 20 * 60 + 30, () => enturRequest(eveningData(), initialUi(), undefined).todayLegs);
+  const result = await loadEnturEvidence(fetchImpl, { mode: "1136", todayLegs: legs });
+  assert.equal(result.liveError, null);
+  assert.equal(result.live.journeyRef, BACK_2020);
+  assert.ok(result.journeys.cancelled instanceof Set);
+  assert.ok(result.journeys.actualDepartures instanceof Map);
+  assert.ok(calls.includes("POST") && calls.includes("GET"));
+  const state = enturReducer(emptyEntur(), { type: "loaded", at: 1, result });
+  assert.equal(state.live.journeyRef, BACK_2020);
+
+  // Feil kastar aldri: VM-feil gjev liveError (posisjonen blir verande), JP-feil gjev journeysError.
+  const broken = await loadEnturEvidence(
+    async (url, options = {}) => {
+      if (options.method === "POST") throw new TypeError("Failed to fetch");
+      return { ok: false, status: 429, statusText: "429", json: async () => null };
+    },
+    { mode: "1136", todayLegs: legs }
+  );
+  assert.equal(broken.live, undefined);
+  assert.ok(broken.liveError);
+  assert.equal(broken.journeys, null);
+  assert.ok(broken.journeysError instanceof TypeError);
+});
+
+// 8. oktober 20:30: Entur hadde 20:20-turen (1136_129) avlyst, men VM viste at ferja kom til
+// Standal. 20:00-turen (1136_128) hadde faktisk avgang. Same scenario som i test_status.mjs.
+const BACK_2020 = "MOR:ServiceJourney:1136_129_9150000046366348";
+const OUT_2000 = "MOR:ServiceJourney:1136_128_9150000047474268";
+const VM_LIVE = parseVehicleMonitoring(VM_2030);
+
+function eveningData() {
+  return { routes: ROUTES, kombirute: null, messages: null, signalLog: { days: { "2026-10-08": LOG.days["2026-10-08"] } } };
+}
+
+function eveningEntur(live) {
+  return {
+    ...emptyEntur(),
+    live,
+    cancelledJourneys: new Set([BACK_2020]),
+    actualDepartures: new Map([[OUT_2000, "2026-10-08T20:00:03+02:00"]]),
+    journeysAt: osloMs("2026-10-08", 20 * 60 + 30),
+  };
+}
+
+test("web-modellen med Entur-bevis 8. oktober 20:30 gjev same rader som vanilla, òg etter at sanntida har gått ut", () => {
+  setLang("nn", { persist: false });
+  const storage = fakeStorage({ [SAILED_KEY]: JSON.stringify({ "2026-10-07": ["gammal"] }) });
+  const memory = browserMemory(storage);
+  const fresh = { ...VM_LIVE, validUntil: "2099-01-01T00:00:00Z" };
+  const stale = { ...VM_LIVE, validUntil: "2000-01-01T00:00:00Z", recordedAt: "2000-01-01T00:00:00Z" };
+  const ui = { ...initialUi(), showPast: true };
+  // Vanilla legg turen inn i det same settet (sailedDate er i dag, så det blir ikkje lese på nytt).
+  const vanillaSailed = new Set();
+  const compare = (minutes, live, label) =>
+    atOslo("2026-10-08", minutes, () => {
+      const entur = eveningEntur(live);
+      // Det App gjer i effekten etter eit Entur-svar.
+      rememberEntur(memory, eveningData(), ui, entur, minutes);
+      const data = withEntur(eveningData(), entur);
+      const timeline = settledTimeline(data, ui, memory, minutes);
+      app.resetTestState();
+      app.setTestState({
+        ...eveningData(),
+        routeChoice: "1136",
+        date: null,
+        live,
+        cancelledJourneys: entur.cancelledJourneys,
+        actualDepartures: entur.actualDepartures,
+        sailedJourneys: vanillaSailed,
+        sailedDate: "2026-10-08",
+        confirmedBooked: new Set(memory.confirmedBooked),
+      });
+      if (live) app.rememberLiveSailed(live, minutes, fakeStorage());
+      const expected = vanillaRows("2026-10-08", true, minutes);
+      assert.deepEqual(modelRows(timeline), expected, label);
+      const status = app.currentStatus(app.legsForDate("2026-10-08"));
+      assert.equal(ledeModel(data, ui, memory, minutes).status, status ? status.short || status.text.replace(/\.$/, "") : null, label);
+      return modelRows(timeline);
+    });
+  try {
+    const at2030 = compare(20 * 60 + 30, fresh, "20:30 med fersk sanntid");
+    assert.ok(at2030.some((row) => row.startsWith("20:20") && row.endsWith(": gone")), at2030.join("\n"));
+    // Turen er lagra med same nøkkel og form som vanilla-appen, og gamle dagar fell bort.
+    assert.deepEqual(JSON.parse(storage.data[SAILED_KEY]), { "2026-10-08": [BACK_2020] });
+    const later = compare(21 * 60, stale, "21:00 utan fersk sanntid");
+    assert.ok(later.some((row) => row.startsWith("20:20") && row.endsWith(": gone")), later.join("\n"));
+    // Ny økt les det lagra.
+    assert.deepEqual([...browserMemory(storage).sailedJourneys("2026-10-08")], [BACK_2020]);
+    // Motprøve utan signalloggen: då er det berre minnet om sanntida som gjer 20:20-turen «Gått».
+    const noLog = withEntur({ ...eveningData(), signalLog: null }, eveningEntur(stale));
+    const [kept, forgot] = atOslo("2026-10-08", 21 * 60, () => [
+      modelRows(settledTimeline(noLog, ui, memory, 21 * 60)),
+      modelRows(settledTimeline(noLog, ui, memoryOnly(), 21 * 60)),
+    ]);
+    assert.ok(kept.some((row) => row.startsWith("20:20") && row.endsWith(": gone")), kept.join("\n"));
+    assert.ok(forgot.some((row) => row.startsWith("20:20") && !row.endsWith(": gone")), forgot.join("\n"));
+  } finally {
+    app.resetTestState();
+  }
+});
+
+test("rememberEntur: bestilt når Entur har faktisk avgang i dag, gløymer avlyste, ikkje svar frå i går", () => {
+  atOslo("2026-10-08", 21 * 60, () => {
+    const ui = initialUi();
+    const memory = memoryOnly();
+    memory.confirmedBooked.add(BACK_2020);
+    const entur = eveningEntur(null);
+    assert.equal(rememberEntur(memory, eveningData(), ui, entur, 21 * 60), true);
+    assert.equal(memory.confirmedBooked.has(BACK_2020), false, "avlyst");
+    assert.equal(memory.confirmedBooked.has(OUT_2000), true, "faktisk avgang");
+    assert.equal(rememberEntur(memory, eveningData(), ui, entur, 21 * 60), false, "ingen endring andre gongen");
+
+    const yesterday = memoryOnly();
+    const old = { ...entur, cancelledJourneys: new Set(), journeysAt: osloMs("2026-10-07", 23 * 60) };
+    assert.equal(rememberEntur(yesterday, eveningData(), ui, old, 21 * 60), false);
+    assert.equal(yesterday.confirmedBooked.size, 0);
+  });
 });

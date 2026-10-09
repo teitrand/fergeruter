@@ -2,10 +2,10 @@
  * Signalturar: frist, logg og om turen vart køyrd.
  * Rein logikk utan DOM, flytta uendra frå assets/app.js.
  */
-import { t } from "../../assets/i18n.js?v=81";
-import { clockMinutes, hhmm } from "./time.js?v=81";
-import { legIndex, quayPlace } from "./legs.js?v=81";
-import { leftOrigin, observationMinutes } from "./live.js?v=81";
+import { t } from "../../assets/i18n.js?v=82";
+import { clockMinutes, hhmm } from "./time.js?v=82";
+import { legIndex, quayPlace } from "./legs.js?v=82";
+import { leftOrigin, observationMinutes } from "./live.js?v=82";
 
 export const SIGNAL_LOG_WATCH_START_UTC = 4 * 60;
 

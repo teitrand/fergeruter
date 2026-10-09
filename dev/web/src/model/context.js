@@ -2,7 +2,7 @@
  * Tilstandsmodellen til React-skalet, utan React og utan DOM.
  *
  * - `data`: det som er lasta (rutetabell, kombirute, meldingar, signallogg) pluss
- *   Entur-bevis som skalet ikkje hentar enno (sanntid, avlysingar, faktiske avgangar).
+ *   Entur-bevis (sanntid, avlysingar, faktiske avgangar, sjå entur.js).
  * - `ui`: det brukaren har valt (samband, dag, språk, vis tidlegare).
  * - `memory`: det appen hugsar gjennom dagen (bestilte og sett køyrde signalturar).
  *
@@ -31,7 +31,8 @@ const EMPTY_MAP = new Map();
 /** @typedef {{ routes: object|null, kombirute: object|null, messages: object|null, signalLog: object|null,
  *   live?: object|null, cancelledJourneys?: Set<string>, actualDepartures?: Map<string,string> }} AppData */
 /** @typedef {{ routeChoice: string, date: string|null, lang: string, showPast: boolean, override?: string|null }} UiState */
-/** @typedef {{ confirmedBooked: Set<string>, sailedJourneys: (today: string) => Set<string> }} Memory */
+/** @typedef {{ confirmedBooked: Set<string>, sailedJourneys: (today: string) => Set<string>,
+ *   rememberSailed: (today: string, id: string) => boolean }} Memory */
 
 /** Tom data før noko er lasta. */
 export function emptyData() {
@@ -48,7 +49,15 @@ export function emptyData() {
 
 /** Minne utan lagring, til testar og før localStorage er lese. */
 export function memoryOnly(sailed = new Set()) {
-  return { confirmedBooked: new Set(), sailedJourneys: () => sailed };
+  return {
+    confirmedBooked: new Set(),
+    sailedJourneys: () => sailed,
+    rememberSailed(_today, id) {
+      if (sailed.has(id)) return false;
+      sailed.add(id);
+      return true;
+    },
+  };
 }
 
 /** @param {UiState} ui */
@@ -160,9 +169,17 @@ export function statusView(ctx) {
   };
 }
 
-/** Hugs eller gløym ein bestilt signaltur, slik tripStatus ber om (`status.remember`). */
-export function rememberBooking(memory, remember) {
-  if (!remember?.id) return;
-  if (remember.booked) memory.confirmedBooked.add(remember.id);
-  else memory.confirmedBooked.delete(remember.id);
+/**
+ * Hugs eller gløym bestilte signalturar, slik tripStatus ber om (`timeline.remember`).
+ * Køyrer i ein effekt etter teikninga. Returnerer true når minnet endra seg.
+ */
+export function rememberBookings(memory, list) {
+  let changed = false;
+  for (const { id, booked } of list || []) {
+    if (!id || memory.confirmedBooked.has(id) === Boolean(booked)) continue;
+    if (booked) memory.confirmedBooked.add(id);
+    else memory.confirmedBooked.delete(id);
+    changed = true;
+  }
+  return changed;
 }
