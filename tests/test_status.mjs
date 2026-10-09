@@ -59,6 +59,7 @@ import { appVersion } from "./helpers/version.mjs";
 // Arbeidsflyta listar testfilene ein og ein. Desse køyrer difor herifrå.
 import "./test_tripstatus.mjs";
 import "./test_replay_tripstatus.mjs";
+import "./test_web.mjs";
 
 const { setLang, t } = await import(`../assets/i18n.js?v=${appVersion()}`);
 

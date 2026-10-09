@@ -1,0 +1,178 @@
+import { telHref } from "../../../packages/core/index.js";
+import { t } from "./i18n.js";
+
+function PhoneIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="stop-phone-icon" aria-hidden="true" focusable="false">
+      <path
+        fill="currentColor"
+        d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"
+      />
+    </svg>
+  );
+}
+
+/** «På signal» (med ringelenkje når vi har nummer) eller «Bestilt signaltur». */
+function SignalTag({ row }) {
+  if (row.tag === "booked") return <span className="stop-tag stop-tag-booked">{t("signal.booked")}</span>;
+  const href = !row.cancelled ? telHref(row.phone) : "";
+  if (!href) return <span className="stop-tag">{t("signal.onRequest")}</span>;
+  const label = t("signal.callAria", { phone: row.phone });
+  return (
+    <a className="stop-tag stop-tag-call" href={href} aria-label={label} title={label}>
+      {t("signal.onRequest")}
+      <PhoneIcon />
+    </a>
+  );
+}
+
+function SignalNote({ note }) {
+  const label = t("signal.callBy", { time: note.time });
+  const href = telHref(note.phone);
+  return (
+    <span className="stop-note">
+      {href ? (
+        <a className="stop-phone" href={href}>
+          {`${label} · ${note.phone}`}
+        </a>
+      ) : (
+        label
+      )}
+      {note.left ? <span className="stop-left">{t("signal.leftToBook", { duration: note.left })}</span> : null}
+      {note.expired ? <span className="stop-expired">{t("signal.expired")}</span> : null}
+    </span>
+  );
+}
+
+const STATE_TEXT = {
+  cancelled: () => t("sailing.cancelled"),
+  notRunning: () => t("signal.notRunning"),
+  unknown: () => t("signal.unknown"),
+  gone: () => t("gone"),
+};
+
+/** Éi avgang. Status (inkl. «Ukjent») kjem ferdig frå tripStatus via modellen. */
+export function DepartureRow({ row }) {
+  const className = [
+    "stop stop-dep",
+    row.past && "is-past",
+    row.cancelled && "is-cancelled",
+    row.skipped && "is-signal-off",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  const text = row.state === "countdown" ? row.countdown : STATE_TEXT[row.state]?.() ?? "";
+  const signal = row.skipped ? "skipped" : row.state === "unknown" ? "unknown" : undefined;
+  return (
+    <div className={className} data-state={row.state || undefined}>
+      <span className="stop-time">{row.time}</span>
+      <span className="stop-body">
+        <span className="stop-head">
+          <span className="stop-name">{t("sailing.route", { from: row.from, to: row.to })}</span>
+          {row.cancelled ? <span className="stop-tag stop-tag-stop">{t("sailing.cancelled")}</span> : null}
+          {row.tag ? <SignalTag row={row} /> : null}
+        </span>
+        {row.arrival ? <span className="stop-note stop-eta">{t("sailing.arrival", { time: row.arrival })}</span> : null}
+        {!row.cancelled && row.signalNote ? <SignalNote note={row.signalNote} /> : null}
+        {row.stillAtQuay ? <span className="stop-note">{t("signal.stillAtQuay")}</span> : null}
+      </span>
+      <span className="stop-state" data-signal={signal}>
+        {text}
+      </span>
+    </div>
+  );
+}
+
+function LayoverRow({ row }) {
+  return (
+    <div className={row.past ? "stop stop-layover is-past" : "stop stop-layover"}>
+      <span className="stop-time">{row.time}</span>
+      <span className="stop-body">
+        <span className="stop-name">{t("layover.atQuay", { quay: row.quay })}</span>
+        <span className="stop-note">{t("layover.until", { duration: row.duration, time: row.until })}</span>
+      </span>
+      <span className="stop-state" />
+    </div>
+  );
+}
+
+function SplitRow({ row }) {
+  return (
+    <div className={row.past ? "stop-split is-past" : "stop-split"} role="separator">
+      <span className="split-kicker">{t("split.kicker")}</span>
+      <span className="split-title">
+        {t("split.continues", {
+          table: t(`split.table.${row.table}`),
+          time: row.time,
+          quay: row.quay ? t("split.atQuay", { quay: row.quay }) : "",
+        })}
+      </span>
+      <span className="split-before">{t("split.before", { before: t(`split.table.${row.before}`) })}</span>
+      {row.notice ? <span className="split-before">{t("mode.acuteNote", { from: row.notice, to: row.time })}</span> : null}
+    </div>
+  );
+}
+
+function TransferRow({ row }) {
+  return (
+    <div className={row.past ? "stop stop-transfer is-past" : "stop stop-transfer"}>
+      <span className="stop-time" />
+      <span className="stop-body">
+        <span className="stop-name">{t("transfer.moves", { to: row.to })}</span>
+        <span className="stop-note">
+          {row.crossesArea ? t("transfer.noPassengers", { from: row.from, to: row.to }) : t("transfer.empty")}
+        </span>
+      </span>
+      <span className="stop-state" />
+    </div>
+  );
+}
+
+function NowRow({ row }) {
+  const kind = row.layover ? "is-layover" : row.underway ? "is-underway" : "is-moored";
+  const hasProgress = row.progress != null;
+  return (
+    <div
+      className={`now ${kind}${hasProgress ? " has-progress" : ""}`}
+      style={hasProgress ? { "--now-progress": `${Math.round(row.progress * 100)}%` } : undefined}
+    >
+      {hasProgress ? (
+        <span className="now-track" aria-hidden="true">
+          <span className="now-fill" />
+        </span>
+      ) : null}
+      <span className="now-label">{t("now")}</span>
+      <span className="now-text">{row.text}</span>
+    </div>
+  );
+}
+
+const ROWS = { dep: DepartureRow, layover: LayoverRow, split: SplitRow, transfer: TransferRow, now: NowRow };
+
+/** Tidslinja for den valde dagen. `timeline` kjem frå model/timeline.js. */
+export function Timeline({ timeline, showPast, onTogglePast }) {
+  if (timeline.empty) {
+    return (
+      <div className="timeline">
+        <p className="empty">{t(timeline.empty)}</p>
+      </div>
+    );
+  }
+  return (
+    <>
+      <div>
+        {timeline.pastCount ? (
+          <button type="button" className="reveal" onClick={onTogglePast}>
+            {showPast ? t("reveal.hide") : t("reveal.show", { n: timeline.pastCount })}
+          </button>
+        ) : null}
+      </div>
+      <div className="timeline">
+        {timeline.rows.map((row) => {
+          const Row = ROWS[row.kind];
+          return <Row key={row.key} row={row} />;
+        })}
+      </div>
+    </>
+  );
+}
