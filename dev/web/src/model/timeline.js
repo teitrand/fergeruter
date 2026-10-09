@@ -1,50 +1,51 @@
 /**
  * Tidslinja for éin dag som rein data: kva rader som skal visast og kva dei seier.
- * Same reglar som buildEvents/renderLive i assets/app.js, men utan frå/til-filter,
- * korrespondanse og sanntid (kjem i PR 5). Komponentane gjer berre om til JSX og
- * omset nøklane med i18n.
+ * Hendingane, frå/til-filteret, «tidlegare» og korrespondansen kjem frå
+ * packages/core/timeline.js, same som i vanilla-appen. Her blir dei til rader med
+ * status (tripStatus) og ferdige tekstar; komponentane gjer berre om til JSX.
  */
 import {
+  NO_FILTERS,
   bookingDeadline,
-  clockMinutes,
   compareTimelineEvents,
+  connectionIndex,
+  connectionNote,
   countdown,
   crossesArea,
   currentStatus,
   departureStateKey,
   durationText,
+  emptyPlaceMessage,
+  eventIsPast,
   hasPassed,
   hhmm,
-  homeQuay,
-  isCombinedTimetable,
-  isEmptyReposition,
-  isParallelFerrySplit,
-  isPlannedFerrySwitch,
-  isVisibleDeparture,
-  layoverAfter,
+  journeyNote,
+  keepEvent,
   legsForDate,
+  legsForPlaceFilter,
+  matchesStop,
   minutesLeft,
   minutesToClock,
   nowMinutes,
-  operationalMode,
-  activePlan,
-  shiftIso,
+  pastDepartureCount,
   signalObservedAtQuay,
+  signalPhone,
   statusProgress,
-  tableName,
+  timelineEvents,
   tripStatus,
 } from "../../../packages/core/index.js";
 import { planContext, statusEvidence, statusView } from "./context.js";
-import { signalPhone } from "./vessel.js";
 
 /**
  * @typedef {object} DepartureRow
  * @property {"dep"} kind
  * @property {string} key
  * @property {boolean} past
+ * @property {boolean} onward     vidare etter overgang (frå/til)
  * @property {string} time       hh:mm
  * @property {string} from
  * @property {string} to
+ * @property {object} leg         turen, til detaljvindauget
  * @property {string|null} arrival  hh:mm, eller null
  * @property {boolean} cancelled
  * @property {boolean} skipped    signaltur «ikkje utført»
@@ -52,22 +53,14 @@ import { signalPhone } from "./vessel.js";
  * @property {string} phone
  * @property {{ time: string, phone: string, left: string|null, expired: boolean }|null} signalNote
  * @property {boolean} stillAtQuay
+ * @property {string|null} via    overgang med frå/til (t.d. «Byt til 1135 på Sæbø»)
+ * @property {string[]} notes     korrespondanse, ferdig omsett
  * @property {"cancelled"|"notRunning"|"unknown"|"gone"|"countdown"|""} state
  * @property {string} countdown  ferdig omsett nedteljing når state er «countdown»
- * @property {object} status     heile tripStatus-svaret, til detaljvindauget seinare
  */
 
-/** Når ein hendingsrad er ferdig, for å avgjere om ho er «tidlegare». */
-function doneAt(event, today) {
-  if ((event.kind === "layover" || event.kind === "wait") && event.until != null) return event.until;
-  if (event.kind !== "dep" || !event.leg) return event.at;
+function departureRow(event, status, ctx, ev, now, { today, showArrivals, index }) {
   const leg = event.leg;
-  if (leg.signal && today && event.status.verdict === "skipped") return clockMinutes(leg.departure);
-  if (leg.arrival) return clockMinutes(leg.arrival);
-  return event.at;
-}
-
-function departureRow(leg, status, ctx, ev, now, { today, showArrivals }) {
   const departed = today && hasPassed(leg.departure);
   const skipped = status.verdict === "skipped";
   const phone = leg.signal ? signalPhone(leg, ctx) : "";
@@ -85,12 +78,23 @@ function departureRow(leg, status, ctx, ev, now, { today, showArrivals }) {
       };
     }
   }
+  const notes = [];
+  const via = status.cancelled ? null : journeyNote(leg, event.journey) || null;
+  if (!status.cancelled) {
+    const phoneFor = (trip) => signalPhone(trip, ctx);
+    for (const kind of ["dep", "arr"]) {
+      const note = connectionNote(index, kind, leg, ctx, phoneFor);
+      if (note) notes.push(note);
+    }
+  }
   return {
     kind: "dep",
-    key: `dep|${leg.from}|${leg.departure}`,
+    key: `dep|${leg.from}|${leg.departure}|${leg.table || ""}`,
+    onward: event.onward,
     time: hhmm(leg.departure),
     from: leg.from,
     to: leg.to,
+    leg,
     arrival: showArrivals && leg.arrival ? hhmm(leg.arrival) : null,
     cancelled: status.cancelled,
     skipped,
@@ -98,10 +102,13 @@ function departureRow(leg, status, ctx, ev, now, { today, showArrivals }) {
     phone,
     signalNote,
     stillAtQuay: !status.cancelled && signalObservedAtQuay(leg, ev.live, now, null, ev),
+    via,
+    notes,
     departed,
-    status,
   };
 }
+
+const NONE = { empty: null, rows: [], pastCount: 0, remember: [], emptyPlace: null };
 
 /**
  * @param {import("./context.js").AppData} data
@@ -109,107 +116,83 @@ function departureRow(leg, status, ctx, ev, now, { today, showArrivals }) {
  * @param {import("./context.js").Memory} memory
  * Les minnet, men endrar det ikkje: det tripStatus ber appen hugse, kjem i `remember`,
  * og App legg det inn i ein effekt etter teikninga (rememberBookings i context.js).
- * @returns {{ empty: string|null, rows: object[], pastCount: number, remember: object[] }}
+ * `emptyPlace` er teksten når frå/til ikkje gjev nokon avgang.
+ * @returns {{ empty: string|null, rows: object[], pastCount: number, remember: object[], emptyPlace: string|null }}
  */
-export function buildTimeline(data, ui, memory, { now = nowMinutes(), showArrivals = true } = {}) {
-  if (!data.routes && !data.kombirute) return { empty: "empty.noTimetable", rows: [], pastCount: 0, remember: [] };
+export function buildTimeline(data, ui, memory, { now = nowMinutes(), showArrivals = !ui.hideArrivals } = {}) {
+  if (!data.routes && !data.kombirute) return { ...NONE, empty: "empty.noTimetable" };
   const ctx = planContext(data, ui);
   const today = ctx.date === ctx.today;
-  const legs = legsForDate(ctx.date, ctx);
-  if (!legs.length) return { empty: "empty.noTripsDay", rows: [], pastCount: 0, remember: [] };
+  const dayLegs = legsForDate(ctx.date, ctx);
+  if (!dayLegs.length) return { ...NONE, empty: "empty.noTripsDay" };
+  const filters = ui.filters || NO_FILTERS;
   const ev = statusEvidence(data, ui, memory, ctx);
-  const combined = isCombinedTimetable(ctx);
-  const plan = activePlan(ctx.date, ctx);
-  const events = [];
-  const seenDep = new Set();
+  const legs = legsForPlaceFilter(filters, ctx.date, ctx, dayLegs);
+  const events = timelineEvents(legs, ctx, filters).filter((event) => matchesStop(event, filters));
+
+  const statuses = new Map();
   const remember = [];
-
-  legs.forEach((leg, index) => {
-    const depKey = `${leg.from}|${leg.departure}`;
-    if (isVisibleDeparture(leg) && !seenDep.has(depKey)) {
-      seenDep.add(depKey);
-      const status = tripStatus(leg, ev, now);
-      if (status.remember?.id) remember.push(status.remember);
-      events.push({ at: clockMinutes(leg.departure), kind: "dep", leg, status });
-    }
-    const next = legs[index + 1];
-    const stay = layoverAfter(leg, next);
-    if (stay) {
-      events.push({ at: clockMinutes(stay.from), until: clockMinutes(stay.until), kind: "layover", stay });
-    }
-    if (next && leg.table && next.table && leg.table !== next.table) {
-      const routeSwitch = plan.switch;
-      if (!(isParallelFerrySplit(leg.table, next.table) && !isPlannedFerrySwitch(routeSwitch))) {
-        const notice =
-          routeSwitch && clockMinutes(routeSwitch.time) === clockMinutes(next.departure)
-            ? routeSwitch.notice
-            : null;
-        events.push({
-          at: clockMinutes(next.departure),
-          kind: "split",
-          split: { time: hhmm(next.departure), quay: next.from, table: next.table, before: leg.table, notice: notice ? hhmm(notice) : null },
-        });
-      }
-    }
-    if (!combined && next && isEmptyReposition(leg.to, next.from) && (!leg.table || !next.table || leg.table === next.table)) {
-      events.push({ at: clockMinutes(leg.arrival), kind: "transfer", from: leg.to, to: next.from });
-    }
-  });
-  const last = legs[legs.length - 1];
-  const home = homeQuay(legs);
-  if (!combined && last && isEmptyReposition(last.to, home)) {
-    events.push({ at: clockMinutes(last.arrival), kind: "transfer", from: last.to, to: home });
+  for (const event of events) {
+    if (event.kind !== "dep") continue;
+    const status = tripStatus(event.leg, ev, now);
+    if (status.remember?.id) remember.push(status.remember);
+    statuses.set(event.leg, status);
   }
-  const start = dayStartSplit(legs, plan, ctx);
-  if (start) events.push(start);
-
-  const status = today ? currentStatus(legs, now, ev, statusView(ctx)) : null;
+  const status = today ? currentStatus(dayLegs, now, ev, statusView(ctx)) : null;
   if (status) events.push({ at: status.at, kind: "status", now: status });
   events.sort(compareTimelineEvents);
 
-  const isPast = (event) => {
-    if (!today || event.kind === "status") return false;
-    if (event.kind === "split") return !events.some((item) => item.kind !== "split" && item.kind !== "status" && item.at > now);
-    return doneAt(event, today) <= now;
-  };
-  const keep = (event) => {
-    if (event.kind === "status") return true;
-    if (today && status?.layover && event.kind === "layover" && event.at <= now && event.until > now) return false;
-    if (!today || ui.showPast) return true;
-    return !isPast(event);
-  };
-  const pastCount = today ? events.filter((event) => event.kind === "dep" && isPast(event)).length : 0;
-
+  const opts = { today, filters, skipped: (leg) => statuses.get(leg)?.verdict === "skipped" };
+  const index = connectionIndex(ui.connection || null, data.connections, ctx.date, ctx);
   const rows = [];
   for (const event of events) {
-    if (!keep(event)) continue;
-    const past = isPast(event);
-    rows.push(toRow(event, past, { ctx, ev, now, today, showArrivals }));
+    if (!keepEvent(event, events, now, { ...opts, showPast: ui.showPast, status })) continue;
+    const past = eventIsPast(event, events, now, opts);
+    rows.push(toRow(event, past, statuses.get(event.leg), { ctx, ev, now, today, showArrivals, index, filters }));
   }
-  return { empty: null, rows, pastCount, remember };
+  const anyDep = events.some((event) => event.kind === "dep");
+  return {
+    empty: null,
+    rows,
+    pastCount: pastDepartureCount(events, now, opts),
+    remember,
+    emptyPlace: !anyDep && (filters.from || filters.to) ? emptyPlaceMessage(filters) : null,
+  };
 }
 
-function toRow(event, past, { ctx, ev, now, today, showArrivals }) {
+function toRow(event, past, status, { ctx, ev, now, today, showArrivals, index, filters }) {
   switch (event.kind) {
     case "dep": {
-      const row = departureRow(event.leg, event.status, ctx, ev, now, { today, showArrivals });
+      const row = departureRow(event, status, ctx, ev, now, { today, showArrivals, index });
       row.past = past;
-      row.state = departureStateKey(event.status, { past, departed: row.departed, today });
+      row.state = departureStateKey(status, { past, departed: row.departed, today });
       row.countdown = row.state === "countdown" ? countdown(event.leg.departure) : "";
       return row;
     }
     case "layover":
+    case "wait":
       return {
-        kind: "layover",
-        key: `layover|${event.stay.quay}|${event.stay.from}`,
+        kind: event.kind,
+        key: `${event.kind}|${event.stay.quay}|${event.stay.from}`,
         past,
         time: hhmm(event.stay.from),
         quay: event.stay.quay,
         duration: durationText(event.stay.minutes),
         until: hhmm(event.stay.until),
+        // Med frå-filter står det berre «Liggetid», kaien er alt vald.
+        named: !filters.from,
       };
     case "split":
-      return { kind: "split", key: `split|${event.at}`, past, ...event.split };
+      return {
+        kind: "split",
+        key: `split|${event.at}|${event.split.table}`,
+        past,
+        time: hhmm(event.split.time),
+        quay: event.split.quay,
+        table: event.split.table,
+        before: event.split.before,
+        notice: event.split.notice ? hhmm(event.split.notice) : null,
+      };
     case "transfer":
       return {
         kind: "transfer",
@@ -232,20 +215,4 @@ function toRow(event, past, { ctx, ev, now, today, showArrivals }) {
     default:
       throw new Error(`ukjend hending ${event.kind}`);
   }
-}
-
-/** Raud merkelapp når kombiruta tek til eller sluttar heile dagen. */
-function dayStartSplit(legs, plan, ctx) {
-  if (!legs.length || plan.switch) return null;
-  const mode = tableName(plan.mode);
-  const prev = tableName(operationalMode(shiftIso(ctx.date, -1), ctx));
-  if (mode === prev) return null;
-  if (mode !== "kombi" && prev !== "kombi") return null;
-  const first = legs.find((leg) => isVisibleDeparture(leg)) || legs[0];
-  if (!first?.departure) return null;
-  return {
-    at: clockMinutes(first.departure),
-    kind: "split",
-    split: { time: hhmm(first.departure), quay: first.from, table: mode, before: prev, notice: null },
-  };
 }

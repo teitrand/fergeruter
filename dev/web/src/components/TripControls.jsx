@@ -1,0 +1,82 @@
+import { t } from "./i18n.js";
+
+function SwapIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M7 8h11M15 5l3 3-3 3M17 16H6M9 13l-3 3 3 3"
+      />
+    </svg>
+  );
+}
+
+function PlaceField({ id, label, quays, value, onChange }) {
+  return (
+    <label className="place-field">
+      <span className="place-label">{label}</span>
+      <select id={id} className={value ? "place-select has-value" : "place-select"} value={value || ""} onChange={(e) => onChange(e.target.value || null)}>
+        <option value="">{t("stops.all")}</option>
+        {quays.map((quay) => (
+          <option key={quay} value={quay}>
+            {quay}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+/** Frå/til med byteknapp. `place` kjem frå placeFilterModel. */
+export function PlaceFilter({ place, dispatch }) {
+  return (
+    <div id="trip-filter" className="trip-filter" role="group" aria-label={t("stop.filterAria")}>
+      {place.quays.length ? (
+        <>
+          <PlaceField id="from-stop" label={t("place.from")} quays={place.from} value={place.filters.from} onChange={(value) => dispatch({ type: "from", value })} />
+          <button type="button" className="swap-dir" aria-label={t("place.swap")} title={t("place.swap")} disabled={!place.canSwap} onClick={() => dispatch({ type: "swap" })}>
+            <SwapIcon />
+          </button>
+          <PlaceField id="to-stop" label={t("place.to")} quays={place.to} value={place.filters.to} onChange={(value) => dispatch({ type: "to", value })} />
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+/** Ankomsttider av/på og korrespondanse. `connection` kjem frå connectionModel. */
+export function ExtrasRow({ showArrivals, onToggleArrivals, connection, onConnection }) {
+  return (
+    <div className="extras-row" role="group" aria-label={t("extras.filterAria")}>
+      <div id="view-filter" className="filters" role="group" aria-label={t("view.label")}>
+        <button type="button" className={showArrivals ? "chip chip-small is-active" : "chip chip-small"} aria-pressed={showArrivals} onClick={onToggleArrivals}>
+          {t("view.arrivals")}
+        </button>
+      </div>
+      <div id="conn-filter" className="conn-filter" role="group" aria-label={t("conn.label")}>
+        {connection.lines.length ? (
+          <label className="conn-field">
+            <span className="conn-label">{t("conn.label")}</span>
+            <select
+              className={connection.value ? "conn-select has-value" : "conn-select"}
+              aria-label={t("conn.label")}
+              value={connection.value || ""}
+              onChange={(e) => onConnection(e.target.value || null)}
+            >
+              <option value="">{t("conn.none")}</option>
+              {connection.lines.map((line) => (
+                <option key={line.id} value={line.id}>
+                  {line.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
+      </div>
+    </div>
+  );
+}
