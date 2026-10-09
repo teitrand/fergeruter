@@ -1,3 +1,4 @@
+import { InstallButton } from "./InstallDialog.jsx";
 import { LangSwitch } from "./LangSwitch.jsx";
 import { t } from "./i18n.js";
 
@@ -62,11 +63,12 @@ export function Lede({ lede }) {
   );
 }
 
-export function Header({ chrome, lede, ui, onRoute, onLang }) {
+export function Header({ chrome, lede, ui, onRoute, onLang, install = null }) {
   return (
     <header className={chrome ? "site-header" : "site-header is-pending-route"}>
       <div className="header-tools">
         <LangSwitch lang={ui.lang} onChange={onLang} />
+        <InstallButton visible={Boolean(install?.visible)} onClick={() => install?.install()} />
       </div>
       <BrandMark />
       <p className="eyebrow">{t(chrome?.eyebrowKey || "eyebrow")}</p>

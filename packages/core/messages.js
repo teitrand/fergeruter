@@ -2,7 +2,7 @@
  * Trafikkmeldingar: tolking av Fjord1-tekst, vindauge, rutemodus og omlegging.
  * Rein logikk utan DOM, flytta uendra frå assets/app.js.
  */
-import { t } from "../../assets/i18n.js?v=83";
+import { t } from "../../assets/i18n.js?v=84";
 import {
   NUMDATE_TOKEN,
   WEEKDAY_TOKEN,
@@ -13,9 +13,9 @@ import {
   osloIsoFromMs,
   parseClockToken,
   parseNumDate,
-} from "./time.js?v=83";
-import { quayPlace } from "./legs.js?v=83";
-import { vesselFromText } from "./live.js?v=83";
+} from "./time.js?v=84";
+import { quayPlace } from "./legs.js?v=84";
+import { vesselFromText } from "./live.js?v=84";
 
 export const FJORD1_MESSAGES_PAGE = "https://www.fjord1.no/trafikkmeldingar";
 
@@ -681,9 +681,13 @@ export function withHeldMessages(payload, previous, now = Date.now()) {
 /**
  * Neste meldingstilstand når eit svar kjem: same objekt om ingenting er endra (så
  * ingenting blir teikna på nytt), elles svaret med meldingar vi held på frå før.
+ * Er meldingane like, men hentetida ny, får det gamle objektet ny `fetchedAt` og
+ * `fetchedLive`, så «Sist henta» i panelet ikkje blir ståande gammal.
  */
 export function nextMessages(previous, incoming, now = Date.now()) {
   if (!incoming) return previous;
   const payload = withHeldMessages(incoming, previous?.messages, now);
-  return previous && messagesFingerprint(previous) === messagesFingerprint(payload) ? previous : payload;
+  if (!previous || messagesFingerprint(previous) !== messagesFingerprint(payload)) return payload;
+  if (previous.fetchedAt === payload.fetchedAt && previous.fetchedLive === payload.fetchedLive) return previous;
+  return { ...previous, fetchedAt: payload.fetchedAt, fetchedLive: payload.fetchedLive };
 }

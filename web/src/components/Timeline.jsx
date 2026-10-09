@@ -1,4 +1,5 @@
 import { telHref } from "../../../packages/core/index.js";
+import { CallLink } from "./CallLink.jsx";
 import { t } from "./i18n.js";
 
 function PhoneIcon() {
@@ -19,10 +20,10 @@ function SignalTag({ row }) {
   if (!href) return <span className="stop-tag">{t("signal.onRequest")}</span>;
   const label = t("signal.callAria", { phone: row.phone });
   return (
-    <a className="stop-tag stop-tag-call" href={href} aria-label={label} title={label}>
+    <CallLink className="stop-tag stop-tag-call" phone={row.phone} how="tag" aria-label={label} title={label}>
       {t("signal.onRequest")}
       <PhoneIcon />
-    </a>
+    </CallLink>
   );
 }
 
@@ -32,9 +33,9 @@ function SignalNote({ note }) {
   return (
     <span className="stop-note">
       {href ? (
-        <a className="stop-phone" href={href}>
+        <CallLink className="stop-phone" phone={note.phone} how="note">
           {`${label} · ${note.phone}`}
-        </a>
+        </CallLink>
       ) : (
         label
       )}
@@ -43,13 +44,6 @@ function SignalNote({ note }) {
     </span>
   );
 }
-
-const STATE_TEXT = {
-  cancelled: () => t("sailing.cancelled"),
-  notRunning: () => t("signal.notRunning"),
-  unknown: () => t("signal.unknown"),
-  gone: () => t("gone"),
-};
 
 /** Éi avgang. Status (inkl. «Ukjent») kjem ferdig frå tripStatus via modellen. Klikk opnar detaljane. */
 export function DepartureRow({ row, onDetail }) {
@@ -62,7 +56,6 @@ export function DepartureRow({ row, onDetail }) {
   ]
     .filter(Boolean)
     .join(" ");
-  const text = row.state === "countdown" ? row.countdown : STATE_TEXT[row.state]?.() ?? "";
   const signal = row.skipped ? "skipped" : row.state === "unknown" ? "unknown" : undefined;
   return (
     <div
@@ -98,7 +91,7 @@ export function DepartureRow({ row, onDetail }) {
         ))}
       </span>
       <span className="stop-state" data-signal={signal}>
-        {text}
+        {row.stateText}
       </span>
     </div>
   );

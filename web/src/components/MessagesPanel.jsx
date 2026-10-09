@@ -1,4 +1,4 @@
-import { messageMergeKey, messageTimeLines } from "../../../packages/core/index.js";
+import { FJORD1_SMS_URL, messageMergeKey, messageTimeLines } from "../../../packages/core/index.js";
 import { t } from "./i18n.js";
 
 function MessageCard({ msg }) {
@@ -94,7 +94,7 @@ export function MessagesPanel({ panel, route, expanded, onToggle, onFilter }) {
             fjord1.no/trafikkmeldingar
           </a>{" "}
           ·{" "}
-          <a href="https://www.fjord1.no/kundeservice/foer-du-reiser/SMS-om-trafikken" target="_blank" rel="noreferrer">
+          <a href={FJORD1_SMS_URL} target="_blank" rel="noreferrer">
             {t("messages.sms")}
           </a>
         </p>

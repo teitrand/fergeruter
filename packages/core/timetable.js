@@ -2,9 +2,9 @@
  * Rutetabell: dagar, legg, korrespondanse og samanhengande turar.
  * Rein logikk utan DOM, flytta uendra frå assets/app.js.
  */
-import { t } from "../../assets/i18n.js?v=83";
-import { clockMinutes, hhmm } from "./time.js?v=83";
-import { LAYOVER_MIN_MINUTES, isUncertainDeparture, quayPlace } from "./legs.js?v=83";
+import { t } from "../../assets/i18n.js?v=84";
+import { clockMinutes, hhmm } from "./time.js?v=84";
+import { LAYOVER_MIN_MINUTES, isUncertainDeparture, quayPlace } from "./legs.js?v=84";
 
 export function cutBeforeSwitch(legs, routeSwitch, notice = null) {
   const at = clockMinutes(routeSwitch.time);

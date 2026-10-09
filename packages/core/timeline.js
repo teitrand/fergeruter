@@ -5,9 +5,9 @@
  *
  * `filters` er `{ from, to }` (kai eller null). `ctx` er plankonteksten frå plan.js.
  */
-import { t } from "../../assets/i18n.js?v=83";
-import { clockMinutes, hhmm, shiftIso } from "./time.js?v=83";
-import { quayPlace } from "./legs.js?v=83";
+import { t } from "../../assets/i18n.js?v=84";
+import { clockMinutes, hhmm, shiftIso } from "./time.js?v=84";
+import { quayPlace } from "./legs.js?v=84";
 import {
   activeMode,
   activePlan,
@@ -15,8 +15,8 @@ import {
   legsForDate,
   legsForMode,
   operationalMode,
-} from "./plan.js?v=83";
-import { homeQuay, isEmptyReposition, isVisibleDeparture, layoverAfter } from "./status.js?v=83";
+} from "./plan.js?v=84";
+import { homeQuay, isEmptyReposition, isVisibleDeparture, layoverAfter } from "./status.js?v=84";
 import {
   SAEBØ,
   TRANSFER_DESTINATIONS,
@@ -39,7 +39,7 @@ import {
   tableName,
   transferDestFromId,
   transferLineId,
-} from "./timetable.js?v=83";
+} from "./timetable.js?v=84";
 
 export const NO_FILTERS = Object.freeze({ from: null, to: null });
 

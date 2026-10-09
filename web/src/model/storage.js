@@ -49,3 +49,16 @@ export function browserMemory(storage) {
     },
   };
 }
+
+/** Trafikkmeldingane i localStorage (same nøkkel som vanilla), så omleggingar overlever omlasting. */
+export function messageCache(storage) {
+  return {
+    read: () => core.readCachedMessages(store(storage)),
+    write: (payload) => core.writeCachedMessages(payload, store(storage)),
+  };
+}
+
+/** Fyrste opning som installert app (same nøkkel som vanilla). */
+export function markPwaFirstOpen(mode, storage) {
+  return core.markPwaFirstOpen(store(storage), mode);
+}
