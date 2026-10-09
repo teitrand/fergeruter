@@ -2,8 +2,8 @@
  * Sanntid frå Entur (SIRI VM og avlysingar), fartøy og posisjon.
  * Rein logikk utan DOM, flytta uendra frå assets/app.js.
  */
-import { clockMinutes, hhmm, nowMinutes, osloHm, osloParts, todayIso } from "./time.js";
-import { quayPlace } from "./timetable.js";
+import { clockMinutes, hhmm, nowMinutes, osloHm, osloParts, todayIso } from "./time.js?v=81";
+import { quayPlace, serviceJourneyId, unwrapSiri } from "./legs.js?v=81";
 
 /** Stoppestader der vi spør Entur om avlyste avgangar. */
 export const STOP_PLACES = {
@@ -15,9 +15,12 @@ export const STOP_PLACES = {
   Valderøya: "NSR:StopPlace:61752",
   "Store Kalvøy": "NSR:StopPlace:58525",
 };
+
 export const LIVE_MAX_AGE_MS = 3 * 60 * 1000;
+
 /** Signalturar kan gå nokre minutt før rutetida (sett 5 min i signalloggen). */
 export const SAILED_EARLY_MIN = 10;
+
 export const VESSEL_UTFORT_RE = /utført av\s+(?:m\/?f\.?\s*)?(geiranger|kvernes)/i;
 
 export function titleVessel(name) {
@@ -89,14 +92,6 @@ export function liveProvesSailed(live, leg, now = nowMinutes()) {
   return leftOrigin(live, leg) === true && now >= clockMinutes(leg.departure) - SAILED_EARLY_MIN;
 }
 
-export function unwrapSiri(value) {
-  if (value == null) return "";
-  if (typeof value === "string" || typeof value === "number") return String(value);
-  if (Array.isArray(value)) return unwrapSiri(value[0]);
-  if (typeof value === "object") return unwrapSiri(value.value ?? value["#text"]);
-  return "";
-}
-
 export function delayMinutes(value) {
   if (value == null || value === "") return null;
   if (typeof value === "number") return Math.floor(value / 60);
@@ -114,6 +109,7 @@ export function delayMinutes(value) {
 
 /** Stoppestader frå Entur. Nærare enn dette reknar vi ferja som liggjande til kai. */
 export const QUAY_RADIUS_M = 250;
+
 export const QUAY_COORDS = {
   Standal: { latitude: 62.266216, longitude: 6.423177 },
   Trandal: { latitude: 62.260997, longitude: 6.500688 },
@@ -123,12 +119,6 @@ export const QUAY_COORDS = {
   Valderøya: { latitude: 62.495872, longitude: 6.128569 },
   "Store Kalvøy": { latitude: 62.526923, longitude: 6.20374 },
 };
-
-export function serviceJourneyId(value) {
-  const text = unwrapSiri(value);
-  const match = String(text || "").match(/MOR:ServiceJourney:[^#\s]+/);
-  return match ? match[0] : "";
-}
 
 export function cancellationQuery(stops) {
   const fields = stops
@@ -209,14 +199,6 @@ export function distanceToQuay(live, quay) {
   if (!place || !Number.isFinite(lat) || !Number.isFinite(lon)) return null;
   if (lat === 0 && lon === 0) return null;
   return distanceMeters(lat, lon, place.latitude, place.longitude);
-}
-
-export function sameLeg(a, b) {
-  if (!a || !b) return false;
-  const aId = serviceJourneyId(a.id);
-  const bId = serviceJourneyId(b.id);
-  if (aId && bId) return aId === bId;
-  return a.departure === b.departure && a.from === b.from && a.to === b.to;
 }
 
 export function legForLive(legs, live) {

@@ -2,7 +2,7 @@
  * Tid og dato i Europe/Oslo, klokkeslett, høgtidsdagar og datoformat.
  * Rein logikk utan DOM, flytta uendra frå assets/app.js.
  */
-import { months, monthsShort, t, weekdays } from "../../assets/i18n.js?v=80";
+import { months, monthsShort, t, weekdays } from "../../assets/i18n.js?v=81";
 
 // Å lage ein Intl.DateTimeFormat er dyrt, og isToday() blir kalla mange gonger per teikning.
 let osloFormat = null;
@@ -141,8 +141,10 @@ export function parseClockToken(raw) {
   if (hour > 23 || minute > 59) return null;
   return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}:00`;
 }
+
 export const WEEKDAY_TOKEN =
   "(?:mandag|måndag|tysdag|tirsdag|onsdag|torsdag|fredag|laurdag|lørdag|søndag)\\s+";
+
 export const NUMDATE_TOKEN = "(\\d{1,2})\\.(\\d{1,2})(?:\\.(\\d{2,4}))?";
 
 export function osloIsoFromMs(ms = Date.now()) {

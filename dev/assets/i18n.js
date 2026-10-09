@@ -180,6 +180,7 @@ const STRINGS = {
     "signal.leftToBook": "{duration} igjen å tinge",
     "signal.expired": "fristen er ute",
     "signal.notRunning": "Ikkje utført",
+    "signal.unknown": "Ukjent",
     "signal.notRunningShort": "Signalturen frå {from} er ikkje utført",
     "signal.notRunningText":
       "Signalturen {from} → {to} kl. {time} er ikkje utført, og ferja ligg framleis til kai på {quay}",
@@ -403,6 +404,7 @@ const STRINGS = {
     "signal.leftToBook": "{duration} left to book",
     "signal.expired": "booking closed",
     "signal.notRunning": "Not performed",
+    "signal.unknown": "Unknown",
     "signal.notRunningShort": "The request sailing from {from} was not performed",
     "signal.notRunningText":
       "The {time} request sailing from {from} to {to} was not performed, and the ferry is still at {quay}",
@@ -629,6 +631,7 @@ const STRINGS = {
     "signal.leftToBook": "noch {duration} zum Anmelden",
     "signal.expired": "Frist abgelaufen",
     "signal.notRunning": "Nicht ausgeführt",
+    "signal.unknown": "Unbekannt",
     "signal.notRunningShort": "Die Bedarfsfahrt ab {from} wurde nicht ausgeführt",
     "signal.notRunningText":
       "Die Bedarfsfahrt {from} → {to} um {time} wurde nicht ausgeführt, und die Fähre liegt noch am Anleger {quay}",

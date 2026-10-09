@@ -2,7 +2,7 @@
  * Trafikkmeldingar: tolking av Fjord1-tekst, vindauge, rutemodus og omlegging.
  * Rein logikk utan DOM, flytta uendra frå assets/app.js.
  */
-import { t } from "../../assets/i18n.js?v=80";
+import { t } from "../../assets/i18n.js?v=81";
 import {
   NUMDATE_TOKEN,
   WEEKDAY_TOKEN,
@@ -13,25 +13,37 @@ import {
   osloIsoFromMs,
   parseClockToken,
   parseNumDate,
-} from "./time.js";
-import { vesselFromText } from "./live.js";
-import { CONN_1135, CONN_1136, quayPlace } from "./timetable.js";
+} from "./time.js?v=81";
+import { quayPlace } from "./legs.js?v=81";
+import { vesselFromText } from "./live.js?v=81";
 
 export const FJORD1_MESSAGES_PAGE = "https://www.fjord1.no/trafikkmeldingar";
+
 export const NORMAL_RE = /normal drift/i;
+
 export const CANCEL_RE = /innstilt|innstilling/i;
+
 export const PARTIAL_CANCEL_RE =
   /følgjande avgangar|avgangar innstilt|avgang(?:en|ar)?\s+(?:kl\.?|klokka)/i;
+
 export const KOMBI_RE = /kombinasjon|kombirute|kombinert rute/i;
+
 export const DELAY_RE = /forsink/i;
+
 export const CAPACITY_RE = /kapasitet|kapasistet|farleg last|farlig last/i;
+
 export const HAS_1135_RE = /\b1135\b/;
+
 export const HAS_1136_RE = /\b1136\b/;
+
 export const ROUTE_1136_HINT_RE =
   /\b1136\b|trandal|standal|valderøy|store kalvøy|sæbø|skår/i;
+
 export const LOCAL_ROUTE_RE = /\b(1136|1135|1049)\b/i;
+
 export const LOCAL_PLACE_RE =
   /trandal|standal|sæbø|skår|store kalvøy|valderøy|bjørke|urke|festøy|hundeidvik/i;
+
 /** GitHub-kopien er gammal når innhaldet ikkje er skrive på nytt. Då spør sida workeren. */
 export const MESSAGES_STALE_MS = 8 * 60 * 1000;
 
@@ -69,6 +81,7 @@ export function beforeModeFor(after, text) {
 
 export const HJORUNDFJORD_RE =
   /\b(?:1135|1136)\b|trandal|standal|sæbø|skår|lekne|valderøy|store kalvøy|kombinasjon|kombirute|kombinert rute/i;
+
 export const ONLY_1049_RE = /\b1049\b|festøy|hundeidvik/i;
 
 export function messageBlob(msg) {
@@ -540,3 +553,7 @@ export function routeNameFlags(msg) {
 export function filterMessageKey(messages) {
   return messages.map((msg) => msg.id || messageMergeKey(msg)).join("\n");
 }
+
+export const CONN_1136 = 132;
+
+export const CONN_1135 = 134;
