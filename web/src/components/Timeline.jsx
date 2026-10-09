@@ -51,30 +51,51 @@ const STATE_TEXT = {
   gone: () => t("gone"),
 };
 
-/** Éi avgang. Status (inkl. «Ukjent») kjem ferdig frå tripStatus via modellen. */
-export function DepartureRow({ row }) {
+/** Éi avgang. Status (inkl. «Ukjent») kjem ferdig frå tripStatus via modellen. Klikk opnar detaljane. */
+export function DepartureRow({ row, onDetail }) {
   const className = [
     "stop stop-dep",
     row.past && "is-past",
     row.cancelled && "is-cancelled",
     row.skipped && "is-signal-off",
+    row.onward && "stop-onward",
   ]
     .filter(Boolean)
     .join(" ");
   const text = row.state === "countdown" ? row.countdown : STATE_TEXT[row.state]?.() ?? "";
   const signal = row.skipped ? "skipped" : row.state === "unknown" ? "unknown" : undefined;
   return (
-    <div className={className} data-state={row.state || undefined}>
+    <div
+      className={className}
+      data-state={row.state || undefined}
+      onClick={(event) => {
+        if (!event.target.closest("a, button")) onDetail?.(row.leg);
+      }}
+    >
       <span className="stop-time">{row.time}</span>
       <span className="stop-body">
         <span className="stop-head">
-          <span className="stop-name">{t("sailing.route", { from: row.from, to: row.to })}</span>
+          <button
+            type="button"
+            className="stop-name stop-detail"
+            aria-haspopup="dialog"
+            aria-controls="departure-dialog"
+            onClick={() => onDetail?.(row.leg)}
+          >
+            {t("sailing.route", { from: row.from, to: row.to })}
+          </button>
           {row.cancelled ? <span className="stop-tag stop-tag-stop">{t("sailing.cancelled")}</span> : null}
           {row.tag ? <SignalTag row={row} /> : null}
         </span>
         {row.arrival ? <span className="stop-note stop-eta">{t("sailing.arrival", { time: row.arrival })}</span> : null}
+        {row.via ? <span className="stop-note stop-conn">{row.via}</span> : null}
         {!row.cancelled && row.signalNote ? <SignalNote note={row.signalNote} /> : null}
         {row.stillAtQuay ? <span className="stop-note">{t("signal.stillAtQuay")}</span> : null}
+        {(row.notes || []).map((note) => (
+          <span key={note} className="stop-note stop-conn">
+            {note}
+          </span>
+        ))}
       </span>
       <span className="stop-state" data-signal={signal}>
         {text}
@@ -88,8 +109,22 @@ function LayoverRow({ row }) {
     <div className={row.past ? "stop stop-layover is-past" : "stop stop-layover"}>
       <span className="stop-time">{row.time}</span>
       <span className="stop-body">
-        <span className="stop-name">{t("layover.atQuay", { quay: row.quay })}</span>
+        <span className="stop-name">{row.named ? t("layover.atQuay", { quay: row.quay }) : t("layover.title")}</span>
         <span className="stop-note">{t("layover.until", { duration: row.duration, time: row.until })}</span>
+      </span>
+      <span className="stop-state" />
+    </div>
+  );
+}
+
+/** Venting på overgang (frå/til over Sæbø). */
+function WaitRow({ row }) {
+  return (
+    <div className={row.past ? "stop stop-layover stop-wait stop-onward is-past" : "stop stop-layover stop-wait stop-onward"}>
+      <span className="stop-time">{row.time}</span>
+      <span className="stop-body">
+        <span className="stop-name">{t("place.waitAt", { quay: row.quay, duration: row.duration })}</span>
+        <span className="stop-note">{t("place.waitUntil", { time: row.until })}</span>
       </span>
       <span className="stop-state" />
     </div>
@@ -147,10 +182,10 @@ function NowRow({ row }) {
   );
 }
 
-const ROWS = { dep: DepartureRow, layover: LayoverRow, split: SplitRow, transfer: TransferRow, now: NowRow };
+const ROWS = { dep: DepartureRow, layover: LayoverRow, wait: WaitRow, split: SplitRow, transfer: TransferRow, now: NowRow };
 
 /** Tidslinja for den valde dagen. `timeline` kjem frå model/timeline.js. */
-export function Timeline({ timeline, showPast, onTogglePast }) {
+export function Timeline({ timeline, showPast, onTogglePast, onDetail }) {
   if (timeline.empty) {
     return (
       <div className="timeline">
@@ -170,8 +205,9 @@ export function Timeline({ timeline, showPast, onTogglePast }) {
       <div className="timeline">
         {timeline.rows.map((row) => {
           const Row = ROWS[row.kind];
-          return <Row key={row.key} row={row} />;
+          return <Row key={row.key} row={row} onDetail={onDetail} />;
         })}
+        {timeline.emptyPlace ? <p className="empty">{timeline.emptyPlace}</p> : null}
       </div>
     </>
   );

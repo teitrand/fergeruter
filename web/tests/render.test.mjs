@@ -49,10 +49,20 @@ after(async () => {
   await server?.close();
 });
 
-function render({ lang = "nn", override = null, kombirute = null, date = null, log = true, initialEntur = null } = {}) {
+function render({
+  lang = "nn",
+  override = null,
+  kombirute = null,
+  date = null,
+  log = true,
+  initialEntur = null,
+  messages = null,
+  connections = null,
+  ui = {},
+} = {}) {
   const signalLog = log ? { days: { "2026-10-08": LOG.days["2026-10-08"] } } : null;
-  const initialData = { routes: ROUTES, kombirute, messages: null, signalLog };
-  const initialState = { routeChoice: "1136", lang, override, date, showPast: true };
+  const initialData = { routes: ROUTES, kombirute, messages, signalLog, connections };
+  const initialState = { routeChoice: "1136", lang, override, date, showPast: true, ...ui };
   const html = renderToString(createElement(App, { initialData, initialEntur, initialState, memory: memoryOnly() }));
   return html.replace(/<!-- -->/g, "");
 }
@@ -105,4 +115,51 @@ test("Entur-bevis: avlyst utan sanntid gjev «Ikkje utført», sanntid som viser
   const live = { ...parseVehicleMonitoring(VM), validUntil: "2099-01-01T00:00:00Z" };
   const gone = state2020(render({ log: false, initialEntur: { ...cancelled, live } }));
   assert.deepEqual([without, avlyst, gone], ["Ukjent", "Ikkje utført", "Gått"]);
+});
+
+const CONNECTIONS = json("data/korrespondanse.json");
+const MESSAGES = {
+  fetchedAt: "2026-10-08T06:00:00Z",
+  messages: [
+    { id: "a", heading: "Standal–Trandal", text: "Forseinking på rute 1136.", severity: "delay", isLocal: true, publishedAt: "2026-10-08T05:00:00Z", connectionNumber: 132 },
+    { id: "b", heading: "Sæbø–Leknes", text: "Innstilt avgang 1135.", severity: "cancelled", isLocal: true, publishedAt: "2026-10-08T05:30:00Z", connectionNumber: 134 },
+  ],
+};
+
+test("meldingspanelet: stripe med tal og utdrag, detaljar når det er ope", () => {
+  const closed = render({ messages: MESSAGES });
+  assert.match(closed, /<div class="layout" id="layout">/);
+  assert.match(closed, /class="messages-bar is-delay" aria-expanded="false"/);
+  assert.match(closed, /class="messages-count"[^>]*>2</);
+  assert.match(text(closed), /Forseinking på rute 1136\./);
+  assert.match(closed, /id="messages-details" class="messages-details" hidden=""/);
+  const open = render({ messages: MESSAGES, ui: { messagesExpanded: true } });
+  assert.doesNotMatch(open, /id="messages-details"[^>]*hidden/);
+  assert.match(open, /<article class="card is-cancelled">/);
+  assert.match(open, /data-filter="route" aria-pressed="false">Rute 1136</);
+  const none = render();
+  assert.match(none, /<div class="layout is-single" id="layout">/);
+  assert.doesNotMatch(none, /messages-panel/);
+});
+
+test("frå/til, ankomsttider og korrespondanse: kontrollar og rader", () => {
+  const html = render({ connections: CONNECTIONS, ui: { filters: { from: "Standal", to: "Leknes" }, connection: "solavagen" } });
+  assert.match(html, /<select id="from-stop" class="place-select has-value">/);
+  assert.match(html, /<option value="Standal" selected="">Standal<\/option>/);
+  assert.match(html, /class="swap-dir"[^>]*>/);
+  assert.doesNotMatch(html, /class="swap-dir"[^>]*disabled/);
+  assert.match(html, /class="stop stop-dep[^"]*stop-onward/, "vidare med 1135 etter overgang");
+  assert.match(html, /class="stop stop-layover stop-wait stop-onward/);
+  assert.match(html, /class="conn-select has-value"/);
+  assert.match(html, /<span id="connection-note">[^<]+<\/span>/);
+  assert.match(html, /class="chip chip-small is-active" aria-pressed="true">Ankomsttider</);
+  const hidden = render({ ui: { hideArrivals: true } });
+  assert.match(hidden, /class="chip chip-small" aria-pressed="false">Ankomsttider</);
+  assert.doesNotMatch(hidden, /stop-eta/);
+});
+
+test("avgangane opnar detaljvindauget", () => {
+  const html = render();
+  assert.match(html, /<button type="button" class="stop-name stop-detail" aria-haspopup="dialog" aria-controls="departure-dialog">/);
+  assert.match(html, /<dialog id="departure-dialog" class="install-dialog departure-dialog"/);
 });

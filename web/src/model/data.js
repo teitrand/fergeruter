@@ -5,6 +5,7 @@ export const DATA_FILES = {
   kombirute: "kombirute.json",
   messages: "trafikkmeldinger.json",
   signalLog: "signalturar.json",
+  connections: "korrespondanse.json",
 };
 
 /**
@@ -29,20 +30,22 @@ async function getJson(fetchImpl, url, { required = false, cache } = {}) {
 }
 
 /**
- * Hentar rutetabell, kombirute, trafikkmeldingar og signallogg parallelt.
+ * Hentar rutetabell, kombirute, trafikkmeldingar, signallogg og korrespondanse parallelt.
  * Berre rutetabellen er påkravd; dei andre kan mangle utan at skalet stoppar.
  */
 export async function fetchAppData(fetchImpl, base) {
-  const [routes, kombirute, messages, signalLog] = await Promise.all([
+  const [routes, kombirute, messages, signalLog, connections] = await Promise.all([
     getJson(fetchImpl, base + DATA_FILES.routes, { required: true }),
     getJson(fetchImpl, base + DATA_FILES.kombirute),
     getJson(fetchImpl, base + DATA_FILES.messages, { cache: "no-cache" }),
     getJson(fetchImpl, base + DATA_FILES.signalLog, { cache: "no-cache" }),
+    getJson(fetchImpl, base + DATA_FILES.connections),
   ]);
   return {
     routes,
     kombirute,
     messages,
     signalLog: signalLog && typeof signalLog.days === "object" ? signalLog : null,
+    connections: connections && Array.isArray(connections.lines) ? connections : null,
   };
 }

@@ -4,82 +4,45 @@ import {
   getLang,
   setLang,
   t,
-} from "./i18n.js?v=82";
+} from "./i18n.js?v=83";
 import {
   ALLOWED_MODES,
   CHOOSABLE_ROUTES,
   LIVE_MAX_BACKOFF_MS,
   LIVE_MIN_INTERVAL_MS,
   LIVE_SERVICE_MARGIN_MIN,
-  FJORD1_MESSAGES_PAGE,
-  SAEBØ,
-  TRANSFER_DESTINATIONS,
-  TRANSFER_MARGIN_MIN,
-  asTransferTrip,
   beforeModeFor,
-  boardingFromDest,
   bookingDeadline,
-  cameFromDest,
-  clockMinutes,
   compareTimelineEvents,
   countdown,
-  defaultVesselName,
   departureStateKey,
   durationText,
-  filterMessageKey,
-  fjord1Payload,
   formatDateOnly,
   formatDateTime,
   hasPassed,
   headingDay,
   hhmm,
-  homeQuay,
-  inboundConnection,
-  isEmptyReposition,
   isFerryTransfer,
   isOnwardLeg,
-  isParallelFerrySplit,
-  isPlannedFerrySwitch,
   isVisibleDeparture,
-  journeyForLeg,
   journeyNote,
-  layoverAfter,
-  legKey,
   mergeMessagePayloads,
-  messageBlob,
-  messageMode,
   messageTimeLines,
-  messageVessel,
   messagesAreStale,
   messagesFingerprint,
   minutesLeft,
   minutesToClock,
-  normalizeFjord1Node,
   nowMinutes,
   osloIsoFromMs,
-  outboundConnection,
   parseClockToken,
-  parseFjord1TrafficHtml,
-  passengerJourneysFrom,
-  publishedMs,
-  quayPlace,
-  quaysInDay,
-  reachesDest,
-  resolveRoutePlan,
-  retainHeldMessages,
-  routeNameFlags,
   shiftIso,
-  sortDayLegs,
   statusProgress,
-  tableName,
   telHref,
   timetableFingerprint,
   todayIso,
-  transferDestFromId,
-  transferLineId,
   validMessages,
-} from "../packages/core/index.js?v=82";
-import * as core from "../packages/core/index.js?v=82";
+} from "../packages/core/index.js?v=83";
+import * as core from "../packages/core/index.js?v=83";
 
 const MESSAGES_URL = "data/trafikkmeldinger.json";
 const SIGNAL_LOG_URL = "data/signalturar.json";
@@ -94,25 +57,11 @@ const FJORD1_PDF =
   "https://www.fjord1.no/ruteoversikt/moere-og-romsdal/standal-trandal-valderoeya-store-kalvoey/(page)/pdf";
 const FJORD1_PDF_1135 =
   "https://www.fjord1.no/ruteoversikt/moere-og-romsdal/leknes-saeboe/(page)/pdf";
-/**
- * CORS-JSON frå cloudflare/trafikkmeldinger/. Må vere lik MESSAGES_API_URL der.
- * Det gamle Fjord1-endepunktet svarar 404 og blir ikkje kalla.
- */
-const FJORD1_MESSAGES_API = "https://fergeruter-trafikkmeldinger.fergeruter-teitrand.workers.dev/";
-/** Siste utveg om workeren feilar. Fjord1-sida har ikkje CORS. */
-const FJORD1_HTML_READER = `https://r.jina.ai/${FJORD1_MESSAGES_PAGE}`;
-const HIDE_ARRIVALS_KEY = "fergeruter-hide-arrivals";
-const ROUTE_CHOICE_KEY = "fergeruter-route-choice";
 const PWA_FIRST_KEY = "fergeruter-pwa-first-open";
 const TIMETABLE_CACHE_KEY = "fergeruter-timetable-v1";
 const MESSAGES_CACHE_KEY = "fergeruter-messages-v1";
 const LAST_MODE_KEY = "fergeruter-last-mode";
-const MESSAGES_POLL_MS = 3 * 60 * 1000;
 const WAKE_DEBOUNCE_MS = 400;
-const DEFAULT_VESSELS = [
-  { name: "M/F Geiranger", phone: "916 69 321" },
-  { name: "M/F Kvernes", phone: "916 69 340" },
-];
 
 const state = {
   messageFilter: "local",
@@ -391,50 +340,9 @@ function activePlan(date = selectedDate()) {
   return core.activePlan(date, planContext());
 }
 
-async function fetchWithTimeout(url, options = {}, ms = 12000) {
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), ms);
-  try {
-    return await fetch(url, { ...options, signal: ctrl.signal });
-  } finally {
-    clearTimeout(timer);
-  }
-}
 
-async function fetchFjord1Api() {
-  const response = await fetchWithTimeout(
-    FJORD1_MESSAGES_API,
-    {
-      headers: { Accept: "application/json" },
-      cache: "no-store",
-    },
-    5000
-  );
-  if (!response.ok) throw new Error(response.statusText || String(response.status));
-  const body = await response.json();
-  if (!Array.isArray(body?.messages)) throw new Error("Uventa svar frå trafikkmelding-API");
-  const messages = body.messages.filter(Boolean).map((node) => normalizeFjord1Node(node));
-  return fjord1Payload(messages, { fetchedAt: body.fetchedAt || null, complete: true });
-}
 
-async function fetchFjord1Html() {
-  const response = await fetchWithTimeout(FJORD1_HTML_READER, {
-    headers: { "X-Return-Format": "html", Accept: "text/html,text/plain" },
-    cache: "no-store",
-  });
-  if (!response.ok) throw new Error(response.statusText);
-  const messages = parseFjord1TrafficHtml(await response.text());
-  if (!messages.length) throw new Error("Ingen Fjord1-meldingar i HTML");
-  return fjord1Payload(messages);
-}
 
-async function fetchFjord1Messages() {
-  try {
-    return await fetchFjord1Api();
-  } catch {
-    return fetchFjord1Html();
-  }
-}
 
 async function fetchMessagesJson() {
   const response = await fetch(messagesUrl(), { cache: "no-cache" });
@@ -444,19 +352,7 @@ async function fetchMessagesJson() {
 
 /** Ferja som køyrer denne tabellen denne dagen, ikkje ei utgått kombirute-melding. */
 function vesselNameForTable(table, date = selectedDate()) {
-  const plan = resolveRoutePlan(state.messages?.messages, Date.now(), date);
-  const fromMsg = messageVessel(plan.message);
-  const after = plan.switch?.after || plan.mode;
-  const before = plan.switch?.before;
-  if (fromMsg) {
-    if (plan.switch) {
-      if (table === after) return fromMsg;
-      if (table === before) return defaultVesselName(before);
-    } else if (messageMode(plan.message) === table || plan.mode === table) {
-      return fromMsg;
-    }
-  }
-  return defaultVesselName(table);
+  return core.vesselNameForTable(table, planContext(), date);
 }
 
 function activeVessel() {
@@ -464,30 +360,13 @@ function activeVessel() {
 }
 
 function vesselInfo(name) {
-  const vessels = state.kombirute?.vessels || DEFAULT_VESSELS;
-  if (!name) return null;
-  return (
-    vessels.find((item) => item.name.toLowerCase().includes(name.toLowerCase())) || {
-      name: `M/F ${name}`,
-      phone: null,
-    }
-  );
+  return core.vesselInfo(name, state);
 }
 
-function defaultSignalPhone(leg) {
-  const table = leg?.table || activeMode();
-  if (table === "1135") return vesselInfo("Geiranger")?.phone || "916 69 321";
-  if (table === "kombi") return "";
-  return vesselInfo("Kvernes")?.phone || "916 69 340";
-}
 
 /** Telefon til ferja som faktisk køyrer denne turen, elles nummeret frå rutetabellen. */
 function signalPhone(leg) {
-  const table = leg?.table || activeMode();
-  const running = vesselInfo(vesselNameForTable(table));
-  if (running?.phone) return running.phone;
-  if (leg?.signal?.phone) return leg.signal.phone;
-  return defaultSignalPhone(leg);
+  return core.signalPhone(leg, planContext());
 }
 
 function bindTelLink(link, phone, how) {
@@ -515,7 +394,11 @@ function phoneIcon() {
 }
 
 function localStore(storage) {
-  return storage ?? (typeof localStorage !== "undefined" ? localStorage : null);
+  try {
+    return storage ?? (typeof localStorage !== "undefined" ? localStorage : null);
+  } catch {
+    return null;
+  }
 }
 
 function readSailedJourneys(date = todayIso(), storage) {
@@ -556,26 +439,10 @@ function signalIsBooked(leg, now = nowMinutes()) {
   return booking.booked;
 }
 
-/**
- * Kva detaljvindauget skal seie. Entur har ikkje tidspunkt for sjølve ringinga.
- * `observedAt` er når vi fyrst såg statusen, ikkje når nokon tinga.
- */
+/** Kva detaljvindauget skal seie (core/detail.js). */
 function departureDetail(leg, now = nowMinutes()) {
   const status = tripStatusFor(leg, now);
-  return {
-    phase: status.kind,
-    booked: status.booked,
-    skipped: status.skipped,
-    cancelled: status.cancelled,
-    signal: status.signal,
-    deadline: status.deadline,
-    seenSkip: status.seenSkip,
-    skipReason: status.skipReason,
-    minutesBefore: leg?.signal?.minutesBefore ?? null,
-    phone: status.signal ? signalPhone(leg) : "",
-    observedAt: status.observedAt,
-    skippedAt: status.skippedAt,
-  };
+  return core.departureDetail(leg, status, status.signal ? signalPhone(leg) : "");
 }
 
 function signalTag(leg, { call = true, booked = false } = {}) {
@@ -617,9 +484,6 @@ function hasTimetable() {
   return Boolean(state.routes || state.kombirute);
 }
 
-function legsForMode(mode, date) {
-  return core.legsForMode(mode, date, state);
-}
 
 function legsForDate(date) {
   return core.legsForDate(date, planContext());
@@ -762,48 +626,19 @@ function currentStatus(legs, now = nowMinutes()) {
 }
 
 function readHideArrivals(storage) {
-  try {
-    const store =
-      storage ?? (typeof localStorage !== "undefined" ? localStorage : null);
-    return Boolean(store && store.getItem(HIDE_ARRIVALS_KEY) === "1");
-  } catch {
-    return false;
-  }
+  return core.readHideArrivals(localStore(storage));
 }
 
 function writeHideArrivals(hide, storage) {
-  try {
-    const store =
-      storage ?? (typeof localStorage !== "undefined" ? localStorage : null);
-    if (!store) return;
-    if (hide) store.setItem(HIDE_ARRIVALS_KEY, "1");
-    else store.removeItem(HIDE_ARRIVALS_KEY);
-  } catch {
-    // localStorage kan vere stengt.
-  }
+  core.writeHideArrivals(hide, localStore(storage));
 }
 
 function readRouteChoice(storage) {
-  try {
-    const store =
-      storage ?? (typeof localStorage !== "undefined" ? localStorage : null);
-    const raw = store?.getItem(ROUTE_CHOICE_KEY);
-    return CHOOSABLE_ROUTES.has(raw) ? raw : "1136";
-  } catch {
-    return "1136";
-  }
+  return core.readRouteChoice(localStore(storage));
 }
 
 function writeRouteChoice(choice, storage) {
-  try {
-    const store =
-      storage ?? (typeof localStorage !== "undefined" ? localStorage : null);
-    if (!store) return;
-    const next = CHOOSABLE_ROUTES.has(choice) ? choice : "1136";
-    store.setItem(ROUTE_CHOICE_KEY, next);
-  } catch {
-    // localStorage kan vere stengt.
-  }
+  core.writeRouteChoice(choice, localStore(storage));
 }
 
 function readCachedTimetable(storage) {
@@ -929,196 +764,32 @@ function nextDepartureFrom(legs, quay, skipPassed = false) {
   );
 }
 
-function otherFerryMode() {
-  if (isCombinedTimetable()) return null;
-  const mode = activeMode();
-  if (mode === "1135") return "1136";
-  if (mode === "1136") return "1135";
-  return null;
+function placeFilters() {
+  return { from: state.fromFilter, to: state.toFilter };
 }
 
-function otherFerryLegs(date) {
-  const other = otherFerryMode();
-  if (!other) return [];
-  return legsForMode(other, date);
-}
 
-function placeFilterQuays(legs, date) {
-  const seen = quaysInDay(legs);
-  for (const quay of quaysInDay(otherFerryLegs(date))) {
-    if (!seen.includes(quay)) seen.push(quay);
-  }
-  return seen;
-}
+
 
 function legsForPlaceFilter(date, current = legsForDate(date)) {
-  if (!state.fromFilter && !state.toFilter) return current;
-  const extra = otherFerryLegs(date);
-  if (!extra.length) return current;
-  if (state.fromFilter && state.toFilter) return sortDayLegs([...current, ...extra]);
-  const quays = quaysInDay(current);
-  const selected = [state.fromFilter, state.toFilter].filter(Boolean);
-  if (selected.some((quay) => !quays.includes(quay))) return sortDayLegs([...current, ...extra]);
-  return current;
+  return core.legsForPlaceFilter(placeFilters(), date, planContext(), current);
 }
 
-function transferDestinationsFor(date) {
-  const legs = legsForMode("1136", date);
-  return TRANSFER_DESTINATIONS.filter((dest) =>
-    legs.some(
-      (leg) =>
-        (quayPlace(leg.from) === SAEBØ && reachesDest(legs, leg, dest)) ||
-        (quayPlace(leg.to) === SAEBØ && cameFromDest(legs, leg, dest))
-    )
-  );
-}
 
-function ferryTransferIndex(date) {
-  const dest = transferDestFromId(state.connection);
-  const other = otherFerryMode();
-  if (!other || !dest) return null;
-  const otherLegs = legsForMode(other, date);
-  const view = activeMode();
-  const toHub =
-    other === "1136"
-      ? otherLegs
-          .filter((leg) => quayPlace(leg.to) === SAEBØ && cameFromDest(otherLegs, leg, dest))
-          .map((leg) => {
-            const board = boardingFromDest(otherLegs, leg, dest) || leg;
-            return asTransferTrip(leg, {
-              from: dest,
-              to: SAEBØ,
-              departure: board.departure,
-              arrival: leg.arrival,
-              signal: board.signal || leg.signal,
-            });
-          })
-      : otherLegs
-          .filter((leg) => quayPlace(leg.to) === SAEBØ)
-          .map((leg) =>
-            asTransferTrip(leg, { from: leg.from, to: SAEBØ, signal: leg.signal })
-          );
-  const fromHub =
-    other === "1136"
-      ? otherLegs
-          .filter((leg) => quayPlace(leg.from) === SAEBØ && reachesDest(otherLegs, leg, dest))
-          .map((leg) =>
-            asTransferTrip(leg, {
-              from: SAEBØ,
-              to: dest,
-              departure: leg.departure,
-              arrival: leg.arrival,
-              signal: leg.signal,
-            })
-          )
-      : otherLegs
-          .filter((leg) => quayPlace(leg.from) === SAEBØ)
-          .map((leg) =>
-            asTransferTrip(leg, { from: SAEBØ, to: leg.to, signal: leg.signal })
-          );
-  return {
-    hub: SAEBØ,
-    roadTo: SAEBØ,
-    buffer: TRANSFER_MARGIN_MIN,
-    ferry: true,
-    dest,
-    other,
-    view,
-    toHub: toHub.sort((a, b) => a.arrival.localeCompare(b.arrival)),
-    fromHub: fromHub.sort((a, b) => a.departure.localeCompare(b.departure)),
-  };
-}
 
 function connectionIndex(date) {
-  if (!state.connection) return null;
-  if (isFerryTransfer(state.connection)) return ferryTransferIndex(date);
-  const data = state.connections;
-  if (!data) return null;
-  const line = data.lines.find((candidate) => candidate.id === state.connection);
-  if (!line) return null;
-  const hub = line.hub || data.hub;
-  const roadTo = line.roadTo || data.roadTo;
-  const drive = line.driveMinutes ?? data.driveMinutes ?? 0;
-  const margin = line.marginMinutes ?? data.marginMinutes ?? 0;
-  const runsToday = (trip) => (data.calendars[trip.cal] || []).includes(date);
-  const trips = line.trips.filter(runsToday);
-  return {
-    hub,
-    roadTo,
-    buffer: drive + margin,
-    toHub: trips
-      .filter((trip) => trip.to === hub)
-      .sort((a, b) => a.arrival.localeCompare(b.arrival)),
-    fromHub: trips
-      .filter((trip) => trip.from === hub)
-      .sort((a, b) => a.departure.localeCompare(b.departure)),
-  };
+  return core.connectionIndex(state.connection, state.connections, date, planContext());
 }
 
-const DEFAULT_CONNECTION_LINES = [
-  { id: "solavagen", label: "Solavågen", hub: "Festøya", roadTo: "Standal" },
-  { id: "hundeidvika", label: "Hundeidvika", hub: "Festøya", roadTo: "Standal" },
-];
 
 function visibleConnectionLines(legs) {
-  const quays = quaysInDay(legs);
-  const lines = [];
-  const other = otherFerryMode();
-  const date = selectedDate();
-  if (other && quays.includes(SAEBØ) && quaysInDay(legsForMode(other, date)).includes(SAEBØ)) {
-    for (const dest of transferDestinationsFor(date)) {
-      lines.push({ id: transferLineId(dest), label: dest, hub: SAEBØ });
-    }
-  }
-  const road = (state.connections?.lines || DEFAULT_CONNECTION_LINES).filter((line) => {
-    if (line.id === "oye" || line.hub === "Leknes" || line.roadTo === "Leknes") return false;
-    const dest = line.roadTo || state.connections?.roadTo;
-    return !dest || quays.includes(dest);
-  });
-  return lines.concat(road);
+  return core.visibleConnectionLines(legs, state.connections, selectedDate(), planContext());
 }
 
-function connectionSignalText(trip, route) {
-  if (!trip?.signal || !route) return "";
-  const phone = signalPhone(trip);
-  return phone
-    ? t("conn.signalCallPhone", { route, phone })
-    : t("conn.signalCall", { route });
-}
 
-function withConnectionSignal(base, trip, index) {
-  const extra = connectionSignalText(trip, index.other);
-  return extra ? `${base}. ${extra}` : base;
-}
 
 function connectionNote(index, kind, leg) {
-  if (!index) return null;
-  const quay = quayPlace(kind === "dep" ? leg.from : leg.to);
-  if (quay !== index.roadTo) return null;
-  if (index.dest && index.view === "1136") {
-    const own = legsForMode("1136", selectedDate());
-    if (kind === "dep") {
-      if (!reachesDest(own, leg, index.dest)) return null;
-    } else if (!cameFromDest(own, leg, index.dest)) return null;
-  }
-  if (kind === "dep") {
-    const trip = inboundConnection(index, leg.departure);
-    return trip
-      ? withConnectionSignal(
-          t("conn.takeFerry", { time: hhmm(trip.departure), from: trip.from }),
-          trip,
-          index
-        )
-      : t("conn.noInbound", { hub: index.hub });
-  }
-  const trip = outboundConnection(index, leg.arrival);
-  return trip
-    ? withConnectionSignal(
-        t("conn.onward", { time: hhmm(trip.departure), hub: index.hub, to: trip.to }),
-        trip,
-        index
-      )
-    : t("conn.noOutbound", { hub: index.hub });
+  return core.connectionNote(index, kind, leg, planContext(), signalPhone);
 }
 
 /**
@@ -1157,24 +828,9 @@ function signalNote(leg, live) {
   return note;
 }
 
-function sailingDoneAt(event) {
-  if ((event.kind === "layover" || event.kind === "wait") && event.until != null) return event.until;
-  if (event.kind === "arr") return event.at;
-  if (event.kind !== "dep" || !event.leg) return event.at;
-  const leg = event.leg;
-  if (leg.signal && isToday() && signalVerdict(leg) === "skipped") {
-    return clockMinutes(leg.departure);
-  }
-  if (
-    state.fromFilter &&
-    !state.toFilter &&
-    state.fromFilter === leg.from &&
-    leg.from !== leg.to
-  ) {
-    return clockMinutes(leg.departure);
-  }
-  if (leg.arrival) return clockMinutes(leg.arrival);
-  return event.at;
+/** Det core treng for å avgjere når ei hending er ferdig. */
+function doneOpts() {
+  return { today: isToday(), filters: placeFilters(), skipped: (leg) => signalVerdict(leg) === "skipped" };
 }
 
 function departureRow(leg, past, connections, journey = null) {
@@ -1245,91 +901,21 @@ function departureRow(leg, past, connections, journey = null) {
   return row;
 }
 
-function detailParagraph(className, text) {
-  return el("p", className || "detail-copy", text);
-}
 
 function renderDepartureDetail(leg) {
-  const detail = departureDetail(leg);
+  const content = core.departureDetailContent(leg, departureDetail(leg));
   const title = document.getElementById("departure-title");
   const body = document.getElementById("departure-body");
   const close = document.getElementById("departure-close");
-  if (title) {
-    title.textContent = t("detail.title", {
-      time: hhmm(leg.departure),
-      from: leg.from,
-      to: leg.to,
-    });
-  }
+  if (title) title.textContent = content.title;
   if (close) close.textContent = t("detail.close");
   if (!body) return;
-  const nodes = [];
-  if (leg.arrival) nodes.push(detailParagraph("", t("sailing.arrival", { time: hhmm(leg.arrival) })));
-  const status = detail.cancelled
-    ? t("sailing.cancelled")
-    : detail.skipped
-      ? t("signal.notRunning")
-      : detail.booked
-        ? t("signal.booked")
-        : detail.phase === "sailed"
-          ? t("gone")
-          : detail.signal
-            ? t("signal.onRequest")
-            : t("detail.regular");
-  nodes.push(detailParagraph("detail-status", status));
-  if (!detail.signal) {
-    if (detail.cancelled) nodes.push(detailParagraph("", t("detail.cancelled")));
-  } else {
-    const deadline = detail.deadline != null ? minutesToClock(detail.deadline) : "";
-    nodes.push(
-      detailParagraph(
-        "",
-        t("signal.how", {
-          lead:
-            (detail.minutesBefore || 60) === 60
-              ? t("signal.leadHour")
-              : durationText(detail.minutesBefore || 60),
-          time: deadline,
-        })
-      )
-    );
-    if (telHref(detail.phone)) {
-      const line = el("p", "detail-copy");
-      const link = el("a", "stop-phone", t("signal.callLink", { phone: detail.phone }));
-      line.append(bindTelLink(link, detail.phone, "detail"));
-      nodes.push(line);
-    }
-    if (detail.phase === "booked") {
-      nodes.push(detailParagraph("", t("signal.bookedHow", { time: deadline })));
-      if (detail.observedAt) {
-        nodes.push(detailParagraph("", t("signal.observed", { when: formatDateTime(detail.observedAt) })));
-      }
-      nodes.push(detailParagraph("detail-caveat", t("signal.caveat")));
-    } else if (detail.phase === "open") {
-      nodes.push(detailParagraph("", t("signal.openHow", { time: deadline })));
-      nodes.push(detailParagraph("detail-caveat", t("signal.caveat")));
-    } else if (detail.phase === "skipped") {
-      nodes.push(
-        detailParagraph(
-          "",
-          detail.seenSkip
-            ? t("signal.skippedHow", { time: deadline })
-            : detail.skipReason === "live"
-              ? t("signal.skippedLiveHow")
-              : t("signal.unknownHow", { time: deadline })
-        )
-      );
-      const when = detail.skippedAt || detail.observedAt;
-      if (detail.seenSkip && when) {
-        nodes.push(detailParagraph("", t("signal.skippedWhen", { when: formatDateTime(when) })));
-      }
-    } else if (detail.phase === "sailed") {
-      nodes.push(detailParagraph("", t("signal.sailedHow")));
-    } else if (detail.phase === "unknown") {
-      nodes.push(detailParagraph("", t("signal.unknownHow", { time: deadline })));
-      nodes.push(detailParagraph("detail-caveat", t("signal.caveat")));
-    }
-  }
+  const nodes = content.paragraphs.map((item) => {
+    if (!item.phone) return el("p", item.className, item.text);
+    const line = el("p", item.className);
+    line.append(bindTelLink(el("a", "stop-phone", item.text), item.phone, "detail"));
+    return line;
+  });
   body.replaceChildren(...nodes);
 }
 
@@ -1448,23 +1034,9 @@ function statusRow(status) {
 }
 
 function matchesLegPlaces(leg, journeys = null) {
-  if (!leg) return false;
-  if (state.fromFilter && state.toFilter) {
-    if (journeys) return Boolean(journeyForLeg(journeys, leg));
-    return quayPlace(leg.from) === state.fromFilter && quayPlace(leg.to) === state.toFilter;
-  }
-  if (state.fromFilter && quayPlace(leg.from) !== state.fromFilter) return false;
-  if (state.toFilter && quayPlace(leg.to) !== state.toFilter) return false;
-  return true;
+  return core.matchesLegPlaces(leg, placeFilters(), journeys);
 }
 
-function matchesLayover(stay) {
-  if (!stay) return false;
-  if (state.fromFilter && state.toFilter) return false;
-  if (state.toFilter) return false;
-  if (state.fromFilter) return stay.quay === state.fromFilter;
-  return true;
-}
 
 function swapPlaceFilters() {
   const from = state.fromFilter;
@@ -1473,148 +1045,37 @@ function swapPlaceFilters() {
 }
 
 function emptyPlaceMessage() {
-  if (state.fromFilter && state.toFilter) {
-    return t("empty.noFromTo", { from: state.fromFilter, to: state.toFilter });
-  }
-  if (state.fromFilter) return t("empty.noFrom", { from: state.fromFilter });
-  if (state.toFilter) return t("empty.noTo", { to: state.toFilter });
-  return t("empty.noTripsDay");
+  return core.emptyPlaceMessage(placeFilters());
 }
 
 function matchesStop(event) {
-  if (!state.fromFilter && !state.toFilter) return true;
-  if (event?.kind === "split") return false;
-  if (event?.kind === "dep" && event.leg) {
-    if (state.fromFilter && state.toFilter) return true;
-    return matchesLegPlaces(event.leg);
-  }
-  if (event?.kind === "wait") return Boolean(state.fromFilter && state.toFilter);
-  if (state.fromFilter && state.toFilter) return false;
-  if (!event?.quays || !event.quays.length) return true;
-  if (state.fromFilter && event.quays.includes(state.fromFilter)) return true;
-  if (state.toFilter && event.quays.includes(state.toFilter)) return true;
-  return false;
+  return core.matchesStop(event, placeFilters());
 }
 
-/** Raud merkelapp ved fyrste avgang når kombiruta tek til eller sluttar heile dagen. */
-function dayStartSplit(legs) {
-  if (!legs.length) return null;
-  const plan = activePlan();
-  if (plan.switch) return null;
-  const mode = tableName(plan.mode);
-  const prev = tableName(operationalMode(shiftIso(selectedDate(), -1)));
-  if (mode === prev) return null;
-  if (mode !== "kombi" && prev !== "kombi") return null;
-  const first = legs.find((leg) => isVisibleDeparture(leg)) || legs[0];
-  if (!first?.departure) return null;
-  return {
-    at: clockMinutes(first.departure),
-    kind: "split",
-    quays: [],
-    build: (past) =>
-      splitRow(
-        { time: first.departure, quay: first.from, before: prev, notice: null },
-        mode,
-        past
-      ),
-  };
-}
 
+/** Hendingane frå core, med `build` som lagar DOM-rada. */
 function buildEvents(legs, connections) {
-  const events = [];
-  const seenDep = new Set();
-  const journeys =
-    state.fromFilter && state.toFilter
-      ? passengerJourneysFrom(legs, state.fromFilter, state.toFilter)
-      : null;
-  legs.forEach((leg, index) => {
-    const depKey = `${leg.from}|${leg.departure}`;
-    if (isVisibleDeparture(leg) && !seenDep.has(depKey)) {
-      seenDep.add(depKey);
-      if (matchesLegPlaces(leg, journeys)) {
-        const journey = journeyForLeg(journeys, leg);
-        events.push({
-          at: clockMinutes(leg.departure),
-          kind: "dep",
-          quays: [leg.from, leg.to],
-          leg,
-          onward: isOnwardLeg(leg, journey),
-          build: (past) => departureRow(leg, past, connections, journey),
-        });
-        if (journey?.wait && journey.wait.afterKey === legKey(leg)) {
-          events.push({
-            at: clockMinutes(journey.wait.from),
-            until: clockMinutes(journey.wait.until),
-            kind: "wait",
-            quays: [journey.wait.quay],
-            stay: journey.wait,
-            onward: true,
-            build: (past) => waitRow(journey.wait, past),
-          });
-        }
-      }
-    }
-    const next = legs[index + 1];
-    const stay = layoverAfter(leg, next);
-    if (stay && matchesLayover(stay)) {
-      events.push({
-        at: clockMinutes(stay.from),
-        until: clockMinutes(stay.until),
-        kind: "layover",
-        quays: [stay.quay],
-        stay,
-        build: (past) => layoverRow(stay, past),
-      });
-    }
-    if (next && leg.table && next.table && leg.table !== next.table) {
-      const routeSwitch = activePlan().switch;
-      if (isParallelFerrySplit(leg.table, next.table) && !isPlannedFerrySwitch(routeSwitch)) {
-        // 1135 og 1136 i same tidslinje kjem frå frå/til-filteret, ikkje tabellskifte.
-      } else {
-        const notice =
-          routeSwitch && clockMinutes(routeSwitch.time) === clockMinutes(next.departure)
-            ? routeSwitch.notice
-            : null;
-        events.push({
-          at: clockMinutes(next.departure),
-          kind: "split",
-          quays: [],
-          build: (past) =>
-            splitRow(
-              { time: next.departure, quay: next.from, before: leg.table, notice },
-              next.table,
-              past
-            ),
-        });
-      }
-    }
-    if (
-      !isCombinedTimetable() &&
-      next &&
-      isEmptyReposition(leg.to, next.from) &&
-      (!leg.table || !next.table || leg.table === next.table)
-    ) {
-      events.push({
-        at: clockMinutes(leg.arrival),
-        kind: "transfer",
-        quays: [leg.to, next.from],
-        build: (past) => transferRow(leg.to, next.from, past),
-      });
-    }
-  });
-  const last = legs[legs.length - 1];
-  const home = homeQuay(legs);
-  if (!isCombinedTimetable() && last && isEmptyReposition(last.to, home)) {
-    events.push({
-      at: clockMinutes(last.arrival),
-      kind: "transfer",
-      quays: [last.to, home],
-      build: (past) => transferRow(last.to, home, past),
-    });
+  return core.timelineEvents(legs, planContext(), placeFilters(), selectedDate()).map((event) => ({
+    ...event,
+    build: (past) => buildRow(event, past, connections),
+  }));
+}
+
+function buildRow(event, past, connections) {
+  switch (event.kind) {
+    case "dep":
+      return departureRow(event.leg, past, connections, event.journey);
+    case "wait":
+      return waitRow(event.stay, past);
+    case "layover":
+      return layoverRow(event.stay, past);
+    case "split":
+      return splitRow(event.split, event.split.table, past);
+    case "transfer":
+      return transferRow(event.from, event.to, past);
+    default:
+      throw new Error(`ukjend hending ${event.kind}`);
   }
-  const start = dayStartSplit(legs);
-  if (start) events.push(start);
-  return events;
 }
 
 function svgEl(name, attrs) {
@@ -1668,14 +1129,11 @@ function renderPlaceFilter(legs) {
   const root = document.getElementById("trip-filter");
   if (!root) return;
   root.replaceChildren();
-  const quays = placeFilterQuays(legs, selectedDate());
-  if (quays.length < 2) {
-    state.fromFilter = null;
-    state.toFilter = null;
-    return;
-  }
-  if (state.fromFilter && !quays.includes(state.fromFilter)) state.fromFilter = null;
-  if (state.toFilter && !quays.includes(state.toFilter)) state.toFilter = null;
+  const quays = core.placeFilterQuays(legs, selectedDate(), planContext());
+  const valid = core.validFilters(placeFilters(), quays);
+  state.fromFilter = valid.from;
+  state.toFilter = valid.to;
+  if (quays.length < 2) return;
 
   const any = { value: "", label: t("stops.all") };
   const fromOptions = [any].concat(
@@ -1802,25 +1260,7 @@ function renderConnectionFilter() {
     field.append(select);
     root.append(field);
   }
-  const dest = transferDestFromId(state.connection);
-  if (dest) {
-    note.textContent = t("conn.transferNote", {
-      dest,
-      margin: TRANSFER_MARGIN_MIN,
-    });
-    return;
-  }
-  const data = state.connections;
-  const line = data?.lines?.find((candidate) => candidate.id === state.connection);
-  note.textContent =
-    state.connection && data
-      ? t("conn.note", {
-          drive: line?.driveMinutes ?? data.driveMinutes,
-          hub: line?.hub ?? data.hub,
-          roadTo: line?.roadTo ?? data.roadTo,
-          margin: line?.marginMinutes ?? data.marginMinutes,
-        })
-      : "";
+  note.textContent = core.connectionFootnote(state.connection, state.connections);
 }
 
 async function loadConnections() {
@@ -1916,28 +1356,16 @@ function renderPositionNote() {
 }
 
 function timelineEventIsPast(event, events, now = nowMinutes()) {
-  if (!isToday() || event.status) return false;
-  if (event.kind === "split") {
-    return !events.some((item) => item.kind !== "split" && item.kind !== "status" && item.at > now);
-  }
-  return sailingDoneAt(event) <= now;
+  return core.eventIsPast(event.status ? { ...event, kind: "status" } : event, events, now, doneOpts());
 }
 
 function keepTimelineEvent(event, events, now = nowMinutes(), status = null) {
-  if (event.status) return true;
-  if (isToday() && status?.layover && event.kind === "layover" && event.at <= now && event.until > now) {
-    return false;
-  }
-  if (!isToday() || state.showPast) return true;
-  if (event.kind === "split") {
-    return events.some((item) => item.kind !== "split" && item.kind !== "status" && item.at > now);
-  }
-  return sailingDoneAt(event) > now;
+  const kind = event.status ? { ...event, kind: "status" } : event;
+  return core.keepEvent(kind, events, now, { ...doneOpts(), showPast: state.showPast, status });
 }
 
 function pastDepartureCount(events, now = nowMinutes()) {
-  if (!isToday()) return 0;
-  return events.filter((event) => event.kind === "dep" && sailingDoneAt(event) <= now).length;
+  return core.pastDepartureCount(events, now, doneOpts());
 }
 
 /** Knappen ligg utanfor lista, så minuttoppdateringa ikkje stel fokus. */
@@ -2105,31 +1533,16 @@ function renderTimeline() {
 }
 
 function matchesChosenRouteNotice(msg, route = chosenRoute()) {
-  const flags = routeNameFlags(msg);
-  if (route === "1135") return flags.named1135;
-  return flags.named1136;
+  return core.matchesChosenRouteNotice(msg, route);
 }
 
-function messagesForFilter(messages, filter = state.messageFilter, route = chosenRoute()) {
-  const local = messages.filter((msg) => msg.isLocal);
-  if (filter === "route") {
-    return sortMessagesForRoute(
-      messages.filter((msg) => matchesChosenRouteNotice(msg, route)),
-      route
-    );
-  }
-  return sortMessagesForRoute(local, route);
-}
 
 function applyMessageFilter(messages) {
-  return messagesForFilter(messages, state.messageFilter);
+  return core.messagesForFilter(messages, state.messageFilter, chosenRoute());
 }
 
 function usefulMessageFilters(messages, route = chosenRoute()) {
-  const local = filterMessageKey(messagesForFilter(messages, "local", route));
-  const routeIds = filterMessageKey(messagesForFilter(messages, "route", route));
-  if (routeIds === local) return [];
-  return ["local", "route"];
+  return core.usefulMessageFilters(messages, route);
 }
 
 function syncMessageFilters(all) {
@@ -2150,32 +1563,11 @@ function syncMessageFilters(all) {
 }
 
 function messageRouteScore(msg, route = chosenRoute()) {
-  const blob = messageBlob(msg);
-  const { named1136, named1135 } = routeNameFlags(msg);
-  const kombi = msg?.routeMode === "kombi" || /kombinasjon|kombirute|kombinert rute/i.test(blob);
-  if (route === "1136") {
-    if (named1136 && !named1135) return 0;
-    if (named1136) return 1;
-    if (kombi) return 2;
-    return 3;
-  }
-  if (route === "1135") {
-    if (named1135 && !named1136) return 0;
-    if (named1135) return 1;
-    if (kombi) return 2;
-    return 3;
-  }
-  return 3;
+  return core.messageRouteScore(msg, route);
 }
 
 function sortMessagesForRoute(messages, route = chosenRoute()) {
-  return [...messages].sort((a, b) => {
-    const byRoute = messageRouteScore(a, route) - messageRouteScore(b, route);
-    if (byRoute) return byRoute;
-    const byPublished = publishedMs(b) - publishedMs(a);
-    if (byPublished) return byPublished;
-    return (SEVERITY_RANK[a.severity] ?? 9) - (SEVERITY_RANK[b.severity] ?? 9);
-  });
+  return core.sortMessagesForRoute(messages, route);
 }
 
 function renderMessages() {
@@ -2237,7 +1629,6 @@ function renderMessages() {
   }
 }
 
-const SEVERITY_RANK = { cancelled: 0, delay: 1, capacity: 2, info: 3, normal: 4 };
 
 function renderMessageSummary(filtered) {
   const root = document.getElementById("messages-summary");
@@ -2388,7 +1779,7 @@ async function loadMessagesOnce() {
   let live = null;
   if (!json || messagesAreStale(json)) {
     try {
-      live = await fetchFjord1Messages();
+      live = await core.fetchFjord1Messages(fetch);
     } catch (err) {
       error = error || err;
     }
@@ -2406,13 +1797,7 @@ async function loadMessagesOnce() {
 
 function applyIncomingMessages(payload) {
   if (!payload) return false;
-  const previous = state.messages?.messages || readCachedMessages()?.messages;
-  if (previous?.length) {
-    payload = {
-      ...payload,
-      messages: retainHeldMessages(payload.messages, previous),
-    };
-  }
+  payload = core.withHeldMessages(payload, state.messages?.messages || readCachedMessages()?.messages);
   const same =
     state.messages && messagesFingerprint(state.messages) === messagesFingerprint(payload);
   state.messages = payload;
@@ -2437,7 +1822,7 @@ function scheduleMessagesPoll() {
       await loadMessages();
     }
     scheduleMessagesPoll();
-  }, MESSAGES_POLL_MS);
+  }, core.MESSAGES_POLL_MS);
 }
 
 function liveFetchUrls(mode = activeMode()) {
@@ -2904,11 +2289,9 @@ export {
   FEEDBACK_MAIL,
   LIVE_MAX_BACKOFF_MS,
   LIVE_SERVICE_MARGIN_MIN,
-  MESSAGES_POLL_MS,
   TIMETABLE_CACHE_KEY,
   MESSAGES_CACHE_KEY,
   LAST_MODE_KEY,
-  ROUTE_CHOICE_KEY,
   PWA_FIRST_KEY,
   WAKE_DEBOUNCE_MS,
   activeMode,
@@ -2942,6 +2325,7 @@ export {
   isPreview,
   messagesUrl,
   keepTimelineEvent,
+  timelineEventIsPast,
   legsForDate,
   legsForPlaceFilter,
   liveBlockedUntil,

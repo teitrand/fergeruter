@@ -2,8 +2,8 @@
  * Sanntid frå Entur (SIRI VM og avlysingar), fartøy og posisjon.
  * Rein logikk utan DOM, flytta uendra frå assets/app.js.
  */
-import { clockMinutes, hhmm, nowMinutes, osloHm, osloParts, todayIso } from "./time.js?v=82";
-import { quayPlace, serviceJourneyId, unwrapSiri } from "./legs.js?v=82";
+import { clockMinutes, hhmm, nowMinutes, osloHm, osloParts, todayIso } from "./time.js?v=83";
+import { quayPlace, serviceJourneyId, unwrapSiri } from "./legs.js?v=83";
 
 /** Stoppestader der vi spør Entur om avlyste avgangar. */
 export const STOP_PLACES = {
