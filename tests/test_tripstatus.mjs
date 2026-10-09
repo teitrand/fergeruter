@@ -177,6 +177,7 @@ test("tripStatus: tomtur med avgangsbevis er «gått», ikkje «ukjent»", () =>
   );
   assert.equal(entur.booked, false);
   assert.equal(entur.kind, "sailed");
+  assert.equal(entur.sailed, true);
   assert.equal(entur.source, "entur");
   assert.equal(entur.at, "2026-10-08T17:31:00+02:00");
   assert.equal(departureStateKey(entur, ctx), "gone");
@@ -207,7 +208,42 @@ test("tripStatus: tomtur med avgangsbevis er «gått», ikkje «ukjent»", () =>
   // Utan bevis for sjølve utturen er han framleis «ukjent».
   const none = tripStatus(out2, evidence({ ...base, actualDepartures: new Map([returned]) }), at);
   assert.equal(none.kind, "unknown");
+  assert.equal(none.sailed, false);
   assert.equal(departureStateKey(none, ctx), "unknown");
+});
+
+test("tripStatus: avgang i dag gjer ikkje same tur «gått» ein annan dag", () => {
+  const out2 = leg("Standal", "Trandal", "17:30:00", "17:45:00", 4);
+  const legs = [out2, back];
+  // Same rute-id gjekk i dag (Entur, sanntid), og returen gjekk òg.
+  const todayProof = {
+    dayLegs: legs,
+    dateLegs: legs,
+    actualDepartures: new Map([[J(4), "2026-10-08T17:31:00+02:00"], [J(2), "2026-10-08T18:00:00+02:00"]]),
+    sailedJourneys: new Set([J(4), J(2)]),
+    confirmedBooked: new Set([J(4)]),
+  };
+  for (const date of ["2026-10-09", "2026-10-07"]) {
+    const status = tripStatus(out2, evidence({ ...todayProof, date }), min("18:30"));
+    assert.notEqual(status.kind, "sailed", date);
+    assert.equal(status.sailed, false, date);
+    assert.equal(status.booked, false, date);
+    assert.equal(status.remember, null, date);
+    assert.notEqual(departureStateKey(status, { today: false }), "gone", date);
+    // «departed» i loggen for sjølve datoen tel.
+    const logged2 = tripStatus(
+      out2,
+      evidence({
+        ...todayProof,
+        date,
+        log: logged([{ id: J(4), status: "gått", evidence: "departed", observedAt: `${date}T15:31:00Z` }], date),
+      }),
+      min("18:30")
+    );
+    assert.equal(logged2.kind, "sailed", date);
+    assert.equal(logged2.source, "log", date);
+    assert.equal(logged2.sailed, true, date);
+  }
 });
 
 test("tripStatus: avlyst hos Entur er «ikkje utført»", () => {

@@ -199,6 +199,20 @@ function departureEvidence(leg, ev) {
   return null;
 }
 
+/**
+ * Avgangsbevis som tel som «gått» i tripStatus. Faktisk avgang hos Entur, sanntid og
+ * `sailedJourneys` gjeld berre i dag: rute-id blir brukt fleire datoar. Andre dagar
+ * tel berre «departed» i loggen for den datoen.
+ */
+function departedEvidenceFor(leg, ev) {
+  if (isTodayIn(ev)) return departureEvidence(leg, ev);
+  if (!leg?.signal || logStatus(leg, ev) === "skipped") return null;
+  const entry = logEntry(leg, ev);
+  if (entry?.evidence !== "departed") return null;
+  if (entry.status !== "booked" && entry.status !== "gått") return null;
+  return { source: "log", reason: "log-departed", at: entry.observedAt || null };
+}
+
 export function signalHasDeparture(leg, ev) {
   return Boolean(departureEvidence(leg, ev));
 }
@@ -395,11 +409,12 @@ export function tripStatus(leg, ev, now, opts = {}) {
   const entry = signal ? logEntry(leg, ev) : null;
   const deadline = signal ? bookingDeadline(leg) : null;
   const sailedProof = signal ? sailedEvidence(leg, ev) : null;
-  const sailed = Boolean(sailedProof);
-  // Bevis for avgang (Entur, «departed» i loggen, sanntid) er bevis for at turen gjekk,
-  // òg når han ikkje tel som bestilt fordi han var tomtur for ein retur.
+  // Bevis for avgang er bevis for at turen gjekk, òg når han ikkje tel som bestilt fordi
+  // han var tomtur for ein retur. I dag: Entur, «departed» i loggen, sanntid.
+  // Andre dagar: berre «departed» i loggen (sjå departedEvidenceFor).
   const departedProof =
-    signal && !skipped && !booked && !sailed ? departureEvidence(leg, ev) : null;
+    signal && !skipped && !booked && !sailedProof ? departedEvidenceFor(leg, ev) : null;
+  const sailed = Boolean(sailedProof || departedProof);
   let kind = "regular";
   let proof = { source: "timetable", reason: "timetable", at: null };
   if (cancelled && !signal) {
@@ -414,7 +429,7 @@ export function tripStatus(leg, ev, now, opts = {}) {
   } else if (booked) {
     kind = "booked";
     proof = booking.proof;
-  } else if (sailed || departedProof) {
+  } else if (sailed) {
     kind = "sailed";
     proof = sailedProof || departedProof;
   } else if (signal && deadline != null && today && now < deadline) {

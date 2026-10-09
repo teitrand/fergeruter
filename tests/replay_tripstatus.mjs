@@ -7,8 +7,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
-import { GOLDEN_GRID, compareReplays, legacyRowKey, packGolden, runReplay } from "./helpers/replay.mjs";
-import { departureStateKey } from "../packages/core/index.js";
+import { GOLDEN_GRID, compareReplays, legacyRowKey, packGolden, runReplay, tripStatusRowKey } from "./helpers/replay.mjs";
 
 const args = process.argv.slice(2);
 const golden = args.includes("--golden");
@@ -31,7 +30,7 @@ try {
   }
   const newApp = await import("../assets/app.js");
   const oldRecords = runReplay(oldApp, legacyRowKey);
-  const newRecords = runReplay(newApp, (app, leg, ctx) => departureStateKey(app.tripStatusFor(leg), ctx));
+  const newRecords = runReplay(newApp, tripStatusRowKey);
   const result = compareReplays(oldRecords, newRecords);
   const departures = new Set(oldRecords.filter((r) => r.leg !== "(statuslinja)").map((r) => `${r.day} ${r.leg}`));
   console.log(`Gammal kode: ${ref}`);

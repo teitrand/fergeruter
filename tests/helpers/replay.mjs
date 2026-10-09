@@ -1,6 +1,7 @@
 // Avspeling av signalturane 2.–8. oktober 2026 mot ein versjon av appen.
 // Brukt av tests/replay_tripstatus.mjs (gammal mot ny kode) og test_replay_tripstatus.mjs (fasit).
 import { readFileSync } from "node:fs";
+import { departureStateKey } from "../../packages/core/index.js";
 
 const fixture = (name) => JSON.parse(readFileSync(new URL(`../fixtures/${name}`, import.meta.url), "utf8"));
 export const LOG = fixture("signalturar_2026-10-02_08.json");
@@ -146,6 +147,20 @@ export function runReplay(app, rowKey, { step = 10, deltas = FULL_DELTAS } = {})
   return records;
 }
 
+/**
+ * Radnøkkel for den nye koden. Legg òg `tripSailed` på rada, så replayen kan sjekke at
+ * `sailed` frå tripStatus alltid stemmer med `kind` og berre skil seg frå den gamle
+ * signalSailed der ein tomtur har avgangsbevis.
+ */
+export function tripStatusRowKey(app, leg, ctx, fields) {
+  const status = app.tripStatusFor(leg);
+  if (status.sailed !== (status.kind === "sailed")) {
+    throw new Error(`sailed (${status.sailed}) og kind (${status.kind}) er usamde for ${leg.id}`);
+  }
+  if (status.sailed !== fields.sailed) fields.tripSailed = status.sailed;
+  return departureStateKey(status, ctx);
+}
+
 /** Same formel som departureRow i den gamle appen (v79/v80). */
 export function legacyRowKey(app, leg, { past, departed, today }, fields) {
   if (fields.cancelled) return "cancelled";
@@ -161,7 +176,9 @@ export function legacyRowKey(app, leg, { past, departed, today }, fields) {
  */
 function provenSailed(a, b) {
   if (a.detail?.phase !== "unknown" || b.detail?.phase !== "sailed") return false;
-  const strip = ({ row, detail, ...rest }) => JSON.stringify({ ...rest, detail: { ...detail, phase: null } });
+  if (b.tripSailed !== true) return false;
+  const strip = ({ row, detail, tripSailed, ...rest }) =>
+    JSON.stringify({ ...rest, detail: { ...detail, phase: null } });
   return strip(a) === strip(b) && a.row === b.row;
 }
 
