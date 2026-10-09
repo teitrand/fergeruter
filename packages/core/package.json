@@ -1,0 +1,11 @@
+{
+  "name": "@fergeruter/core",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Rein ferjelogikk (rutetabell, status, signalturar) delt mellom vanilla-appen og React-skalet.",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./index.js"
+  }
+}

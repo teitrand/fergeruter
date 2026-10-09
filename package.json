@@ -1,0 +1,15 @@
+{
+  "name": "fergeruter",
+  "private": true,
+  "description": "Fergeorakelet. Vanilla-appen ligg i assets/, React-skalet i web/, delt logikk i packages/core.",
+  "type": "module",
+  "workspaces": [
+    "packages/core",
+    "web"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev -w web",
+    "build:web": "npm run build -w web",
+    "test:web": "npm test -w web"
+  }
+}
