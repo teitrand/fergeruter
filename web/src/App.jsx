@@ -1,23 +1,29 @@
-import { useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { chosenRoute, nowMinutes } from "../../packages/core/index.js";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { appMode, chosenRoute, nowMinutes } from "../../packages/core/index.js";
 import { DayNav } from "./components/DayNav.jsx";
 import { DepartureDialog } from "./components/DepartureDialog.jsx";
+import { FeedbackDialog } from "./components/FeedbackDialog.jsx";
+import { Footnote } from "./components/Footnote.jsx";
 import { Footer } from "./components/Footer.jsx";
 import { Header } from "./components/Header.jsx";
+import { InstallDialog } from "./components/InstallDialog.jsx";
 import { MessagesPanel } from "./components/MessagesPanel.jsx";
 import { Timeline } from "./components/Timeline.jsx";
 import { ExtrasRow, PlaceFilter } from "./components/TripControls.jsx";
 import { setLang, t } from "./components/i18n.js";
+import { TrackContext } from "./components/track.js";
 import { useAppData } from "./hooks/useAppData.js";
 import { useClock } from "./hooks/useClock.js";
 import { useEntur } from "./hooks/useEntur.js";
+import { useInstall } from "./hooks/useInstall.js";
 import { useMessages } from "./hooks/useMessages.js";
 import { hasTimetable, isTodaySelected, memoryOnly, rememberBookings, selectedDate } from "./model/context.js";
 import { connectionModel, detailModel, messagesModel, placeFilterModel, staleChoices } from "./model/controls.js";
 import { rememberEntur, withEntur } from "./model/entur.js";
-import { ledeModel, routeChrome } from "./model/header.js";
-import { writeHideArrivals, writeRouteChoice } from "./model/storage.js";
+import { footnoteModel, ledeModel, routeChrome } from "./model/header.js";
+import { markPwaFirstOpen, writeHideArrivals, writeRouteChoice } from "./model/storage.js";
 import { buildTimeline } from "./model/timeline.js";
+import { actionEvent, track as sendEvent, visitEvents } from "./model/track.js";
 import { initialUi, uiReducer } from "./state.js";
 
 const NO_CONNECTION = { lines: [], value: null, footnote: "" };
@@ -33,17 +39,26 @@ const NO_CONNECTION = { lines: [], value: null, footnote: "" };
  * minnet, men endrar det berre i effektane under.
  *
  * Props er for testar og SSR: fast data, fast Entur-tilstand, fast UI og minne utan localStorage.
+ * `liveDataBase` er der meldingar og signallogg ligg (produksjonsfilene på /dev/, sjå data.js),
+ * `messageCache` er localStorage-lageret for meldingar (null = ingen).
+ *
+ * Plausible: kvar handling går via `act`, som sender same hending som vanilla-appen
+ * (model/track.js) før reduceren får ho. Ringelenkjer, installering og tilbakemelding
+ * sender sjølve via TrackContext.
  */
 export function App({
   dataBase = "./data/",
+  liveDataBase = dataBase,
+  messageCache = null,
   initialData = null,
   initialEntur = null,
   initialState = null,
   memory: givenMemory = null,
 }) {
   const [ui, dispatch] = useReducer(uiReducer, initialState, (given) => ({ ...initialUi(), ...given }));
-  const { data: loaded, status } = useAppData(dataBase, initialData);
-  const messages = useMessages(dataBase, loaded.messages, status === "ready" && !initialData);
+  const live = !initialData;
+  const { data: loaded, status } = useAppData(dataBase, initialData, liveDataBase);
+  const messages = useMessages(liveDataBase, loaded.messages, { live, ready: status === "ready", cache: messageCache });
   const base = useMemo(() => ({ ...loaded, messages }), [loaded, messages]);
   const clockMs = useClock();
   const entur = useEntur(base, ui, clockMs, initialEntur);
@@ -71,6 +86,33 @@ export function App({
     [ready, data, ui, filters, connection.value, memory, now, memoryVersion]
   );
   const detail = ui.detail && ready ? detailModel(data, ui, memory, ui.detail, now) : null;
+  const notes = footnoteModel(data, ui, chrome);
+
+  // Plausible. uiRef gjev hendingane gjeldande språk og samband utan å lage nye funksjonar.
+  const uiRef = useRef(ui);
+  uiRef.current = ui;
+  const win = live && typeof window !== "undefined" ? window : null;
+  const track = useCallback((name, props, opts) => sendEvent(win, name, props, uiRef.current, opts), [win]);
+  const act = useCallback(
+    (action) => {
+      const event = actionEvent(action, uiRef.current);
+      if (event) sendEvent(win, event.name, event.props, event.ui || uiRef.current);
+      dispatch(action);
+    },
+    [win]
+  );
+  const visited = useRef(false);
+  useEffect(() => {
+    // Éin gong per opning, òg når StrictMode køyrer effekten to gonger.
+    if (!win || visited.current) return;
+    visited.current = true;
+    const mode = appMode(win);
+    for (const name of visitEvents(uiRef.current, mode, markPwaFirstOpen(mode))) {
+      sendEvent(win, name, null, uiRef.current, { interactive: false });
+    }
+  }, [win]);
+  const install = useInstall(track, { enabled: live });
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   useEffect(() => {
     if (!hasTimetable(base)) return;
@@ -95,47 +137,47 @@ export function App({
 
   const onRoute = (route) => {
     writeRouteChoice(route);
-    dispatch({ type: "route", route });
+    act({ type: "route", route });
   };
   const onLang = (lang) => {
     setLang(lang);
-    dispatch({ type: "lang", lang });
+    act({ type: "lang", lang });
   };
   const onToggleArrivals = () => {
     writeHideArrivals(!ui.hideArrivals);
-    dispatch({ type: "toggleArrivals" });
+    act({ type: "toggleArrivals" });
   };
 
   return (
-    <>
+    <TrackContext.Provider value={track}>
       <a className="skip-link" href="#innhald">
         {t("skip")}
       </a>
       <div className="skyline" aria-hidden="true" />
-      <Header chrome={chrome} lede={lede} ui={ui} onRoute={onRoute} onLang={onLang} />
+      <Header chrome={chrome} lede={lede} ui={ui} onRoute={onRoute} onLang={onLang} install={install} />
       <main id="innhald">
         <div className={panel.hidden ? "layout is-single" : "layout"} id="layout">
           <MessagesPanel
             panel={panel}
             route={chosenRoute(ui)}
             expanded={ui.messagesExpanded}
-            onToggle={() => dispatch({ type: "toggleMessages" })}
-            onFilter={(filter) => dispatch({ type: "messageFilter", filter })}
+            onToggle={() => act({ type: "toggleMessages" })}
+            onFilter={(filter) => act({ type: "messageFilter", filter })}
           />
           <section className="panel" aria-labelledby="day-label" id="timetable-panel">
             <DayNav
               date={selectedDate(ui)}
               isToday={isTodaySelected(ui)}
               loading={!ready && status === "loading"}
-              onDay={(days) => dispatch({ type: "day", days })}
+              onDay={(days) => act({ type: "day", days })}
             />
-            {place ? <PlaceFilter place={place} dispatch={dispatch} /> : null}
+            {place ? <PlaceFilter place={place} dispatch={act} /> : null}
             {ready ? (
               <ExtrasRow
                 showArrivals={!ui.hideArrivals}
                 onToggleArrivals={onToggleArrivals}
                 connection={connection}
-                onConnection={(id) => dispatch({ type: "connection", id })}
+                onConnection={(id) => act({ type: "connection", id })}
               />
             ) : null}
             {status === "error" && !ready ? (
@@ -146,18 +188,18 @@ export function App({
               <Timeline
                 timeline={timeline}
                 showPast={ui.showPast}
-                onTogglePast={() => dispatch({ type: "togglePast" })}
-                onDetail={(leg) => dispatch({ type: "detail", leg })}
+                onTogglePast={() => act({ type: "togglePast" })}
+                onDetail={(leg) => act({ type: "detail", leg })}
               />
             ) : null}
-            <p className="footnote">
-              <span>{t("footnote.signal")}</span> <span id="connection-note">{connection.footnote}</span>
-            </p>
+            <Footnote notes={notes} connection={connection.footnote} />
           </section>
         </div>
       </main>
-      <Footer chrome={chrome} />
+      <Footer chrome={chrome} onFeedback={() => setFeedbackOpen(true)} />
+      <InstallDialog open={install.helpOpen} onClose={install.closeHelp} />
       <DepartureDialog detail={detail} onClose={() => dispatch({ type: "detail", leg: null })} />
-    </>
+      <FeedbackDialog open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
+    </TrackContext.Provider>
   );
 }

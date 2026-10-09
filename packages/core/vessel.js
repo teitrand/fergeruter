@@ -2,9 +2,9 @@
  * Kva ferje som køyrer, og kva nummer ein ringjer for signaltur. `ctx` er same
  * plankontekst som plan.js (rutetabell, kombirute, meldingar, dato, klokke).
  */
-import { defaultVesselName, messageVessel } from "./live.js?v=83";
-import { messageMode, resolveRoutePlan } from "./messages.js?v=83";
-import { activeMode } from "./plan.js?v=83";
+import { defaultVesselName, messageVessel } from "./live.js?v=84";
+import { messageMode, resolveRoutePlan } from "./messages.js?v=84";
+import { activeMode } from "./plan.js?v=84";
 
 export const DEFAULT_VESSELS = [
   { name: "M/F Geiranger", phone: "916 69 321" },

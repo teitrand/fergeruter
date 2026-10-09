@@ -10,10 +10,10 @@ import {
   compareTimelineEvents,
   connectionIndex,
   connectionNote,
-  countdown,
   crossesArea,
   currentStatus,
   departureStateKey,
+  departureStateText,
   durationText,
   emptyPlaceMessage,
   eventIsPast,
@@ -56,7 +56,7 @@ import { planContext, statusEvidence, statusView } from "./context.js";
  * @property {string|null} via    overgang med frå/til (t.d. «Byt til 1135 på Sæbø»)
  * @property {string[]} notes     korrespondanse, ferdig omsett
  * @property {"cancelled"|"notRunning"|"unknown"|"gone"|"countdown"|""} state
- * @property {string} countdown  ferdig omsett nedteljing når state er «countdown»
+ * @property {string} stateText  ferdig omsett tekst for kolonna til høgre (core departureStateText)
  */
 
 function departureRow(event, status, ctx, ev, now, { today, showArrivals, index }) {
@@ -166,7 +166,8 @@ function toRow(event, past, status, { ctx, ev, now, today, showArrivals, index, 
       const row = departureRow(event, status, ctx, ev, now, { today, showArrivals, index });
       row.past = past;
       row.state = departureStateKey(status, { past, departed: row.departed, today });
-      row.countdown = row.state === "countdown" ? countdown(event.leg.departure) : "";
+      // «Avlyst» før avgangstida, «Ikkje utført» etter (core/detail.js), som i vanilla.
+      row.stateText = departureStateText(row.state, event.leg, { today, past, now });
       return row;
     }
     case "layover":

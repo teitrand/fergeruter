@@ -1,28 +1,45 @@
-import { telHref } from "../../../packages/core/index.js";
+import { NAIS_URL } from "../../../packages/core/index.js";
+import { CallLink } from "./CallLink.jsx";
 import { t } from "./i18n.js";
 
-/** Operatør og ferjetelefon. Nummeret blir ei ringelenkje, som i vanilla-appen. */
-export function Footer({ chrome }) {
+/** Teksten med telefonnummeret som ringelenkje, som linkifyPhone() i vanilla-appen. */
+function Operator({ text, phone }) {
+  const at = phone ? text.indexOf(phone) : -1;
+  if (at < 0) return text;
+  return (
+    <>
+      {text.slice(0, at)}
+      <CallLink className="footer-phone" phone={phone} how="footer" aria-label={t("signal.callAria", { phone })}>
+        {phone}
+      </CallLink>
+      {text.slice(at + phone.length)}
+    </>
+  );
+}
+
+/** Operatør og ferjetelefon, AIS-kjelde, høgtidsmerknad og tilbakemelding. */
+export function Footer({ chrome, onFeedback }) {
   const vessel = chrome?.vessel;
   const phone = vessel ? vessel.phone : "916 69 340";
   const text = vessel ? t("footer.operatorVessel", { name: vessel.name, phone }) : t("footer.operator");
-  const at = phone ? text.indexOf(phone) : -1;
   return (
     <footer className="site-footer">
       <p>
-        {at < 0 ? (
-          text
-        ) : (
-          <>
-            {text.slice(0, at)}
-            <a className="footer-phone" href={telHref(phone)} aria-label={t("signal.callAria", { phone })}>
-              {phone}
-            </a>
-            {text.slice(at + phone.length)}
-          </>
-        )}
+        <span id="footer-operator">
+          <Operator text={text} phone={phone} />
+        </span>{" "}
+        AIS:{" "}
+        <a href={NAIS_URL} target="_blank" rel="noreferrer">
+          NAIS / Kystverket
+        </a>
+        .
       </p>
       <p>{t("footer.holidays")}</p>
+      <p>
+        <button type="button" id="feedback-open" className="feedback-link" onClick={onFeedback}>
+          {t("feedback.open")}
+        </button>
+      </p>
     </footer>
   );
 }

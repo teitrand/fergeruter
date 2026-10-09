@@ -19,14 +19,22 @@ const FLAGS = {
       <path d="M30 0v30M0 15h60" stroke="#c8102e" strokeWidth="6" />
     </svg>
   ),
+  de: (
+    <svg viewBox="0 0 16 12" focusable="false">
+      <rect width="16" height="4" fill="#000" />
+      <rect y="4" width="16" height="4" fill="#d00" />
+      <rect y="8" width="16" height="4" fill="#ffce00" />
+    </svg>
+  ),
 };
 
 const LANGS = [
   { code: "nn", label: "Nynorsk" },
   { code: "en", label: "English" },
+  { code: "de", label: "Deutsch" },
 ];
 
-/** Språkval. Skalet har nynorsk og engelsk; tysk kjem med full paritet (PR 5). */
+/** Språkval: nynorsk, engelsk og tysk, som i vanilla-appen. */
 export function LangSwitch({ lang, onChange }) {
   return (
     <div className="lang-switch" role="group" aria-label={t("lang.label")}>
@@ -34,7 +42,7 @@ export function LangSwitch({ lang, onChange }) {
         <button
           key={code}
           type="button"
-          className="lang-btn"
+          className={lang === code ? "lang-btn is-active" : "lang-btn"}
           lang={code}
           aria-label={label}
           title={label}

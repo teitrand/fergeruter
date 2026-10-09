@@ -2,13 +2,13 @@
  * Ferjestatus på tidslinja: kvar ferja er no, liggetid, tomkøyring og framdrift.
  * Rein logikk utan DOM og utan global tilstand. Det appen veit, kjem inn som `ev` og `view`.
  */
-import { t } from "../../assets/i18n.js?v=83";
-import { clockMinutes, durationText, hasPassed, hhmm } from "./time.js?v=83";
-import { LAYOVER_MIN_MINUTES, catalogKeys, legIndex, quayPlace, sameLeg } from "./legs.js?v=83";
-import { isLiveFresh, leftOrigin, legForLive } from "./live.js?v=83";
-import { firstKnownQuay } from "./plan.js?v=83";
-import { signalReachedDestination, signalSkippedStatus } from "./signal.js?v=83";
-import { runningLegs, signalVerdict } from "./tripstatus.js?v=83";
+import { t } from "../../assets/i18n.js?v=84";
+import { clockMinutes, durationText, hasPassed, hhmm } from "./time.js?v=84";
+import { LAYOVER_MIN_MINUTES, catalogKeys, legIndex, quayPlace, sameLeg } from "./legs.js?v=84";
+import { isLiveFresh, leftOrigin, legForLive } from "./live.js?v=84";
+import { firstKnownQuay } from "./plan.js?v=84";
+import { signalReachedDestination, signalSkippedStatus } from "./signal.js?v=84";
+import { runningLegs, signalVerdict } from "./tripstatus.js?v=84";
 
 export const HOME_QUAY = "Standal";
 

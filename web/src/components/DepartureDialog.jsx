@@ -1,6 +1,7 @@
-import { useEffect, useRef } from "react";
-import { telHref } from "../../../packages/core/index.js";
+import { useRef } from "react";
+import { CallLink } from "./CallLink.jsx";
 import { t } from "./i18n.js";
+import { closeOnBackdrop, useModal } from "./useModal.js";
 
 /**
  * Detaljvindauget for éi avgang. `detail` kjem frå detailModel (null = lukka).
@@ -8,16 +9,7 @@ import { t } from "./i18n.js";
  */
 export function DepartureDialog({ detail, onClose }) {
   const ref = useRef(null);
-  useEffect(() => {
-    const dialog = ref.current;
-    if (!dialog) return;
-    if (detail && !dialog.open) {
-      if (typeof dialog.showModal === "function") dialog.showModal();
-      else dialog.setAttribute("open", "");
-    } else if (!detail && dialog.open) {
-      dialog.close();
-    }
-  }, [detail]);
+  useModal(ref, Boolean(detail));
   return (
     <dialog
       ref={ref}
@@ -25,18 +17,16 @@ export function DepartureDialog({ detail, onClose }) {
       className="install-dialog departure-dialog"
       aria-labelledby="departure-title"
       onClose={onClose}
-      onClick={(event) => {
-        if (event.target === ref.current) ref.current.close();
-      }}
+      onClick={closeOnBackdrop(ref)}
     >
       <h2 id="departure-title">{detail?.title || ""}</h2>
       <div id="departure-body">
         {(detail?.paragraphs || []).map((item, index) =>
           item.phone ? (
             <p key={index} className={item.className}>
-              <a className="stop-phone" href={telHref(item.phone)}>
+              <CallLink className="stop-phone" phone={item.phone} how="detail">
                 {item.text}
-              </a>
+              </CallLink>
             </p>
           ) : (
             <p key={index} className={item.className}>

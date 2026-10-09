@@ -4,7 +4,7 @@ import {
   getLang,
   setLang,
   t,
-} from "./i18n.js?v=83";
+} from "./i18n.js?v=84";
 import {
   ALLOWED_MODES,
   CHOOSABLE_ROUTES,
@@ -41,27 +41,18 @@ import {
   timetableFingerprint,
   todayIso,
   validMessages,
-} from "../packages/core/index.js?v=83";
-import * as core from "../packages/core/index.js?v=83";
+} from "../packages/core/index.js?v=84";
+import * as core from "../packages/core/index.js?v=84";
 
 const MESSAGES_URL = "data/trafikkmeldinger.json";
 const SIGNAL_LOG_URL = "data/signalturar.json";
 const ROUTES_URL = "data/ruter.json";
 const KOMBI_URL = "data/kombirute.json";
 const CONNECTIONS_URL = "data/korrespondanse.json";
-const FEEDBACK_MAIL = "teitrand@hotmail.com";
-const FEEDBACK_GITHUB = "https://github.com/teitrand/fergeruter/issues/new";
-const KOMBI_PDF =
-  "https://frammr.no/_f/p2/i2e02cdba-2cdc-4a23-b9bf-f6a6bd437bbe/kombinasjonsrute-sabo-leknes-skar-trandal-standal-20251118.pdf";
-const FJORD1_PDF =
-  "https://www.fjord1.no/ruteoversikt/moere-og-romsdal/standal-trandal-valderoeya-store-kalvoey/(page)/pdf";
-const FJORD1_PDF_1135 =
-  "https://www.fjord1.no/ruteoversikt/moere-og-romsdal/leknes-saeboe/(page)/pdf";
-const PWA_FIRST_KEY = "fergeruter-pwa-first-open";
 const TIMETABLE_CACHE_KEY = "fergeruter-timetable-v1";
-const MESSAGES_CACHE_KEY = "fergeruter-messages-v1";
 const LAST_MODE_KEY = "fergeruter-last-mode";
 const WAKE_DEBOUNCE_MS = 400;
+const { FEEDBACK_MAIL, MESSAGES_CACHE_KEY, PWA_FIRST_KEY } = core;
 
 const state = {
   messageFilter: "local",
@@ -118,70 +109,29 @@ function el(tag, className, text) {
 }
 
 function plausibleRoute(choice = chosenRoute()) {
-  return choice === "1135" ? "saebo-leknes" : "standal-trandal";
+  return core.plausibleRoute(choice);
 }
 
 function plausibleContext(extra) {
-  return {
-    lang: getLang(),
-    app: appMode(),
-    route: plausibleRoute(),
-    ...extra,
-  };
+  return core.plausibleContext({ lang: getLang(), app: appMode(), route: chosenRoute() }, extra);
 }
 
-/** Anonym Plausible-hending. Feilar aldri ut til brukaren. */
+/** Anonym Plausible-hending (core/track.js). Feilar aldri ut til brukaren. */
 function track(name, props, { interactive = true } = {}) {
-  try {
-    const fn = typeof window !== "undefined" ? window.plausible : null;
-    if (typeof fn !== "function") return;
-    const payload = { props: plausibleContext(props) };
-    if (!interactive) payload.interactive = false;
-    fn(name, payload);
-  } catch {
-    // statistikk skal ikkje stoppe sida
-  }
+  const win = typeof window !== "undefined" ? window : null;
+  core.trackEvent(win, name, props, { lang: getLang(), app: appMode(), route: chosenRoute() }, { interactive });
 }
 
 function appMode() {
-  try {
-    if (typeof window === "undefined") return "web";
-    if (window.matchMedia("(display-mode: standalone)").matches) return "pwa";
-    if (navigator.standalone) return "pwa";
-  } catch {
-    // matchMedia kan mangle
-  }
-  return "web";
+  return core.appMode();
 }
 
-/** Kva install-rettleiing som passar best. iOS har ikkje beforeinstallprompt. */
-function installHint(nav = typeof navigator !== "undefined" ? navigator : null) {
-  if (!nav) return "desktop";
-  const ua = nav.userAgent || "";
-  const platform = nav.platform || "";
-  const ios =
-    /iPad|iPhone|iPod/.test(ua) ||
-    (platform === "MacIntel" && (nav.maxTouchPoints || 0) > 1);
-  if (ios) return "ios";
-  if (/Android/i.test(ua)) return "android";
-  return "desktop";
+function installHint(nav) {
+  return core.installHint(nav);
 }
 
-/** Fyrste gong sida er open som installert app, per nettlesar. */
-function markPwaFirstOpen(
-  storage,
-  mode = appMode()
-) {
-  if (mode !== "pwa") return false;
-  try {
-    const store =
-      storage ?? (typeof localStorage !== "undefined" ? localStorage : null);
-    if (!store || store.getItem(PWA_FIRST_KEY)) return false;
-    store.setItem(PWA_FIRST_KEY, "1");
-    return true;
-  } catch {
-    return false;
-  }
+function markPwaFirstOpen(storage, mode = appMode()) {
+  return core.markPwaFirstOpen(localStore(storage), mode);
 }
 
 function highlightInstallHint(hint = installHint()) {
@@ -203,11 +153,7 @@ function openInstallDialog(dialog) {
 }
 
 function feedbackMailto(rating, comment) {
-  const ratingLabel = rating === "yes" ? t("feedback.yes") : t("feedback.no");
-  const text = String(comment || "").trim() || t("feedback.mailNoComment");
-  const subject = t("feedback.mailSubject");
-  const body = t("feedback.mailBody", { rating: ratingLabel, comment: text });
-  return `mailto:${FEEDBACK_MAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  return core.feedbackMailto(rating, comment);
 }
 
 function selectedDate() {
@@ -228,18 +174,7 @@ function previewLocation(loc) {
 
 /** Testhost /dev/ les produksjonsfila. Action oppdaterer berre main. */
 function productionDataUrl(loc, file) {
-  const here = previewLocation(loc);
-  const path = String(here?.pathname || "");
-  if (!path.includes("/dev/")) return file;
-  try {
-    let origin = here.origin;
-    if (!origin && here.href) origin = new URL(here.href).origin;
-    if (!origin) return file;
-    const prefix = path.slice(0, path.indexOf("/dev/"));
-    return `${origin}${prefix}/data/${file.replace(/^data\//, "")}`;
-  } catch {
-    return file;
-  }
+  return core.productionDataUrl(previewLocation(loc), file);
 }
 
 function messagesUrl(loc) {
@@ -252,22 +187,11 @@ function signalLogUrl(loc) {
 
 /** Lokal utvikling og /dev/ på Pages. Produksjon tek ikkje ?rute=. */
 function isPreview(loc) {
-  const here = previewLocation(loc);
-  if (!here) return false;
-  const host = here.hostname || "";
-  const path = here.pathname || "";
-  return host === "localhost" || host === "127.0.0.1" || path.includes("/dev/");
+  return core.isPreview(previewLocation(loc));
 }
 
 function routeOverride(loc) {
-  const here = previewLocation(loc);
-  if (!isPreview(here)) return null;
-  try {
-    const raw = new URL(here.href, "https://teitrand.github.io").searchParams.get("rute");
-    return ALLOWED_MODES.has(raw) ? raw : null;
-  } catch {
-    return null;
-  }
+  return core.routeOverride(previewLocation(loc));
 }
 
 function cancelledDepartureSet(messages = state.messages?.messages) {
@@ -675,29 +599,11 @@ function writeCachedTimetable({ routes, kombirute, connections }, storage) {
 }
 
 function readCachedMessages(storage) {
-  try {
-    const store =
-      storage ?? (typeof localStorage !== "undefined" ? localStorage : null);
-    if (!store) return null;
-    const raw = store.getItem(MESSAGES_CACHE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (!parsed || !Array.isArray(parsed.messages)) return null;
-    return parsed;
-  } catch {
-    return null;
-  }
+  return core.readCachedMessages(localStore(storage));
 }
 
 function writeCachedMessages(payload, storage) {
-  try {
-    const store =
-      storage ?? (typeof localStorage !== "undefined" ? localStorage : null);
-    if (!store || !payload || !Array.isArray(payload.messages)) return;
-    store.setItem(MESSAGES_CACHE_KEY, JSON.stringify(payload));
-  } catch {
-    // kvote / privat modus
-  }
+  core.writeCachedMessages(payload, localStore(storage));
 }
 
 function readLastMode(storage) {
@@ -882,15 +788,12 @@ function departureRow(leg, past, connections, journey = null) {
   row.append(body);
   const departed = isToday() && hasPassed(leg.departure);
   const stateKey = departureStateKey(status, { past, departed, today: isToday() });
-  const remaining = {
-    cancelled: () => t("sailing.cancelled"),
-    notRunning: () => t("signal.notRunning"),
-    unknown: () => t("signal.unknown"),
-    gone: () => t("gone"),
-    countdown: () => countdown(leg.departure),
-  }[stateKey]?.() ?? "";
+  const remaining = core.departureStateText(stateKey, leg, { today: isToday(), past });
   const remainingNode = el("span", "stop-state", remaining);
-  if (verdict === "skipped") remainingNode.dataset.signal = "skipped";
+  if (verdict === "skipped") {
+    remainingNode.dataset.signal = "skipped";
+    remainingNode.dataset.departure = leg.departure;
+  }
   else if (stateKey === "unknown") remainingNode.dataset.signal = "unknown";
   else if (isToday() && !cancelled) remainingNode.dataset.countdown = leg.departure;
   row.append(remainingNode);
@@ -903,7 +806,8 @@ function departureRow(leg, past, connections, journey = null) {
 
 
 function renderDepartureDetail(leg) {
-  const content = core.departureDetailContent(leg, departureDetail(leg));
+  const now = nowMinutes();
+  const content = core.departureDetailContent(leg, departureDetail(leg, now), { today: isToday(), now });
   const title = document.getElementById("departure-title");
   const body = document.getElementById("departure-body");
   const close = document.getElementById("departure-close");
@@ -1338,15 +1242,9 @@ function appendSignalLogWarning(lede, legs) {
   lede.append(el("span", "lede-warn", text));
 }
 
-/**
- * Fotnote for posisjonen. Når Entur strupar, manglar svaret CORS-hovud, så
- * nettlesaren ser berre «Failed to fetch» og aldri 429. Difor reknar vi kvar
- * feil ved kallet som «fekk ikkje kontakt», og tomt svar som «ingen posisjon».
- */
+/** Fotnoten om posisjonen (core/chrome.js). */
 function positionNoteKey() {
-  if (liveStatus(state.live)) return "position.live";
-  if (state.liveFailed) return "position.offline";
-  return "position.planned";
+  return core.positionNoteKey(state.live, state.liveFailed, knownQuays());
 }
 
 function renderPositionNote() {
@@ -1443,7 +1341,12 @@ function patchLiveClock() {
   patchNowProgress();
   document.querySelectorAll("[data-countdown], [data-signal]").forEach((node) => {
     if (node.dataset.signal === "skipped") {
-      node.textContent = t("signal.notRunning");
+      // «Avlyst» fram til avgangstida, så «Ikkje utført» (core/detail.js).
+      const leg = { departure: node.dataset.departure };
+      node.textContent = core.departureStateText("notRunning", leg, {
+        today: isToday(),
+        past: Boolean(node.closest(".is-past")),
+      });
       return;
     }
     if (node.dataset.signal === "unknown") {
@@ -1713,25 +1616,18 @@ function renderRouteChrome() {
     eyebrow.textContent =
       mode === "kombi" ? t("eyebrow.kombi") : mode === "1135" ? t("eyebrow.1135") : t("eyebrow");
   }
-  const pdf = document.getElementById("timetable-pdf");
-  if (pdf) {
-    if (mode === "kombi") {
-      pdf.href = state.kombirute?.source || KOMBI_PDF;
-      pdf.textContent = t("footnote.kombiPdf");
-    } else if (mode === "1135") {
-      pdf.href = FJORD1_PDF_1135;
-      pdf.textContent = "fjord1.no";
-    } else {
-      pdf.href = FJORD1_PDF;
-      pdf.textContent = "fjord1.no";
-    }
-  }
   const vessel =
     mode === "kombi"
       ? vesselInfo(activeVessel())
       : mode === "1135"
         ? vesselInfo("Geiranger")
         : null;
+  const notes = core.routeFootnotes(mode, { kombirute: state.kombirute, vessel });
+  const pdf = document.getElementById("timetable-pdf");
+  if (pdf) {
+    pdf.href = notes.pdf.href;
+    pdf.textContent = notes.pdf.text;
+  }
   const operator = document.getElementById("footer-operator");
   if (operator) {
     if (vessel) {
@@ -1747,11 +1643,7 @@ function renderRouteChrome() {
     }
   }
   const nais = document.getElementById("footnote-nais");
-  if (nais) {
-    nais.textContent = vessel
-      ? t("footnote.naisVessel", { name: vessel.name })
-      : t("footnote.nais");
-  }
+  if (nais) nais.textContent = notes.nais;
 }
 
 async function loadMessages() {
@@ -1800,10 +1692,14 @@ function applyIncomingMessages(payload) {
   payload = core.withHeldMessages(payload, state.messages?.messages || readCachedMessages()?.messages);
   const same =
     state.messages && messagesFingerprint(state.messages) === messagesFingerprint(payload);
+  const fetchedChanged =
+    state.messages?.fetchedAt !== payload.fetchedAt || state.messages?.fetchedLive !== payload.fetchedLive;
   state.messages = payload;
   writeCachedMessages(payload);
   if (same) {
     writeLastMode();
+    // Same meldingar, men ny hentetid: «Sist henta» skal ikkje bli ståande gammal.
+    if (fetchedChanged) renderMessages();
     return false;
   }
   renderMessages();
@@ -1906,6 +1802,11 @@ function applyTimetable({ routes, kombirute, connections }, { persist = true } =
   renderRouteChrome();
   renderTimeline();
   renderLedeStatus();
+  renderTimetableUpdated();
+}
+
+/** «Sist lasta ned …». Òg ved språkbyte, elles blir han ståande på det gamle språket. */
+function renderTimetableUpdated() {
   const updated = document.getElementById("timetable-updated");
   if (updated && state.routes?.fetchedAt) {
     updated.textContent = t("timetable.updated", {
@@ -2038,6 +1939,7 @@ function applyLanguage(next) {
   const install = document.getElementById("install-btn");
   if (install) install.textContent = t("install.app");
   renderRouteChrome();
+  renderTimetableUpdated();
   if (hasTimetable()) {
     renderTimeline();
     renderLedeStatus();
@@ -2146,7 +2048,7 @@ function bindFeedback() {
   let rating = null;
   let sentRating = false;
 
-  if (github) github.href = FEEDBACK_GITHUB;
+  if (github) github.href = core.FEEDBACK_GITHUB;
 
   function resetFeedback() {
     rating = null;
