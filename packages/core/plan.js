@@ -17,10 +17,10 @@ import {
   dayType,
   osloIsoFromInstant,
   todayIso,
-} from "./time.js?v=81";
-import { quayPlace } from "./legs.js?v=81";
-import { driftNeedsOperationalTable, resolveRoutePlan } from "./messages.js?v=81";
-import { cutBeforeSwitch, cutFromSwitch, sortDayLegs } from "./timetable.js?v=81";
+} from "./time.js?v=82";
+import { quayPlace } from "./legs.js?v=82";
+import { driftNeedsOperationalTable, resolveRoutePlan } from "./messages.js?v=82";
+import { cutBeforeSwitch, cutFromSwitch, sortDayLegs } from "./timetable.js?v=82";
 
 export function chosenRoute(ctx) {
   return CHOOSABLE_ROUTES.has(ctx?.routeChoice) ? ctx.routeChoice : "1136";

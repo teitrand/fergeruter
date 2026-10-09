@@ -25,17 +25,17 @@
  * - `messageCancelled`: «Kai|HH:MM:SS» som trafikkmeldingane seier er innstilte (Set)
  * - `clockNow`: klokka no i minutt, for reglar som alltid gjeld no og ikkje `now`
  */
-import { clockMinutes } from "./time.js?v=81";
-import { quayPlace, sameLeg, serviceJourneyId } from "./legs.js?v=81";
-import { isLiveFresh, leftOrigin, legForLive, liveProvesSailed } from "./live.js?v=81";
-import { cancelledSailingsFromText, messageBlob, validMessages } from "./messages.js?v=81";
+import { clockMinutes } from "./time.js?v=82";
+import { quayPlace, sameLeg, serviceJourneyId } from "./legs.js?v=82";
+import { isLiveFresh, leftOrigin, legForLive, liveProvesSailed } from "./live.js?v=82";
+import { cancelledSailingsFromText, messageBlob, validMessages } from "./messages.js?v=82";
 import {
   bookingDeadline,
   isInUnrunSignalTail,
   laterTripRulesOut,
   signalLogWatchActive,
   stuckAtOrigin,
-} from "./signal.js?v=81";
+} from "./signal.js?v=82";
 
 /**
  * Signalloggen skal skrivast kvart 30. minutt, cron :07 og :37 frå 04 til 21 UTC.
@@ -265,6 +265,22 @@ export function positioningBlocksBooked(leg, now, ev) {
     if (returnStillOpen(other, now, ev)) pending = true;
   }
   return pending;
+}
+
+/**
+ * Signalturar i dag som Entur har faktisk avgang for, og som ikkje er tomtur for ein
+ * retur eller avlyste. Appen hugsar dei som bestilt resten av dagen, òg når svaret
+ * seinare manglar avgangstida.
+ */
+export function bookingsSeenInFeed(legs, now, ev) {
+  const ids = [];
+  for (const leg of legs || []) {
+    if (!leg?.signal || positioningBlocksBooked(leg, now, ev)) continue;
+    const id = serviceJourneyId(leg.id);
+    if (!id || journeyCancelled(leg, ev.cancelledJourneys) || !feedDepartureIso(leg, ev)) continue;
+    ids.push(id);
+  }
+  return ids;
 }
 
 /**
