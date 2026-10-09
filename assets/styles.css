@@ -1082,6 +1082,8 @@ h2.day-label {
 
 .stop.is-past { opacity: 0.42; }
 .stop.is-past .stop-state { color: var(--muted); font-weight: 400; }
+/* Signaltur utan bevis etter avgangstida: grå, utan ikon. */
+.stop-state[data-signal="unknown"] { color: var(--muted); font-weight: 400; }
 
 .now {
   display: flex;

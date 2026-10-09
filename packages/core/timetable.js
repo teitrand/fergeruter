@@ -2,13 +2,9 @@
  * Rutetabell: dagar, legg, korrespondanse og samanhengande turar.
  * Rein logikk utan DOM, flytta uendra frå assets/app.js.
  */
-import { t } from "../../assets/i18n.js?v=80";
-import { clockMinutes, hhmm } from "./time.js";
-import { isUncertainDeparture } from "./signal.js";
-import { LAYOVER_MIN_MINUTES } from "./status.js";
-
-export const CONN_1136 = 132;
-export const CONN_1135 = 134;
+import { t } from "../../assets/i18n.js?v=81";
+import { clockMinutes, hhmm } from "./time.js?v=81";
+import { LAYOVER_MIN_MINUTES, isUncertainDeparture, quayPlace } from "./legs.js?v=81";
 
 export function cutBeforeSwitch(legs, routeSwitch, notice = null) {
   const at = clockMinutes(routeSwitch.time);
@@ -46,18 +42,6 @@ export function quaysInDay(legs) {
   return seen;
 }
 
-export function quayPlace(name) {
-  if (!name) return "";
-  const place = String(name).replace(/\s+(ferjekai|kai)$/i, "").trim();
-  return place === "Lekneset" ? "Leknes" : place;
-}
-
-export function catalogKeys(leg) {
-  if (leg.activeDates?.length) return leg.activeDates;
-  if (leg.days?.length) return leg.days;
-  return ["*"];
-}
-
 /** Rutetabellen endrar seg sjeldan; hugsa sist vising så oppdatering av sida ikkje ventar på 400 KB JSON. */
 export function timetableFingerprint(routes, kombirute, connections) {
   return JSON.stringify({
@@ -75,7 +59,9 @@ export function timetableFingerprint(routes, kombirute, connections) {
  * går derifrå etterpå.
  */
 export const SAEBØ = "Sæbø";
+
 export const TRANSFER_MARGIN_MIN = 5;
+
 export const TRANSFER_DESTINATIONS = ["Trandal", "Standal", "Skår"];
 
 export function transferLineId(dest) {

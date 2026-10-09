@@ -2,27 +2,18 @@
  * Signalturar: frist, logg og om turen vart køyrd.
  * Rein logikk utan DOM, flytta uendra frå assets/app.js.
  */
-import { t } from "../../assets/i18n.js?v=80";
-import { clockMinutes, hhmm } from "./time.js";
-import { leftOrigin, observationMinutes, sameLeg } from "./live.js";
-import { quayPlace } from "./timetable.js";
+import { t } from "../../assets/i18n.js?v=81";
+import { clockMinutes, hhmm } from "./time.js?v=81";
+import { legIndex, quayPlace } from "./legs.js?v=81";
+import { leftOrigin, observationMinutes } from "./live.js?v=81";
 
 export const SIGNAL_LOG_WATCH_START_UTC = 4 * 60;
-export const SIGNAL_LOG_WATCH_END_UTC = 22 * 60 + 40;
 
-export function isUncertainDeparture(departure, notice, switchTime) {
-  if (!notice || !switchTime) return false;
-  const dep = clockMinutes(departure);
-  return dep > clockMinutes(notice) && dep < clockMinutes(switchTime);
-}
+export const SIGNAL_LOG_WATCH_END_UTC = 22 * 60 + 40;
 
 export function bookingDeadline(leg) {
   if (!leg.signal) return null;
   return clockMinutes(leg.departure) - leg.signal.minutesBefore;
-}
-
-export function legIndex(legs, leg) {
-  return (legs || []).findIndex((item) => sameLeg(item, leg));
 }
 
 /** Signalturar som kjem etter ein tur som ikkje la frå kai, før neste vanlege avgang. */
