@@ -12,9 +12,10 @@ import {
   runningLegs,
   signalLogStale,
   todayIso,
+  vesselInfo,
+  vesselNameForTable,
 } from "../../../packages/core/index.js";
 import { planContext, statusEvidence, statusView } from "./context.js";
-import { vesselInfo, vesselNameForTable } from "./vessel.js";
 
 const CHROME = {
   1136: { title: "route.title1136", eyebrow: "eyebrow", meta: "meta.title" },

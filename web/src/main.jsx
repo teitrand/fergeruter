@@ -5,12 +5,17 @@ import { App } from "./App.jsx";
 import { detectLang } from "./components/i18n.js";
 import { routeOverride } from "./model/context.js";
 import { dataBase } from "./model/data.js";
-import { browserMemory, readRouteChoice } from "./model/storage.js";
+import { browserMemory, readHideArrivals, readRouteChoice } from "./model/storage.js";
 import { initialUi } from "./state.js";
 
 const lang = detectLang();
 const startLang = lang === "en" ? "en" : "nn";
-const initialState = initialUi({ routeChoice: readRouteChoice(), lang: startLang, override: routeOverride(location) });
+const initialState = initialUi({
+  routeChoice: readRouteChoice(),
+  lang: startLang,
+  override: routeOverride(location),
+  hideArrivals: readHideArrivals(),
+});
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>

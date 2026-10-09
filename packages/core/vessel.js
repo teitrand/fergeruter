@@ -1,19 +1,19 @@
-/** Kva ferje og telefonnummer som gjeld, som vesselNameForTable/signalPhone i assets/app.js. */
-import {
-  activeMode,
-  defaultVesselName,
-  messageMode,
-  messageVessel,
-  resolveRoutePlan,
-} from "../../../packages/core/index.js";
+/**
+ * Kva ferje som køyrer, og kva nummer ein ringjer for signaltur. `ctx` er same
+ * plankontekst som plan.js (rutetabell, kombirute, meldingar, dato, klokke).
+ */
+import { defaultVesselName, messageVessel } from "./live.js?v=83";
+import { messageMode, resolveRoutePlan } from "./messages.js?v=83";
+import { activeMode } from "./plan.js?v=83";
 
-const DEFAULT_VESSELS = [
+export const DEFAULT_VESSELS = [
   { name: "M/F Geiranger", phone: "916 69 321" },
   { name: "M/F Kvernes", phone: "916 69 340" },
 ];
 
-export function vesselNameForTable(table, ctx) {
-  const plan = resolveRoutePlan(ctx.messages, ctx.nowMs, ctx.date);
+/** Ferja som køyrer denne tabellen denne dagen, ikkje ei utgått kombirute-melding. */
+export function vesselNameForTable(table, ctx, date = ctx.date) {
+  const plan = resolveRoutePlan(ctx.messages, ctx.nowMs ?? Date.now(), date);
   const fromMsg = messageVessel(plan.message);
   const after = plan.switch?.after || plan.mode;
   const before = plan.switch?.before;
@@ -29,7 +29,7 @@ export function vesselNameForTable(table, ctx) {
 }
 
 export function vesselInfo(name, ctx) {
-  const vessels = ctx.kombirute?.vessels || DEFAULT_VESSELS;
+  const vessels = ctx?.kombirute?.vessels || DEFAULT_VESSELS;
   if (!name) return null;
   return (
     vessels.find((item) => item.name.toLowerCase().includes(name.toLowerCase())) || {
@@ -39,7 +39,7 @@ export function vesselInfo(name, ctx) {
   );
 }
 
-/** Telefon til ferja som køyrer turen, elles nummeret frå rutetabellen. */
+/** Telefon til ferja som faktisk køyrer turen, elles nummeret frå rutetabellen. */
 export function signalPhone(leg, ctx) {
   const table = leg?.table || activeMode(ctx);
   const running = vesselInfo(vesselNameForTable(table, ctx), ctx);

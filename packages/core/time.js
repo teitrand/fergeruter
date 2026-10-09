@@ -2,7 +2,7 @@
  * Tid og dato i Europe/Oslo, klokkeslett, høgtidsdagar og datoformat.
  * Rein logikk utan DOM, flytta uendra frå assets/app.js.
  */
-import { months, monthsShort, t, weekdays } from "../../assets/i18n.js?v=82";
+import { months, monthsShort, t, weekdays } from "../../assets/i18n.js?v=83";
 
 // Å lage ein Intl.DateTimeFormat er dyrt, og isToday() blir kalla mange gonger per teikning.
 let osloFormat = null;

@@ -25,6 +25,7 @@ import { planContext, statusEvidence } from "./context.js";
  * @property {Map<string,string>} actualDepartures
  * @property {number} journeysAt           når Journey Planner sist svara (ms), 0 = aldri
  * @property {number} fetchedAt            når vi sist spurde (ms)
+ * @property {number} answeredAt           når kallet bak gjeldande svar starta (ms), 0 = ingen svar
  * @property {number} backoffMs
  * @property {number} blockedUntil
  */
@@ -38,6 +39,7 @@ export function emptyEntur() {
     actualDepartures: new Map(),
     journeysAt: 0,
     fetchedAt: 0,
+    answeredAt: 0,
     backoffMs: 0,
     blockedUntil: 0,
   };
@@ -69,7 +71,9 @@ export function enturRequest(data, ui, quays) {
 /**
  * Reduceren for Entur-tilstanden.
  * - `start`: kall sendt (`at`)
- * - `loaded`: svar frå loadEnturEvidence (`result`, `at`)
+ * - `loaded`: svar frå loadEnturEvidence (`result`, `at`, `startedAt` = når kallet starta).
+ *   Eit svar frå eit kall som starta før det vi alt har, blir kasta (eit treigt kall
+ *   skal ikkje skrive over eit nyare svar).
  * - `reset`: anna samband, så den gamle posisjonen gjeld ikkje (og spør med ein gong)
  */
 export function enturReducer(state, action) {
@@ -80,7 +84,9 @@ export function enturReducer(state, action) {
       return { ...state, live: null, fetchedAt: 0 };
     case "loaded": {
       const { result, at } = action;
-      const next = { ...state };
+      const startedAt = action.startedAt ?? at;
+      if (startedAt < state.answeredAt) return state;
+      const next = { ...state, answeredAt: startedAt };
       if (result.live !== undefined) next.live = result.live;
       if (result.liveError) {
         const backoff = liveBackoff(state.backoffMs, at);

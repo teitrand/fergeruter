@@ -25,17 +25,17 @@
  * - `messageCancelled`: «Kai|HH:MM:SS» som trafikkmeldingane seier er innstilte (Set)
  * - `clockNow`: klokka no i minutt, for reglar som alltid gjeld no og ikkje `now`
  */
-import { clockMinutes } from "./time.js?v=82";
-import { quayPlace, sameLeg, serviceJourneyId } from "./legs.js?v=82";
-import { isLiveFresh, leftOrigin, legForLive, liveProvesSailed } from "./live.js?v=82";
-import { cancelledSailingsFromText, messageBlob, validMessages } from "./messages.js?v=82";
+import { clockMinutes } from "./time.js?v=83";
+import { quayPlace, sameLeg, serviceJourneyId } from "./legs.js?v=83";
+import { isLiveFresh, leftOrigin, legForLive, liveProvesSailed } from "./live.js?v=83";
+import { cancelledSailingsFromText, messageBlob, validMessages } from "./messages.js?v=83";
 import {
   bookingDeadline,
   isInUnrunSignalTail,
   laterTripRulesOut,
   signalLogWatchActive,
   stuckAtOrigin,
-} from "./signal.js?v=82";
+} from "./signal.js?v=83";
 
 /**
  * Signalloggen skal skrivast kvart 30. minutt, cron :07 og :37 frå 04 til 21 UTC.

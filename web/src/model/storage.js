@@ -1,7 +1,6 @@
 /** Same localStorage-nøklar som vanilla-appen, så val og minne følgjer med mellom dei. */
-import { CHOOSABLE_ROUTES, readSailedJourneys, writeSailedJourneys } from "../../../packages/core/index.js";
-
-export const ROUTE_CHOICE_KEY = "fergeruter-route-choice";
+import * as core from "../../../packages/core/index.js";
+import { readSailedJourneys, writeSailedJourneys } from "../../../packages/core/index.js";
 
 function store(storage) {
   try {
@@ -12,20 +11,19 @@ function store(storage) {
 }
 
 export function readRouteChoice(storage) {
-  try {
-    const raw = store(storage)?.getItem(ROUTE_CHOICE_KEY);
-    return CHOOSABLE_ROUTES.has(raw) ? raw : "1136";
-  } catch {
-    return "1136";
-  }
+  return core.readRouteChoice(store(storage));
 }
 
 export function writeRouteChoice(choice, storage) {
-  try {
-    store(storage)?.setItem(ROUTE_CHOICE_KEY, CHOOSABLE_ROUTES.has(choice) ? choice : "1136");
-  } catch {
-    // localStorage kan vere stengt.
-  }
+  core.writeRouteChoice(choice, store(storage));
+}
+
+export function readHideArrivals(storage) {
+  return core.readHideArrivals(store(storage));
+}
+
+export function writeHideArrivals(hide, storage) {
+  core.writeHideArrivals(hide, store(storage));
 }
 
 /** Minne for heile økta: bestilte turar i minnet, køyrde turar i localStorage per dag (same nøkkel som vanilla). */

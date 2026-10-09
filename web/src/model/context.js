@@ -41,6 +41,7 @@ export function emptyData() {
     kombirute: null,
     messages: null,
     signalLog: null,
+    connections: null,
     live: null,
     cancelledJourneys: EMPTY_SET,
     actualDepartures: EMPTY_MAP,

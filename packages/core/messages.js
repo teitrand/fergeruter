@@ -2,7 +2,7 @@
  * Trafikkmeldingar: tolking av Fjord1-tekst, vindauge, rutemodus og omlegging.
  * Rein logikk utan DOM, flytta uendra frå assets/app.js.
  */
-import { t } from "../../assets/i18n.js?v=82";
+import { t } from "../../assets/i18n.js?v=83";
 import {
   NUMDATE_TOKEN,
   WEEKDAY_TOKEN,
@@ -13,9 +13,9 @@ import {
   osloIsoFromMs,
   parseClockToken,
   parseNumDate,
-} from "./time.js?v=82";
-import { quayPlace } from "./legs.js?v=82";
-import { vesselFromText } from "./live.js?v=82";
+} from "./time.js?v=83";
+import { quayPlace } from "./legs.js?v=83";
+import { vesselFromText } from "./live.js?v=83";
 
 export const FJORD1_MESSAGES_PAGE = "https://www.fjord1.no/trafikkmeldingar";
 
@@ -46,6 +46,9 @@ export const LOCAL_PLACE_RE =
 
 /** GitHub-kopien er gammal når innhaldet ikkje er skrive på nytt. Då spør sida workeren. */
 export const MESSAGES_STALE_MS = 8 * 60 * 1000;
+
+/** Kor ofte appane spør etter nye meldingar når fana er synleg. */
+export const MESSAGES_POLL_MS = 3 * 60 * 1000;
 
 export function excerptText(text, max = 140) {
   const raw = String(text || "").replace(/\s+/g, " ").trim();
@@ -557,3 +560,130 @@ export function filterMessageKey(messages) {
 export const CONN_1136 = 132;
 
 export const CONN_1135 = 134;
+
+// --- Panelet: filter, rekkjefølgje og henting -------------------------------------------
+
+/** CORS-JSON frå cloudflare/trafikkmeldinger/. Må vere lik MESSAGES_API_URL der. */
+export const FJORD1_MESSAGES_API = "https://fergeruter-trafikkmeldinger.fergeruter-teitrand.workers.dev/";
+/** Siste utveg om workeren feilar. Fjord1-sida har ikkje CORS. */
+export const FJORD1_HTML_READER = `https://r.jina.ai/${FJORD1_MESSAGES_PAGE}`;
+
+export const SEVERITY_RANK = { cancelled: 0, delay: 1, capacity: 2, info: 3, normal: 4 };
+
+export function matchesChosenRouteNotice(msg, route) {
+  const flags = routeNameFlags(msg);
+  return route === "1135" ? flags.named1135 : flags.named1136;
+}
+
+export function messageRouteScore(msg, route) {
+  const { named1136, named1135 } = routeNameFlags(msg);
+  const kombi = msg?.routeMode === "kombi" || KOMBI_RE.test(messageBlob(msg));
+  const [own, other] = route === "1136" ? [named1136, named1135] : route === "1135" ? [named1135, named1136] : [null, null];
+  if (own === null) return 3;
+  if (own && !other) return 0;
+  if (own) return 1;
+  if (kombi) return 2;
+  return 3;
+}
+
+export function sortMessagesForRoute(messages, route) {
+  return [...messages].sort((a, b) => {
+    const byRoute = messageRouteScore(a, route) - messageRouteScore(b, route);
+    if (byRoute) return byRoute;
+    const byPublished = publishedMs(b) - publishedMs(a);
+    if (byPublished) return byPublished;
+    return (SEVERITY_RANK[a.severity] ?? 9) - (SEVERITY_RANK[b.severity] ?? 9);
+  });
+}
+
+/** «local» = Hjørundfjorden, «route» = meldingar som nemner det valde sambandet. */
+export function messagesForFilter(messages, filter, route) {
+  if (filter === "route") return sortMessagesForRoute(messages.filter((msg) => matchesChosenRouteNotice(msg, route)), route);
+  return sortMessagesForRoute(messages.filter((msg) => msg.isLocal), route);
+}
+
+/** Filterknappane, eller ingen når båe filtera gjev same meldingar. */
+export function usefulMessageFilters(messages, route) {
+  const local = filterMessageKey(messagesForFilter(messages, "local", route));
+  const routeIds = filterMessageKey(messagesForFilter(messages, "route", route));
+  return routeIds === local ? [] : ["local", "route"];
+}
+
+/**
+ * Det panelet viser: `hidden` utan meldingar i området, elles filterknappane, det
+ * gjeldande filteret (fell tilbake til «local»), dei filtrerte meldingane og meta-teksten.
+ */
+export function messagesPanel(payload, filter, route, now = Date.now()) {
+  if (!payload) return { hidden: true, filters: [], filter: "local", messages: [], meta: "" };
+  const all = validMessages(payload.messages || [], now);
+  if (!all.some((msg) => msg.isLocal)) return { hidden: true, filters: [], filter: "local", messages: [], meta: "" };
+  const filters = usefulMessageFilters(all, route);
+  const active = filters.includes(filter) ? filter : "local";
+  return {
+    hidden: false,
+    filters,
+    filter: active,
+    messages: messagesForFilter(all, active, route),
+    meta: t(payload.fetchedLive ? "messages.fetchedLive" : "messages.fetched", { when: formatDateTime(payload.fetchedAt) }),
+  };
+}
+
+export async function fetchWithTimeout(fetchImpl, url, options = {}, ms = 12000) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), ms);
+  try {
+    return await fetchImpl(url, { ...options, signal: ctrl.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function fetchFjord1Api(fetchImpl) {
+  const response = await fetchWithTimeout(
+    fetchImpl,
+    FJORD1_MESSAGES_API,
+    { headers: { Accept: "application/json" }, cache: "no-store" },
+    5000
+  );
+  if (!response.ok) throw new Error(response.statusText || String(response.status));
+  const body = await response.json();
+  if (!Array.isArray(body?.messages)) throw new Error("Uventa svar frå trafikkmelding-API");
+  const messages = body.messages.filter(Boolean).map((node) => normalizeFjord1Node(node));
+  return fjord1Payload(messages, { fetchedAt: body.fetchedAt || null, complete: true });
+}
+
+async function fetchFjord1Html(fetchImpl) {
+  const response = await fetchWithTimeout(fetchImpl, FJORD1_HTML_READER, {
+    headers: { "X-Return-Format": "html", Accept: "text/html,text/plain" },
+    cache: "no-store",
+  });
+  if (!response.ok) throw new Error(response.statusText);
+  const messages = parseFjord1TrafficHtml(await response.text());
+  if (!messages.length) throw new Error("Ingen Fjord1-meldingar i HTML");
+  return fjord1Payload(messages);
+}
+
+/** Direkte frå Fjord1: workeren fyrst, så HTML-sida via lesaren. */
+export async function fetchFjord1Messages(fetchImpl) {
+  try {
+    return await fetchFjord1Api(fetchImpl);
+  } catch {
+    return fetchFjord1Html(fetchImpl);
+  }
+}
+
+/** Nytt svar, med meldingar vi framleis held på frå `previous` (t.d. omleggingar). */
+export function withHeldMessages(payload, previous, now = Date.now()) {
+  if (!payload || !previous?.length) return payload;
+  return { ...payload, messages: retainHeldMessages(payload.messages, previous, now) };
+}
+
+/**
+ * Neste meldingstilstand når eit svar kjem: same objekt om ingenting er endra (så
+ * ingenting blir teikna på nytt), elles svaret med meldingar vi held på frå før.
+ */
+export function nextMessages(previous, incoming, now = Date.now()) {
+  if (!incoming) return previous;
+  const payload = withHeldMessages(incoming, previous?.messages, now);
+  return previous && messagesFingerprint(previous) === messagesFingerprint(payload) ? previous : payload;
+}

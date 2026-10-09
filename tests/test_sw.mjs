@@ -43,18 +43,19 @@ test("berre rute, kombi og korrespondanse tel som rutetabell", () => {
 
 test("trafikkmeldingar blir revaliderte utan cache-buster, rutetabellen ikkje", () => {
   assert.match(app, /fetch\(messagesUrl\(\), \{ cache: "no-cache" \}\)/);
-  assert.match(app, /fetchFjord1Messages/);
-  assert.match(app, /fetchFjord1Api/);
-  assert.match(app, /FJORD1_MESSAGES_API/);
-  assert.match(app, /FJORD1_HTML_READER/);
-  assert.doesNotMatch(app, /fjord1\.no\/graphql/);
-  assert.doesNotMatch(app, /FJORD1_GRAPHQL/);
-  const liveFn = app.slice(app.indexOf("async function fetchFjord1Messages"));
+  // Hentinga direkte frå Fjord1 ligg i core (felles med React-skalet).
+  assert.match(app, /core\.fetchFjord1Messages\(fetch\)/);
+  assert.match(core, /FJORD1_MESSAGES_API/);
+  assert.match(core, /FJORD1_HTML_READER/);
+  assert.doesNotMatch(app + core, /fjord1\.no\/graphql/);
+  assert.doesNotMatch(app + core, /FJORD1_GRAPHQL/);
+  const liveFn = core.slice(core.indexOf("async function fetchFjord1Messages"));
   assert.ok(liveFn.indexOf("fetchFjord1Api") < liveFn.indexOf("fetchFjord1Html"));
   assert.match(core, /MESSAGES_STALE_MS = 8 \* 60 \* 1000/);
   assert.match(app, /fetch\(ROUTES_URL\)/);
   assert.match(app, /TIMETABLE_CACHE_KEY/);
-  assert.match(app, /MESSAGES_POLL_MS = 3 \* 60 \* 1000/);
+  assert.match(core, /MESSAGES_POLL_MS = 3 \* 60 \* 1000/);
+  assert.match(app, /core\.MESSAGES_POLL_MS/);
   assert.match(app, /messages-updated/);
   assert.match(app, /shouldFetchLive/);
   assert.match(app, /noteLiveFailure/);
