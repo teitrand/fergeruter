@@ -10,13 +10,14 @@ import * as core from "../packages/core/index.js";
 import { LIVE_MIN_INTERVAL_MS, SAILED_KEY, departureStateKey, loadEnturEvidence, parseVehicleMonitoring } from "../packages/core/index.js";
 import { stripVersionQuery } from "../web/build/strip-version-query.js";
 import { renderServiceWorker } from "../web/scripts/build-sw.mjs";
-import { memoryOnly, planContext, rememberBookings, routeOverride, statusEvidence } from "../web/src/model/context.js";
-import { dataBase, fetchAppData } from "../web/src/model/data.js";
+import { memoryOnly, planContext, rememberBookings, statusEvidence } from "../web/src/model/context.js";
+import { dataBase, fetchAppData, liveDataBase } from "../web/src/model/data.js";
 import { connectionModel, detailModel, messagesModel, placeFilterModel, staleChoices } from "../web/src/model/controls.js";
 import { emptyEntur, enturDue, enturReducer, enturRequest, rememberEntur, withEntur } from "../web/src/model/entur.js";
-import { ledeModel, routeChrome } from "../web/src/model/header.js";
-import { browserMemory } from "../web/src/model/storage.js";
+import { footnoteModel, ledeModel, routeChrome } from "../web/src/model/header.js";
+import { browserMemory, messageCache } from "../web/src/model/storage.js";
 import { buildTimeline } from "../web/src/model/timeline.js";
+import { actionEvent, track as trackShell, visitEvents } from "../web/src/model/track.js";
 import { initialUi, uiReducer } from "../web/src/state.js";
 import { DAYS, LOG, ROUTES, VM_2030, osloMs } from "./helpers/replay.mjs";
 import { appVersion } from "./helpers/version.mjs";
@@ -152,10 +153,10 @@ test("web-modellen: ev og ctx har same felt som i vanilla-appen", () => {
 });
 
 test("web: ?rute= berre på localhost og /dev/", () => {
-  assert.equal(routeOverride({ hostname: "localhost", pathname: "/", href: "http://localhost/?rute=kombi" }), "kombi");
-  assert.equal(routeOverride({ hostname: "x.github.io", pathname: "/fergeruter/dev/web/", href: "https://x.github.io/fergeruter/dev/web/?rute=1135" }), "1135");
-  assert.equal(routeOverride({ hostname: "x.github.io", pathname: "/fergeruter/", href: "https://x.github.io/fergeruter/?rute=kombi" }), null);
-  assert.equal(routeOverride({ hostname: "localhost", pathname: "/", href: "http://localhost/?rute=tull" }), null);
+  assert.equal(core.routeOverride({ hostname: "localhost", pathname: "/", href: "http://localhost/?rute=kombi" }), "kombi");
+  assert.equal(core.routeOverride({ hostname: "x.github.io", pathname: "/fergeruter/dev/web/", href: "https://x.github.io/fergeruter/dev/web/?rute=1135" }), "1135");
+  assert.equal(core.routeOverride({ hostname: "x.github.io", pathname: "/fergeruter/", href: "https://x.github.io/fergeruter/?rute=kombi" }), null);
+  assert.equal(core.routeOverride({ hostname: "localhost", pathname: "/", href: "http://localhost/?rute=tull" }), null);
 });
 
 test("web: UI-reduceren", () => {
@@ -705,7 +706,7 @@ test("detaljvindauget: same tekst som vanilla-appen for vanleg tur og signaltur"
     assert.ok(regular && signal.length > 2);
     for (const leg of [regular, ...signal]) {
       const react = detailModel(data, initialUi(), memoryOnly(), leg, 9 * 60);
-      const vanilla = core.departureDetailContent(leg, app.departureDetail(leg, 9 * 60));
+      const vanilla = core.departureDetailContent(leg, app.departureDetail(leg, 9 * 60), { today: true, now: 9 * 60 });
       assert.deepEqual(react, vanilla, `${leg.departure} ${leg.from}`);
     }
     const content = detailModel(data, initialUi(), memoryOnly(), signal[signal.length - 1], 9 * 60);
@@ -743,4 +744,244 @@ test("enturReducer: eit treigt svar skriv ikkje over eit nyare; StrictMode gjev 
     assert.equal(enturDue(emptyEntur(), data, initialUi(), at), true, "fyrste køyring");
     assert.equal(enturDue({ ...emptyEntur(), fetchedAt: Math.max(0, at) }, data, initialUi(), at), false, "andre køyring i StrictMode");
   });
+});
+
+/** localStorage i minnet. */
+function memoryStorage() {
+  const map = new Map();
+  return {
+    getItem: (key) => (map.has(key) ? map.get(key) : null),
+    setItem: (key, value) => map.set(key, String(value)),
+    removeItem: (key) => map.delete(key),
+  };
+}
+
+test("avlyst signaltur framfor oss er «Avlyst», etter avgangstida «Ikkje utført» (nn/en/de, vanilla og React)", () => {
+  // Entur har avlyst ein signaltur i dag (som når ingen har tinga innan fristen).
+  const day = "2026-10-08";
+  const toMin = (time) => Number(time.slice(0, 2)) * 60 + Number(time.slice(3, 5));
+  app.resetTestState();
+  app.setTestState({ routes: ROUTES, routeChoice: "1136", date: day });
+  const leg = app.legsForDate(day).find((item) => item.signal && toMin(item.departure) > 12 * 60);
+  assert.ok(leg, "signaltur 8. oktober");
+  const cancelledJourneys = new Set([core.serviceJourneyId(leg.id)]);
+  const signalLog = null;
+  const data = { routes: ROUTES, kombirute: null, messages: null, signalLog, cancelledJourneys };
+  const expected = { nn: ["Avlyst", "Ikkje utført"], en: ["Cancelled", "Not performed"], de: ["Abgesagt", "Nicht ausgeführt"] };
+  let checked = 0;
+  for (const [lang, [ahead, after]] of Object.entries(expected)) {
+    setLang(lang, { persist: false });
+    for (const [offset, text] of [[-7, ahead], [5, after]]) {
+      const now = toMin(leg.departure) + offset;
+      atOslo(day, now, () => {
+        app.resetTestState();
+        app.setTestState({ routes: ROUTES, routeChoice: "1136", signalLog, cancelledJourneys, date: null });
+        const target = app.legsForDate(day).find((item) => item.departure === leg.departure && item.from === leg.from);
+        const status = app.tripStatusFor(target);
+        if (status.verdict !== "skipped") return;
+        checked += 1;
+        const timeline = buildTimeline(data, { ...initialUi(), showPast: true }, memoryOnly(), { now });
+        const row = timeline.rows.find((item) => item.kind === "dep" && item.leg.departure === leg.departure && item.leg.from === leg.from);
+        assert.equal(row.state, "notRunning", `${lang} ${offset}`);
+        assert.equal(row.stateText, text, `React-rad ${lang} ${offset}`);
+        // Vanilla brukar same core-funksjon på rada og i minuttoppdateringa.
+        const past = offset > 0;
+        assert.equal(core.departureStateText(row.state, target, { today: true, past, now }), text, `vanilla-rad ${lang} ${offset}`);
+        const vanilla = core.departureDetailContent(target, app.departureDetail(target, now), { today: true, now });
+        const react = detailModel(data, initialUi(), memoryOnly(), target, now);
+        assert.deepEqual(react, vanilla, `dialog ${lang} ${offset}`);
+        assert.equal(react.paragraphs.find((item) => item.className === "detail-status").text, text, `dialog ${lang} ${offset}`);
+      });
+    }
+  }
+  assert.ok(checked >= 6, `minst éin avlyst signaltur før og etter avgang i alle språk (${checked})`);
+  // Andre dagar enn i dag: alltid «Ikkje utført» (Entur-avlysingar gjeld berre i dag).
+  setLang("nn", { persist: false });
+  assert.equal(core.departureStateText("notRunning", { departure: "23:59" }, { today: false, now: 0 }), "Ikkje utført");
+  assert.equal(core.cancelledAhead({ departure: "09:20" }, { today: true, now: 9 * 60 + 13 }), true);
+  assert.equal(core.cancelledAhead({ departure: "09:20" }, { today: true, now: 9 * 60 + 20 }), false);
+  assert.equal(core.cancelledAhead({ departure: "09:20" }, { today: true, past: true, now: 0 }), false);
+  app.resetTestState();
+});
+
+test("meldingar: like meldingar med ny hentetid gjev ny «Sist henta», men same meldingsliste", () => {
+  const first = core.nextMessages(core.nextMessages(null, MESSAGES), { ...MESSAGES });
+  const later = { ...MESSAGES, fetchedAt: "2026-10-08T07:30:00Z", fetchedLive: true };
+  const next = core.nextMessages(first, later);
+  assert.notEqual(next, first, "nytt objekt så panelet teiknar ny tid");
+  assert.equal(next.messages, first.messages, "same meldingsliste");
+  assert.equal(next.fetchedAt, "2026-10-08T07:30:00Z");
+  assert.equal(next.fetchedLive, true);
+  assert.equal(core.nextMessages(next, { ...later }), next, "same tid på nytt: same objekt");
+  setLang("nn", { persist: false });
+  const panel = core.messagesPanel(next, "local", "1136", Date.parse("2026-10-08T08:00:00Z"));
+  if (!panel.hidden) assert.match(panel.meta, /09:30/);
+});
+
+test("meldingar i localStorage: omlegging Fjord1 har fjerna, blir ståande etter omlasting", () => {
+  const now = Date.parse("2026-10-08T10:00:00Z");
+  const reroute = {
+    id: "omlegging",
+    heading: "Standal - Trandal - Sæbø",
+    text: "Rute 1136: Kombinasjonsrute i dag.",
+    publishedAt: "2026-10-08T05:00:00Z",
+    validFrom: "2026-10-08T05:00:00Z",
+    validTo: "2026-10-08T21:00:00Z",
+    isLocal: true,
+    severity: "info",
+  };
+  const other = { ...reroute, id: "anna", text: "Rute 1135: Normal drift.", publishedAt: "2026-10-08T06:00:00Z" };
+  const storage = memoryStorage();
+  const cache = messageCache(storage);
+  assert.equal(cache.read(), null);
+  cache.write({ fetchedAt: "2026-10-08T09:00:00Z", messages: [reroute, other] });
+  // Omlasting: cachen er førre tilstand, nytt svar frå Fjord1 manglar omlegginga.
+  const reloaded = cache.read();
+  assert.equal(reloaded.messages.length, 2);
+  const next = core.nextMessages(reloaded, { fetchedAt: "2026-10-08T10:00:00Z", messages: [other] }, now);
+  assert.deepEqual(next.messages.map((msg) => msg.id).sort(), ["anna", "omlegging"]);
+  // Same som vanilla: applyIncomingMessages held på det readCachedMessages() gav.
+  assert.equal(core.MESSAGES_CACHE_KEY, app.MESSAGES_CACHE_KEY);
+  app.writeCachedMessages({ fetchedAt: "x", messages: [reroute] }, storage);
+  assert.deepEqual(cache.read().messages.map((msg) => msg.id), ["omlegging"]);
+  storage.setItem(core.MESSAGES_CACHE_KEY, "{øydelagt");
+  assert.equal(cache.read(), null);
+  assert.equal(messageCache(null).read() ?? null, null);
+});
+
+test("Plausible: handlingane i skalet gjev same hendingar som vanilla-appen", () => {
+  const source = readFileSync(new URL("../assets/app.js", import.meta.url), "utf8");
+  const ui = { ...initialUi(), lang: "nn" };
+  const leg = { departure: "10:00:00", signal: { minutesBefore: 60 } };
+  const cases = [
+    [{ type: "from", value: "Trandal" }, "From Trandal"],
+    [{ type: "from", value: null }, null],
+    [{ type: "to", value: null }, null],
+    [{ type: "to", value: "Sæbø" }, "To Sæbø"],
+    [{ type: "swap" }, null],
+    [{ type: "route", route: "1135" }, "Route 1135"],
+    [{ type: "route", route: "1136" }, null],
+    [{ type: "toggleArrivals" }, "Hide arrivals"],
+    [{ type: "connection", id: "solavagen" }, "Connection solavagen"],
+    [{ type: "connection", id: null }, "Connection none"],
+    [{ type: "messageFilter", filter: "route" }, "Messages route"],
+    [{ type: "messageFilter", filter: "local" }, null],
+    [{ type: "togglePast" }, "Show past"],
+    [{ type: "day", days: -1 }, "Day prev"],
+    [{ type: "day", days: 1 }, "Day next"],
+    [{ type: "day", days: 0 }, "Day today"],
+    [{ type: "lang", lang: "de" }, "Language de"],
+    [{ type: "lang", lang: "nn" }, null],
+    [{ type: "detail", leg }, "Departure detail"],
+    [{ type: "detail", leg: null }, null],
+    [{ type: "toggleMessages" }, null],
+  ];
+  for (const [action, name] of cases) assert.equal(actionEvent(action, ui)?.name ?? null, name, JSON.stringify(action));
+  assert.equal(actionEvent({ type: "swap" }, { ...ui, filters: { from: "Trandal", to: null } }).name, "Swap direction");
+  assert.equal(actionEvent({ type: "toggleArrivals" }, { ...ui, hideArrivals: true }).name, "Show arrivals");
+  assert.equal(actionEvent({ type: "togglePast" }, { ...ui, showPast: true }).name, "Hide past");
+  assert.deepEqual(actionEvent({ type: "detail", leg }, ui).props, { signal: "yes" });
+  // Kvar hending finst i vanilla-appen (namna Plausible-måla byggjer på).
+  for (const name of ["Swap direction", "Show arrivals", "Hide arrivals", "Show past", "Hide past", "Day prev", "Day next", "Day today", "Departure detail"]) {
+    assert.ok(source.includes(`"${name}"`), name);
+  }
+  // Same eigenskapar som vanilla-track: språk, web/pwa og samband (det nye ved rutebyte).
+  const calls = [];
+  const win = { plausible: (name, opts) => calls.push({ name, opts }), matchMedia: () => ({ matches: false }) };
+  const route = actionEvent({ type: "route", route: "1135" }, ui);
+  trackShell(win, route.name, route.props, route.ui);
+  trackShell(win, "Visit nn", null, ui, { interactive: false });
+  trackShell(null, "Day next", null, ui);
+  assert.deepEqual(calls, [
+    { name: "Route 1135", opts: { props: { lang: "nn", app: "web", route: "saebo-leknes" } } },
+    { name: "Visit nn", opts: { props: { lang: "nn", app: "web", route: "standal-trandal" }, interactive: false } },
+  ]);
+  const previous = globalThis.window;
+  globalThis.window = { plausible: (name, opts) => calls.push({ name, opts }) };
+  try {
+    app.resetTestState();
+    setLang("nn", { persist: false });
+    app.setTestState({ routeChoice: "1135" });
+    app.track("Route 1135");
+    assert.deepEqual(calls.at(-1), calls[0], "vanilla sender det same");
+  } finally {
+    if (previous === undefined) delete globalThis.window;
+    else globalThis.window = previous;
+    app.resetTestState();
+  }
+  assert.deepEqual(visitEvents(ui, "web", false), ["Visit nn"]);
+  assert.deepEqual(visitEvents({ ...ui, lang: "de" }, "pwa", true), ["Visit de", "Visit pwa", "PWA first open"]);
+  const storage = memoryStorage();
+  assert.equal(core.markPwaFirstOpen(storage, "pwa"), true);
+  assert.equal(core.markPwaFirstOpen(storage, "pwa"), false);
+  assert.equal(core.markPwaFirstOpen(memoryStorage(), "web"), false);
+});
+
+test("data på /dev/: meldingar og signallogg frå produksjon, rutetabell frå dev", async () => {
+  const dev = { origin: "https://teitrand.github.io", pathname: "/fergeruter/dev/", href: "https://teitrand.github.io/fergeruter/dev/" };
+  const prod = { origin: "https://teitrand.github.io", pathname: "/fergeruter/", href: "https://teitrand.github.io/fergeruter/" };
+  assert.equal(liveDataBase({}, dev), "https://teitrand.github.io/fergeruter/data/");
+  assert.equal(liveDataBase({}, prod), "./data/");
+  assert.equal(liveDataBase({}, null), "./data/");
+  assert.equal(liveDataBase({ VITE_DATA_BASE: "/x/data" }, prod), "/x/data/");
+  assert.equal(liveDataBase({ VITE_LIVE_DATA_BASE: "https://a.b/data" }, dev), "https://a.b/data/");
+  // Same adresse som vanilla-appen les på /dev/.
+  assert.equal(liveDataBase({}, dev) + "trafikkmeldinger.json", app.messagesUrl(dev));
+  assert.equal(liveDataBase({}, dev) + "signalturar.json", app.signalLogUrl(dev));
+  const asked = [];
+  const fetchImpl = async (url) => {
+    asked.push(url);
+    return { ok: true, json: async () => (url.endsWith("ruter.json") ? ROUTES : null) };
+  };
+  await fetchAppData(fetchImpl, "./data/", "https://p/data/");
+  assert.deepEqual(asked.sort(), [
+    "./data/kombirute.json",
+    "./data/korrespondanse.json",
+    "./data/ruter.json",
+    "https://p/data/signalturar.json",
+    "https://p/data/trafikkmeldinger.json",
+  ]);
+});
+
+test("fotnoten: posisjon, papirruteplan og NAIS som vanilla-appen", () => {
+  setLang("nn", { persist: false });
+  atOslo("2026-10-08", 12 * 60, () => {
+    const base = { routes: ROUTES, kombirute: KOMBI, messages: null, signalLog: null };
+    const ui = initialUi();
+    const n1136 = footnoteModel(base, ui, routeChrome(base, ui));
+    assert.equal(n1136.position, "position.planned");
+    assert.equal(n1136.pdf.href, core.FJORD1_PDF);
+    assert.equal(n1136.nais, "M/F Kvernes på NAIS");
+    const ui1135 = initialUi({ routeChoice: "1135" });
+    const n1135 = footnoteModel(base, ui1135, routeChrome(base, ui1135));
+    assert.equal(n1135.pdf.href, core.FJORD1_PDF_1135);
+    assert.match(n1135.nais, /Geiranger/);
+    const kombi = initialUi({ override: "kombi" });
+    const nk = footnoteModel(base, kombi, routeChrome(base, kombi));
+    assert.equal(nk.pdf.href, KOMBI.source || core.KOMBI_PDF);
+    assert.equal(nk.pdf.text, core.routeFootnotes("kombi").pdf.text);
+    assert.equal(footnoteModel({ ...base, liveFailed: true }, ui, null).position, "position.offline");
+    if (ROUTES.fetchedAt) assert.ok(n1136.updated);
+    const empty = footnoteModel({ routes: null, kombirute: null }, ui, null);
+    assert.deepEqual([empty.position, empty.pdf.href, empty.updated], ["position.planned", core.FJORD1_PDF, null]);
+  });
+  // Vanilla brukar same funksjon for fotnoten om posisjonen.
+  app.resetTestState();
+  app.setTestState({ routes: ROUTES, liveFailed: true });
+  assert.equal(app.positionNoteKey(), "position.offline");
+  app.resetTestState();
+  assert.match(core.feedbackMailto("yes", "  hei "), /^mailto:teitrand@hotmail\.com\?subject=.+&body=.*hei/);
+  assert.equal(app.feedbackMailto("no", ""), core.feedbackMailto("no", ""));
+});
+
+test("skalet lastar Plausible med same oppsett som vanilla (ingen hendingar frå localhost og /dev/)", () => {
+  const snippet = (html) => {
+    const start = html.indexOf("<!-- Privacy-friendly analytics by Plausible -->");
+    const end = html.indexOf("</script>", html.indexOf("plausible.init", start));
+    return start < 0 || end < 0 ? null : html.slice(start, end);
+  };
+  const vanilla = snippet(readFileSync(new URL("../index.html", import.meta.url), "utf8"));
+  const shell = snippet(readFileSync(new URL("../web/index.html", import.meta.url), "utf8"));
+  assert.ok(vanilla && vanilla.includes('path.indexOf("/dev/")'));
+  assert.equal(shell, vanilla);
 });

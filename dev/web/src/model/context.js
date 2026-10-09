@@ -14,7 +14,6 @@
  * med ?v=<versjon> som vanleg.
  */
 import {
-  ALLOWED_MODES,
   activeMode,
   cancelledDepartureSet,
   isCombinedTimetable,
@@ -73,20 +72,6 @@ export function isTodaySelected(ui) {
 
 export function hasTimetable(data) {
   return Boolean(data?.routes || data?.kombirute);
-}
-
-/** ?rute= på localhost og /dev/. Produksjon tek ikkje imot han, som i vanilla-appen. */
-export function routeOverride(loc) {
-  if (!loc) return null;
-  const host = loc.hostname || "";
-  const path = loc.pathname || "";
-  if (!(host === "localhost" || host === "127.0.0.1" || path.includes("/dev/"))) return null;
-  try {
-    const raw = new URL(loc.href, "https://teitrand.github.io").searchParams.get("rute");
-    return ALLOWED_MODES.has(raw) ? raw : null;
-  } catch {
-    return null;
-  }
 }
 
 /**

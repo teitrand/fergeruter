@@ -6,8 +6,8 @@
  * og minnet tek `storage`, så alt kan testast utan nettlesar. Kva som er lagra i
  * appen (tidspunkt, backoff, tilstand) ligg hos kallaren.
  */
-import { clockMinutes, nowMinutes, osloDayStartIso } from "./time.js?v=83";
-import { quayPlace, serviceJourneyId, unwrapSiri } from "./legs.js?v=83";
+import { clockMinutes, nowMinutes, osloDayStartIso } from "./time.js?v=84";
+import { quayPlace, serviceJourneyId, unwrapSiri } from "./legs.js?v=84";
 import {
   STOP_PLACES,
   actualDeparturesFromPayload,
@@ -18,9 +18,9 @@ import {
   pickFreshest,
   seenJourneyIds,
   siriBool,
-} from "./live.js?v=83";
-import { LINE_QUAYS, firstKnownQuay } from "./plan.js?v=83";
-import { activityTime } from "./status.js?v=83";
+} from "./live.js?v=84";
+import { LINE_QUAYS, firstKnownQuay } from "./plan.js?v=84";
+import { activityTime } from "./status.js?v=84";
 
 export const ENTUR_CLIENT = "teitrand-fergeruter";
 export const ENTUR_JOURNEY_URL = "https://api.entur.io/journey-planner/v3/graphql";

@@ -11,17 +11,24 @@ import { DATA_FILES } from "../model/data.js";
 /**
  * Trafikkmeldingar som loadMessages() i vanilla-appen: fila frå Actions fyrst; er ho
  * borte eller gammal, direkte frå Fjord1 (workeren, så HTML-sida). Spør på nytt kvart
- * 3. minutt når fana er synleg. Meldingar vi held på (omleggingar), blir ståande.
+ * 3. minutt når fana er synleg.
  *
- * `loaded` er fila useAppData alt har henta; `enabled` = false i testar og SSR.
+ * Siste meldingar ligg i localStorage (`cache`, same nøkkel som vanilla). Dei blir vist
+ * med ein gong ved oppstart og er «førre tilstand» når nye svar kjem, så omleggingar
+ * Fjord1 har fjerna, blir ståande etter omlasting (withHeldMessages i core).
+ *
+ * - `base`: der trafikkmeldinger.json ligg (liveDataBase)
+ * - `loaded`: fila useAppData alt har henta
+ * - `live` = false i testar og SSR (berre `loaded`, ingen nett og ingen localStorage)
+ * - `ready`: useAppData er ferdig
  */
-export function useMessages(base, loaded, enabled) {
-  const [messages, setMessages] = useState(loaded);
+export function useMessages(base, loaded, { live = true, ready = true, cache = null } = {}) {
+  const [messages, setMessages] = useState(() => (live ? cache?.read() ?? null : null));
   // Eitt kall om gongen, òg når StrictMode køyrer effekten to gonger.
   const inflight = useRef(null);
 
   useEffect(() => {
-    if (!enabled) return undefined;
+    if (!live || !ready) return undefined;
     let alive = true;
     let timer = null;
     const apply = (payload) => {
@@ -34,8 +41,8 @@ export function useMessages(base, loaded, enabled) {
         inflight.current ??= fetchFjord1Messages(fetch).finally(() => {
           inflight.current = null;
         });
-        const live = await inflight.current;
-        apply(mergeMessagePayloads(json, live) || live);
+        const fresh = await inflight.current;
+        apply(mergeMessagePayloads(json, fresh) || fresh);
       } catch (error) {
         if (!json) console.error(error);
       }
@@ -61,7 +68,11 @@ export function useMessages(base, loaded, enabled) {
       alive = false;
       clearTimeout(timer);
     };
-  }, [base, loaded, enabled]);
+  }, [base, loaded, live, ready]);
 
-  return enabled ? (messages ?? loaded) : loaded;
+  useEffect(() => {
+    if (live && messages) cache?.write(messages);
+  }, [live, messages, cache]);
+
+  return live ? (messages ?? loaded) : loaded;
 }

@@ -6,14 +6,14 @@ import { fetchAppData } from "../model/data.js";
  * Lastar data/*.json éin gong. `initial` let testar og SSR gje fast data utan nett.
  * @returns {{ data: import("../model/context.js").AppData, status: "loading"|"ready"|"error" }}
  */
-export function useAppData(base, initial = null) {
+export function useAppData(base, initial = null, liveBase = base) {
   const [state, setState] = useState(() =>
     initial ? { data: { ...emptyData(), ...initial }, status: "ready" } : { data: emptyData(), status: "loading" }
   );
   useEffect(() => {
     if (initial) return undefined;
     let cancelled = false;
-    fetchAppData(fetch, base)
+    fetchAppData(fetch, base, liveBase)
       .then((loaded) => {
         if (!cancelled) setState({ data: { ...emptyData(), ...loaded }, status: "ready" });
       })
@@ -24,6 +24,6 @@ export function useAppData(base, initial = null) {
     return () => {
       cancelled = true;
     };
-  }, [base, initial]);
+  }, [base, initial, liveBase]);
   return state;
 }

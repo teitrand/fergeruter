@@ -3,12 +3,16 @@ import {
   activeMode,
   countdown,
   currentStatus,
+  formatDateOnly,
   formatDateTime,
   hasPassed,
   hhmm,
   isVisibleDeparture,
+  knownQuays,
   legsForDate,
   nowMinutes,
+  positionNoteKey,
+  routeFootnotes,
   runningLegs,
   signalLogStale,
   todayIso,
@@ -59,5 +63,21 @@ export function ledeModel(data, ui, memory, now = nowMinutes()) {
     status: status ? status.short || status.text.replace(/\.$/, "") : null,
     next: next ? { time: hhmm(next.departure), from: next.from, countdown: countdown(next.departure) } : null,
     logWarning: stale ? { when: data.signalLog?.updatedAt ? formatDateTime(data.signalLog.updatedAt) : "" } : null,
+  };
+}
+
+/**
+ * Fotnoten under rutetabellen, som renderPositionNote() og renderRouteChrome() i
+ * assets/app.js: posisjonskjelde, når rutetabellen vart henta, papirruteplan og NAIS.
+ * Før rutetabellen er lasta: same standardtekstar som index.html.
+ * @returns {{ position: string, updated: string|null, pdf: { href: string, text: string }, nais: string }}
+ */
+export function footnoteModel(data, ui, chrome) {
+  const ready = Boolean(data.routes || data.kombirute);
+  const quays = ready ? knownQuays(planContext(data, ui)) : [];
+  return {
+    position: positionNoteKey(data.live, data.liveFailed, quays),
+    updated: data.routes?.fetchedAt ? formatDateOnly(data.routes.fetchedAt) : null,
+    ...routeFootnotes(chrome?.mode, { kombirute: data.kombirute, vessel: chrome?.vessel }),
   };
 }

@@ -9,6 +9,37 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,560;9..144,700&family=Outfit:wght@400;500;600&display=swap" rel="stylesheet">
+  <!-- Privacy-friendly analytics by Plausible -->
+  <script async src="https://plausible.io/js/pa-zLwKfsUV57HIZfM4j6wLS.js"></script>
+  <script>
+    window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}};
+    plausible.init({
+      transformRequest: function (payload) {
+        try {
+          var host = location.hostname;
+          var path = location.pathname || "";
+          if (host === "localhost" || host === "127.0.0.1" || path.indexOf("/dev/") !== -1) {
+            return null;
+          }
+        } catch (e) {}
+        return payload;
+      },
+      customProperties: function () {
+        var lang = "nn";
+        var app = "web";
+        var route = "standal-trandal";
+        try {
+          lang = document.documentElement.lang || "nn";
+          if ((window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || navigator.standalone) {
+            app = "pwa";
+          }
+          var savedRoute = localStorage.getItem("fergeruter-route-choice");
+          if (savedRoute === "1135") route = "saebo-leknes";
+        } catch (e) {}
+        return { lang: lang, app: app, route: route };
+      }
+    });
+  </script>
 </head>
 <body>
   <div id="root"></div>

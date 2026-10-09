@@ -2,9 +2,39 @@
  * Detaljvindauget for éi avgang som rein data: tittel og avsnitt. Visninga gjer
  * avsnitta om til <p>, og avsnittet med `phone` til ei ringelenkje.
  */
-import { t } from "../../assets/i18n.js?v=83";
-import { durationText, formatDateTime, hhmm, minutesToClock } from "./time.js?v=83";
-import { telHref } from "./live.js?v=83";
+import { t } from "../../assets/i18n.js?v=84";
+import { clockMinutes, countdown, durationText, formatDateTime, hhmm, minutesToClock, nowMinutes } from "./time.js?v=84";
+import { telHref } from "./live.js?v=84";
+
+/**
+ * Ein signaltur som er avlyst (Entur eller loggen) men som framleis ligg framfor oss i
+ * dag, er «Avlyst», ikkje «Ikkje utført»: det har ikkje skjedd enno. Når avgangstida er
+ * passert utan at ferja gjekk, blir han «Ikkje utført».
+ */
+export function cancelledAhead(leg, { today = false, past = false, now = nowMinutes() } = {}) {
+  return Boolean(today && !past && leg?.departure && now < clockMinutes(leg.departure));
+}
+
+/**
+ * Teksten i kolonna til høgre på ei avgangsrad, frå departureStateKey (tripstatus.js).
+ * `opts` = { today, past, now } for å skilje «Avlyst» (framfor oss) frå «Ikkje utført».
+ */
+export function departureStateText(key, leg, opts = {}) {
+  switch (key) {
+    case "cancelled":
+      return t("sailing.cancelled");
+    case "notRunning":
+      return cancelledAhead(leg, opts) ? t("signal.cancelledAhead") : t("signal.notRunning");
+    case "unknown":
+      return t("signal.unknown");
+    case "gone":
+      return t("gone");
+    case "countdown":
+      return countdown(leg.departure);
+    default:
+      return "";
+  }
+}
 
 /**
  * Kva vindauget skal seie, frå tripStatus. Entur har ikkje tidspunkt for sjølve
@@ -27,22 +57,23 @@ export function departureDetail(leg, status, phone = "") {
   };
 }
 
-function statusText(detail) {
+function statusText(leg, detail, opts) {
   if (detail.cancelled) return t("sailing.cancelled");
-  if (detail.skipped) return t("signal.notRunning");
+  if (detail.skipped) return cancelledAhead(leg, opts) ? t("signal.cancelledAhead") : t("signal.notRunning");
   if (detail.booked) return t("signal.booked");
   if (detail.phase === "sailed") return t("gone");
   return detail.signal ? t("signal.onRequest") : t("detail.regular");
 }
 
 /**
+ * `opts` = { today, now }: ein avlyst signaltur som ikkje har gått enno, står som «Avlyst».
  * @returns {{ title: string, paragraphs: { className: string, text: string, phone?: string }[] }}
  */
-export function departureDetailContent(leg, detail) {
+export function departureDetailContent(leg, detail, opts = {}) {
   const p = (text, className = "detail-copy") => ({ className, text });
   const paragraphs = [];
   if (leg.arrival) paragraphs.push(p(t("sailing.arrival", { time: hhmm(leg.arrival) })));
-  paragraphs.push(p(statusText(detail), "detail-status"));
+  paragraphs.push(p(statusText(leg, detail, opts), "detail-status"));
   if (!detail.signal) {
     if (detail.cancelled) paragraphs.push(p(t("detail.cancelled")));
   } else {

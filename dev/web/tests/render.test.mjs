@@ -17,7 +17,7 @@ const LOG = json("tests/fixtures/signalturar_2026-10-02_08.json");
 const KOMBI = json("data/kombirute.json");
 
 // 8. oktober 2026 kl. 20:30 i Oslo (UTC+2).
-const FIXED = Date.UTC(2026, 9, 8, 18, 30);
+let FIXED = Date.UTC(2026, 9, 8, 18, 30);
 const RealDate = Date;
 
 let server;
@@ -162,4 +162,45 @@ test("avgangane opnar detaljvindauget", () => {
   const html = render();
   assert.match(html, /<button type="button" class="stop-name stop-detail" aria-haspopup="dialog" aria-controls="departure-dialog">/);
   assert.match(html, /<dialog id="departure-dialog" class="install-dialog departure-dialog"/);
+});
+
+test("tysk: språkknapp, dato og status på tysk", () => {
+  const html = render({ lang: "de" });
+  const plain = text(html);
+  assert.match(plain, /Donnerstag, 8\. Oktober|Donnerstag 8\. Oktober/);
+  assert.match(plain, /Unbekannt/);
+  assert.match(html, /class="lang-btn is-active" lang="de"[^>]*aria-pressed="true"/);
+  assert.doesNotMatch(plain, /Torsdag|Ukjent/);
+});
+
+test("avlyst signaltur framfor oss står som «Avlyst», ikkje «Ikkje utført»", () => {
+  const saved = FIXED;
+  FIXED = Date.UTC(2026, 9, 8, 6, 25); // 08:25 i Oslo
+  try {
+    const cancelled = { cancelledJourneys: new Set(["MOR:ServiceJourney:1136_108_9150000046319006"]) };
+    const plain = text(render({ log: false, initialEntur: cancelled }));
+    assert.match(plain, /08:35 \S+ → \S+ .*?Avlyst/);
+    assert.doesNotMatch(plain.match(/08:35 .*?(?=\d\d:\d\d )/)?.[0] || "", /Ikkje utført/);
+  } finally {
+    FIXED = saved;
+  }
+});
+
+test("fotnote, botn, install- og tilbakemeldingsvindauge som i vanilla", () => {
+  const html = render();
+  assert.match(html, /<span id="position-note">Entur har ingen posisjon for ferja no\./);
+  assert.match(html, /id="timetable-pdf" href="https:\/\/www\.fjord1\.no\/ruteoversikt\/moere-og-romsdal\/standal-trandal-valderoeya-store-kalvoey\/\(page\)\/pdf"/);
+  assert.match(html, /<a href="https:\/\/frammr\.no\/"[^>]*>frammr\.no<\/a>/);
+  assert.match(html, /id="footnote-nais"[^>]*>M\/F Kvernes på NAIS</);
+  assert.match(html, /id="footer-operator">Operatør Fjord1.*?<a class="footer-phone" aria-label="[^"]+" href="tel:\+4791669340">916 69 340<\/a>/);
+  assert.match(html, /<button type="button" id="feedback-open" class="feedback-link">Gje tilbakemelding<\/button>/);
+  assert.match(html, /<dialog id="feedback-dialog"[^>]*>.*data-rating="yes".*data-rating="no".*id="feedback-github" href="https:\/\/github\.com\/teitrand\/fergeruter\/issues\/new"/s);
+  assert.match(html, /<dialog id="install-dialog"[^>]*>.*data-install-hint="ios".*data-install-hint="android".*data-install-hint="desktop"/s);
+  assert.match(html, /class="install-steps is-likely" data-install-hint="desktop" aria-current="true"/);
+  // Install-knappen er skjult utan nettlesar (SSR/testar), som i ein installert app.
+  assert.match(html, /<button type="button" id="install-btn" class="install-btn" hidden=""/);
+  const de = render({ lang: "de" });
+  assert.match(de, /id="feedback-open" class="feedback-link">[^<]*Feedback/);
+  const k = render({ override: "kombi", kombirute: KOMBI, date: "2026-10-09" });
+  assert.match(k, new RegExp(`id="timetable-pdf" href="${(KOMBI.source || "https://frammr.no/").replace(/[.*+?^${}()|[\]\\]/g, "\\$&").slice(0, 40)}`));
 });

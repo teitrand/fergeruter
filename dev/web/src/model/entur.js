@@ -111,6 +111,7 @@ export function withEntur(data, entur) {
   return {
     ...data,
     live: entur.live,
+    liveFailed: entur.liveFailed,
     cancelledJourneys: entur.cancelledJourneys,
     actualDepartures: entur.actualDepartures,
   };

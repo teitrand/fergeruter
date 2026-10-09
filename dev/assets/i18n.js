@@ -180,6 +180,7 @@ const STRINGS = {
     "signal.leftToBook": "{duration} igjen å tinge",
     "signal.expired": "fristen er ute",
     "signal.notRunning": "Ikkje utført",
+    "signal.cancelledAhead": "Avlyst",
     "signal.unknown": "Ukjent",
     "signal.notRunningShort": "Signalturen frå {from} er ikkje utført",
     "signal.notRunningText":
@@ -404,6 +405,7 @@ const STRINGS = {
     "signal.leftToBook": "{duration} left to book",
     "signal.expired": "booking closed",
     "signal.notRunning": "Not performed",
+    "signal.cancelledAhead": "Cancelled",
     "signal.unknown": "Unknown",
     "signal.notRunningShort": "The request sailing from {from} was not performed",
     "signal.notRunningText":
@@ -631,6 +633,7 @@ const STRINGS = {
     "signal.leftToBook": "noch {duration} zum Anmelden",
     "signal.expired": "Frist abgelaufen",
     "signal.notRunning": "Nicht ausgeführt",
+    "signal.cancelledAhead": "Abgesagt",
     "signal.unknown": "Unbekannt",
     "signal.notRunningShort": "Die Bedarfsfahrt ab {from} wurde nicht ausgeführt",
     "signal.notRunningText":

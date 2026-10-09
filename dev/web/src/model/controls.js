@@ -17,7 +17,7 @@ import {
   validFilters,
   visibleConnectionLines,
 } from "../../../packages/core/index.js";
-import { planContext, statusEvidence } from "./context.js";
+import { isTodaySelected, planContext, statusEvidence } from "./context.js";
 
 /**
  * Frå/til-vala for den valde dagen. `filters` er det som faktisk gjeld (val for kaiar
@@ -68,5 +68,6 @@ export function detailModel(data, ui, memory, leg, now = nowMinutes()) {
   if (!leg) return null;
   const ctx = planContext(data, ui);
   const status = tripStatus(leg, statusEvidence(data, ui, memory, ctx), now);
-  return departureDetailContent(leg, departureDetail(leg, status, status.signal ? signalPhone(leg, ctx) : ""));
+  const detail = departureDetail(leg, status, status.signal ? signalPhone(leg, ctx) : "");
+  return departureDetailContent(leg, detail, { today: isTodaySelected(ui), now });
 }
