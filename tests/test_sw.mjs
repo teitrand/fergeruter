@@ -103,9 +103,34 @@ test("versjonsnummeret er likt i index.html, sw.js og app.js", () => {
   assert.equal([...versions][0], appVersion());
 });
 
-test("service workeren lagrar alle filene i packages/core", () => {
+test("service workeren lagrar alle filene i packages/core med versjonen", () => {
+  const version = appVersion();
   for (const name of coreFiles()) {
-    assert.match(sw, new RegExp(`"\\./packages/core/${name.replace(".", "\\.")}"`), name);
+    assert.match(
+      sw,
+      new RegExp(`"\\./packages/core/${name.replace(".", "\\.")}\\?v=${version}"`),
+      name
+    );
   }
-  assert.match(app, /from "\.\.\/packages\/core\/index\.js"/);
+  assert.match(app, new RegExp(`from "\\.\\./packages/core/index\\.js\\?v=${version}"`));
+});
+
+/** Alle `from "..."` med relativ sti i ein fil. */
+function relativeImports(text) {
+  return [...text.matchAll(/\bfrom\s+"(\.{1,2}\/[^"]+)"/g)].map((match) => match[1]);
+}
+
+test("kvar relativ import i app.js og packages/core har ?v= med versjonen i sw.js", () => {
+  // Utan ?v= kan nettlesaren blande ny app.js med gamle core-filer frå HTTP-cachen.
+  // Ulik ?v= på same fil gjev to modular, til dømes to i18n med kvart sitt språk.
+  const version = appVersion();
+  const files = [["assets/app.js", app], ...coreFiles().map((name) => [`packages/core/${name}`, readFileSync(new URL(`../packages/core/${name}`, import.meta.url), "utf8")])];
+  let checked = 0;
+  for (const [file, text] of files) {
+    for (const spec of relativeImports(text)) {
+      assert.match(spec, new RegExp(`\\?v=${version}$`), `${file}: ${spec}`);
+      checked += 1;
+    }
+  }
+  assert.ok(checked >= coreFiles().length, `berre ${checked} importar sjekka`);
 });

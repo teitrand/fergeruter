@@ -1,15 +1,16 @@
 /**
- * Ferjestatus på tidslinja: liggetid, tomkøyring og framdrift.
- * Rein logikk utan DOM, flytta uendra frå assets/app.js.
+ * Ferjestatus på tidslinja: kvar ferja er no, liggetid, tomkøyring og framdrift.
+ * Rein logikk utan DOM og utan global tilstand. Det appen veit, kjem inn som `ev` og `view`.
  */
-import { t } from "../../assets/i18n.js?v=80";
-import { clockMinutes, hasPassed } from "./time.js";
-import { leftOrigin } from "./live.js";
-import { catalogKeys, quayPlace } from "./timetable.js";
+import { t } from "../../assets/i18n.js?v=81";
+import { clockMinutes, durationText, hasPassed, hhmm } from "./time.js?v=81";
+import { LAYOVER_MIN_MINUTES, catalogKeys, legIndex, quayPlace, sameLeg } from "./legs.js?v=81";
+import { isLiveFresh, leftOrigin, legForLive } from "./live.js?v=81";
+import { firstKnownQuay } from "./plan.js?v=81";
+import { signalReachedDestination, signalSkippedStatus } from "./signal.js?v=81";
+import { runningLegs, signalVerdict } from "./tripstatus.js?v=81";
 
 export const HOME_QUAY = "Standal";
-/** Opphald på kai som er langt nok til å visast som liggetid, t.d. matpause. */
-export const LAYOVER_MIN_MINUTES = 20;
 
 export function delayApplies(live, monitored) {
   if (!live || !(live.delayMinutes >= 1)) return false;
@@ -212,4 +213,218 @@ export const EVENT_SEQ = { arr: 0, split: 1, transfer: 2, layover: 3, wait: 3, d
 export function compareTimelineEvents(a, b) {
   const seq = (event) => EVENT_SEQ[event.kind] ?? 0;
   return a.at - b.at || seq(a) - seq(b);
+}
+
+/**
+ * `view` gjev det statusen treng å vite om rutetabellen den valde dagen:
+ * - `combined`: éi ferje køyrer begge sambanda (kombirute eller omlegging)
+ * - `catalog`: alle turane i tabellen, for å finne overfartstida ved tomkøyring
+ * - `quays`: kjende kaiar, for å kjenne att kaia i sanntidsdata
+ */
+export function liveStatus(live, quays) {
+  if (!isLiveFresh(live)) return null;
+  const dest = firstKnownQuay(live.destination, quays);
+  const base = dest ? t("status.underwayTo", { dest }) : t("status.onSchedule");
+  return { underway: true, ...withSanntid(base, live) };
+}
+
+/** Kvar ferja er akkurat no, rekna ut frå rutetabellen. */
+export function ferryStatus(legs, now, allLegs, view) {
+  if (!legs.length) return null;
+  const first = legs[0];
+  const last = legs[legs.length - 1];
+  const home = homeQuay(legs);
+  const catalog = allLegs || view.catalog || legs;
+
+  if (now < clockMinutes(first.departure)) {
+    return {
+      at: clockMinutes(first.departure) - 1,
+      short: t("status.mooredAt", { quay: first.from }),
+      text: t("status.firstDeparture", { from: first.from, time: hhmm(first.departure) }),
+    };
+  }
+  if (now >= clockMinutes(last.arrival)) {
+    if (view.combined || last.to === home) {
+      const quay = last.to;
+      return {
+        at: 1441,
+        short: t("status.doneAt", { home: quay }),
+        text: t("status.doneAtPeriod", { home: quay }),
+      };
+    }
+    return overnightStatus(last, home, now);
+  }
+
+  for (let i = 0; i < legs.length; i += 1) {
+    const leg = legs[i];
+    if (now >= clockMinutes(leg.departure) && now < clockMinutes(leg.arrival)) {
+      const start = clockMinutes(leg.departure);
+      const end = clockMinutes(leg.arrival);
+      return withSpan(
+        {
+          at: start + 0.5,
+          underway: true,
+          text: t("status.underwayTo", { dest: leg.to }),
+        },
+        start,
+        end,
+        now
+      );
+    }
+    const next = legs[i + 1];
+    if (next && now >= clockMinutes(leg.arrival) && now < clockMinutes(next.departure)) {
+      const start = clockMinutes(leg.arrival);
+      const end = clockMinutes(next.departure);
+      const moving = !view.combined && isEmptyReposition(leg.to, next.from);
+      if (moving) {
+        const sail = crossingMinutes(catalog, leg.to, next.from);
+        const sailEnd = sail != null && sail < end - start ? start + sail : end;
+        if (now >= sailEnd && sailEnd < end) {
+          return withSpan(
+            {
+              at: sailEnd + 0.5,
+              text: t("status.mooredAt", { quay: next.from }),
+            },
+            sailEnd,
+            end,
+            now
+          );
+        }
+        return withSpan(
+          {
+            at: start + 0.5,
+            underway: true,
+            text: t("status.repositionTo", { quay: next.from }),
+          },
+          start,
+          sailEnd,
+          now
+        );
+      }
+      const stay = layoverAfter(leg, next);
+      if (stay) {
+        return withSpan(
+          {
+            at: start + 0.5,
+            layover: true,
+            short: t("status.mooredAt", { quay: stay.quay }),
+            text: t("status.layoverAt", {
+              quay: stay.quay,
+              duration: durationText(stay.minutes),
+              time: hhmm(stay.until),
+            }),
+          },
+          start,
+          end,
+          now
+        );
+      }
+      return withSpan(
+        {
+          at: start + 0.5,
+          text: t("status.mooredAt", { quay: leg.to }),
+        },
+        start,
+        end,
+        now
+      );
+    }
+  }
+  return null;
+}
+
+/** Same kai-tekst som tabellen bruker mellom ankomst og neste avgang. */
+export function signalArrivedQuayStatus(legs, leg, now, view) {
+  const quay = quayPlace(leg?.to) || leg?.to || "";
+  const list = Array.isArray(legs) && legs.length ? legs : [leg];
+  const withLeg = list.some((item) => sameLeg(item, leg)) ? list : [...list, leg];
+  const arrivalAt = leg?.arrival ? clockMinutes(leg.arrival) : now;
+  const when = Math.max(now, arrivalAt);
+  const status = ferryStatus(withLeg, when, withLeg, view);
+  if (status) return status;
+  return {
+    at: when,
+    short: t("status.mooredAt", { quay }),
+    text: t("status.mooredAt", { quay }),
+  };
+}
+
+export function signalRunningStatus(leg, live, now, legs, view) {
+  if (signalReachedDestination(leg, live, now)) {
+    const arrived = signalArrivedQuayStatus(legs, leg, now, view);
+    if (arrived) return arrived;
+  }
+  const dest = firstKnownQuay(live.destination, view.quays) || leg.to;
+  const base = t("status.underwayTo", { dest });
+  const start = clockMinutes(leg.departure);
+  const end = leg.arrival ? clockMinutes(leg.arrival) : start + 1;
+  return withSpan(
+    {
+      at: start + 0.5,
+      underway: true,
+      signal: "running",
+      ...withSanntid(base, live),
+    },
+    start,
+    end,
+    now
+  );
+}
+
+/**
+ * Ferja ligg over natta på heimkaia. Er turen heim avlyst, går ho dit likevel, tom
+ * (8. oktober: 20:20 Trandal–Standal var avlyst hos Entur, men ferja gjekk).
+ * Returnerer turen heim når dagen etter siste køyrde tur elles ville slutta på feil kai.
+ */
+export function cancelledReturnHome(legs, running, view) {
+  if (view.combined || !legs?.length || !running?.length) return null;
+  const home = quayPlace(homeQuay(legs));
+  const last = running[running.length - 1];
+  const plannedLast = legs[legs.length - 1];
+  if (sameLeg(plannedLast, last) || quayPlace(plannedLast.to) !== home) return null;
+  if (quayPlace(last.to) === home) return null;
+  const at = legIndex(legs, last);
+  return (
+    legs
+      .slice(at + 1)
+      .find((leg) => quayPlace(leg.from) === quayPlace(last.to) && quayPlace(leg.to) === home) || null
+  );
+}
+
+/** Statuslinja for i dag: rutetabellen, retta med bevis og fersk sanntid. */
+export function currentStatus(legs, now, ev, view) {
+  const runningNow = runningLegs(legs, now, ev);
+  let planned = ferryStatus(runningNow, now, null, view);
+  const back = cancelledReturnHome(legs, runningNow, view);
+  if (back && now >= clockMinutes(runningNow[runningNow.length - 1].arrival)) {
+    planned = returnHomeStatus(runningNow[runningNow.length - 1], back, now);
+  }
+  const live = isLiveFresh(ev.live) ? ev.live : null;
+  if (!live) return planned;
+  const monitored = legForLive(legs, live);
+  if (monitored?.signal && leftOrigin(live, monitored) === true) {
+    const running = runningLegs(legs, now, ev);
+    if (signalReachedDestination(monitored, live, now)) {
+      const arrived = signalArrivedQuayStatus(running, monitored, now, view);
+      if (arrived) return arrived;
+    }
+    return signalRunningStatus(monitored, live, now, running, view);
+  }
+  if (
+    monitored?.signal &&
+    leftOrigin(live, monitored) === false &&
+    now >= clockMinutes(monitored.departure)
+  ) {
+    // «Ikkje utført» berre med bevis. Innan slingringsmonnet kan ferja berre vere forseinka.
+    if (signalVerdict(monitored, live, now, legs, ev) === "skipped") {
+      return signalSkippedStatus(monitored, now);
+    }
+    return { at: now, ...withSanntid(t("status.mooredAt", { quay: monitored.from }), live) };
+  }
+  if (planned && delayApplies(live, monitored)) {
+    const base = (planned.short || planned.text || "").replace(/\.$/, "");
+    return { ...planned, ...withSanntid(base, live) };
+  }
+  if (planned) return planned;
+  return liveStatus(live, view.quays);
 }
