@@ -49,10 +49,11 @@ after(async () => {
   await server?.close();
 });
 
-function render({ lang = "nn", override = null, kombirute = null, date = null } = {}) {
-  const initialData = { routes: ROUTES, kombirute, messages: null, signalLog: { days: { "2026-10-08": LOG.days["2026-10-08"] } } };
+function render({ lang = "nn", override = null, kombirute = null, date = null, log = true, initialEntur = null } = {}) {
+  const signalLog = log ? { days: { "2026-10-08": LOG.days["2026-10-08"] } } : null;
+  const initialData = { routes: ROUTES, kombirute, messages: null, signalLog };
   const initialState = { routeChoice: "1136", lang, override, date, showPast: true };
-  const html = renderToString(createElement(App, { initialData, initialState, memory: memoryOnly() }));
+  const html = renderToString(createElement(App, { initialData, initialEntur, initialState, memory: memoryOnly() }));
   return html.replace(/<!-- -->/g, "");
 }
 
@@ -85,4 +86,23 @@ test("kombirute med ?rute=kombi og ein annan dag", () => {
   assert.match(html, /id="route-title">Sæbø–Leknes–Skår–Trandal–Standal</);
   assert.match(text(html), /Fredag 9\. oktober/);
   assert.doesNotMatch(html, /data-signal="unknown"/, "andre dagar har ikkje «Ukjent»");
+});
+
+// Entur 8. oktober 20:30: 20:20-turen avlyst, men VM viser ferja ved Standal.
+const VM = json("tests/fixtures/vm_2026-10-08_2030.json");
+const BACK_2020 = "MOR:ServiceJourney:1136_129_9150000046366348";
+
+/** Statusen i rada for 20:20-avgangen frå Trandal (siste ordet før neste rad). */
+function state2020(html) {
+  return text(html).match(/20:20 Trandal → Standal .*? (Ukjent|Gått|Ikkje utført|Avlyst|Bestilt|På signal) No /)?.[1];
+}
+
+test("Entur-bevis: avlyst utan sanntid gjev «Ikkje utført», sanntid som viser turen gjev «Gått»", async () => {
+  const { parseVehicleMonitoring } = await server.ssrLoadModule("/../packages/core/index.js");
+  const cancelled = { cancelledJourneys: new Set([BACK_2020]) };
+  const without = state2020(render({ log: false }));
+  const avlyst = state2020(render({ log: false, initialEntur: cancelled }));
+  const live = { ...parseVehicleMonitoring(VM), validUntil: "2099-01-01T00:00:00Z" };
+  const gone = state2020(render({ log: false, initialEntur: { ...cancelled, live } }));
+  assert.deepEqual([without, avlyst, gone], ["Ukjent", "Ikkje utført", "Gått"]);
 });

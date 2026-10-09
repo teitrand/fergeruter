@@ -1,7 +1,7 @@
 /**
  * Grunnleggjande om turar og kaiar som alle dei andre modulane bruker.
  */
-import { clockMinutes } from "./time.js?v=81";
+import { clockMinutes } from "./time.js?v=82";
 
 export function unwrapSiri(value) {
   if (value == null) return "";

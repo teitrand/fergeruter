@@ -4,29 +4,26 @@ import {
   getLang,
   setLang,
   t,
-} from "./i18n.js?v=81";
+} from "./i18n.js?v=82";
 import {
   ALLOWED_MODES,
   CHOOSABLE_ROUTES,
+  LIVE_MAX_BACKOFF_MS,
+  LIVE_MIN_INTERVAL_MS,
+  LIVE_SERVICE_MARGIN_MIN,
   FJORD1_MESSAGES_PAGE,
   SAEBØ,
-  STOP_PLACES,
   TRANSFER_DESTINATIONS,
   TRANSFER_MARGIN_MIN,
-  activityTime,
-  actualDeparturesFromPayload,
   asTransferTrip,
   beforeModeFor,
   boardingFromDest,
   bookingDeadline,
   cameFromDest,
-  cancellationQuery,
-  cancelledJourneyIds,
   clockMinutes,
   compareTimelineEvents,
   countdown,
   defaultVesselName,
-  delayMinutes,
   departureStateKey,
   durationText,
   filterMessageKey,
@@ -40,7 +37,6 @@ import {
   inboundConnection,
   isEmptyReposition,
   isFerryTransfer,
-  isLiveFresh,
   isOnwardLeg,
   isParallelFerrySplit,
   isPlannedFerrySwitch,
@@ -60,13 +56,11 @@ import {
   minutesToClock,
   normalizeFjord1Node,
   nowMinutes,
-  osloDayStartIso,
   osloIsoFromMs,
   outboundConnection,
   parseClockToken,
   parseFjord1TrafficHtml,
   passengerJourneysFrom,
-  pickFreshest,
   publishedMs,
   quayPlace,
   quaysInDay,
@@ -74,10 +68,7 @@ import {
   resolveRoutePlan,
   retainHeldMessages,
   routeNameFlags,
-  seenJourneyIds,
-  serviceJourneyId,
   shiftIso,
-  siriBool,
   sortDayLegs,
   statusProgress,
   tableName,
@@ -86,22 +77,15 @@ import {
   todayIso,
   transferDestFromId,
   transferLineId,
-  unwrapSiri,
   validMessages,
-} from "../packages/core/index.js?v=81";
-import * as core from "../packages/core/index.js?v=81";
+} from "../packages/core/index.js?v=82";
+import * as core from "../packages/core/index.js?v=82";
 
 const MESSAGES_URL = "data/trafikkmeldinger.json";
 const SIGNAL_LOG_URL = "data/signalturar.json";
 const ROUTES_URL = "data/ruter.json";
 const KOMBI_URL = "data/kombirute.json";
 const CONNECTIONS_URL = "data/korrespondanse.json";
-const LIVE_VM_URLS = {
-  1136: "https://api.entur.io/realtime/v1/rest/vm?datasetId=MOR&LineRef=MOR:Line:1136",
-  1135: "https://api.entur.io/realtime/v1/rest/vm?datasetId=MOR&LineRef=MOR:Line:1135",
-};
-const ENTUR_JOURNEY_URL = "https://api.entur.io/journey-planner/v3/graphql";
-const ENTUR_CLIENT = "teitrand-fergeruter";
 const FEEDBACK_MAIL = "teitrand@hotmail.com";
 const FEEDBACK_GITHUB = "https://github.com/teitrand/fergeruter/issues/new";
 const KOMBI_PDF =
@@ -123,14 +107,7 @@ const PWA_FIRST_KEY = "fergeruter-pwa-first-open";
 const TIMETABLE_CACHE_KEY = "fergeruter-timetable-v1";
 const MESSAGES_CACHE_KEY = "fergeruter-messages-v1";
 const LAST_MODE_KEY = "fergeruter-last-mode";
-/** Turar vi har sett gå i sanntid, per dag. Berre dagen i dag blir teken vare på. */
-const SAILED_KEY = "fergeruter-sailed-v1";
-const SAILED_MAX_PER_DAY = 60;
 const MESSAGES_POLL_MS = 3 * 60 * 1000;
-const LIVE_MIN_INTERVAL_MS = 55 * 1000;
-const LIVE_BACKOFF_START_MS = 60 * 1000;
-const LIVE_MAX_BACKOFF_MS = 15 * 60 * 1000;
-const LIVE_SERVICE_MARGIN_MIN = 30;
 const WAKE_DEBOUNCE_MS = 400;
 const DEFAULT_VESSELS = [
   { name: "M/F Geiranger", phone: "916 69 321" },
@@ -537,30 +514,16 @@ function phoneIcon() {
   return svg;
 }
 
-function readSailedJourneys(date = todayIso(), storage) {
-  try {
-    const store =
-      storage ?? (typeof localStorage !== "undefined" ? localStorage : null);
-    if (!store) return new Set();
-    const parsed = JSON.parse(store.getItem(SAILED_KEY) || "null");
-    const ids = parsed?.[date];
-    return new Set(Array.isArray(ids) ? ids.filter((id) => typeof id === "string") : []);
-  } catch {
-    return new Set();
-  }
+function localStore(storage) {
+  return storage ?? (typeof localStorage !== "undefined" ? localStorage : null);
 }
 
-/** Skriv berre dagen i dag. Eldre dagar fell bort ved neste skriving. */
+function readSailedJourneys(date = todayIso(), storage) {
+  return core.readSailedJourneys(date, localStore(storage));
+}
+
 function writeSailedJourneys(date, ids, storage) {
-  try {
-    const store =
-      storage ?? (typeof localStorage !== "undefined" ? localStorage : null);
-    if (!store) return;
-    const list = [...ids].slice(-SAILED_MAX_PER_DAY);
-    store.setItem(SAILED_KEY, JSON.stringify({ [date]: list }));
-  } catch {
-    // kvote / privat modus
-  }
+  core.writeSailedJourneys(date, ids, localStore(storage));
 }
 
 function hydrateSailedJourneys(storage) {
@@ -680,12 +643,6 @@ function journeyCancelled(leg, cancelled = state.cancelledJourneys) {
   return core.journeyCancelled(leg, cancelled);
 }
 
-function cancellationStops(date = todayIso()) {
-  const names = new Set();
-  for (const leg of legsForDate(date)) names.add(quayPlace(leg.from));
-  return [...names].filter((name) => STOP_PLACES[name]);
-}
-
 /** True når bakgrunnsjobben skulle ha køyrt, men loggen er for gammal. */
 function signalLogStale(nowMs = Date.now(), log = state.signalLog) {
   return core.signalLogStale(nowMs, log);
@@ -788,40 +745,7 @@ function isCombinedTimetable() {
 }
 
 function parseVehicleMonitoring(data) {
-  const deliveries = data?.Siri?.ServiceDelivery?.VehicleMonitoringDelivery;
-  const list = Array.isArray(deliveries) ? deliveries : deliveries ? [deliveries] : [];
-  const activities = [];
-  for (const delivery of list) {
-    const items = delivery?.VehicleActivity;
-    if (!items) continue;
-    activities.push(...(Array.isArray(items) ? items : [items]));
-  }
-  if (!activities.length) return null;
-  // Entur kan sende ei gammal aktivitet (t.d. 08:00-turen) før den ferske. Bruk den nyaste.
-  const activity = activities.reduce((best, item) => (activityTime(item) > activityTime(best) ? item : best));
-  const journey = activity.MonitoredVehicleJourney || {};
-  const location = journey.VehicleLocation || {};
-  const call = journey.MonitoredCall || {};
-  const framed = journey.FramedVehicleJourneyRef || {};
-  const recorded = activity.RecordedAtTime || activity.ValidUntilTime;
-  return {
-    destination: firstKnownQuay(unwrapSiri(journey.DestinationName)),
-    direction: firstKnownQuay(unwrapSiri(journey.DirectionName)),
-    delayMinutes: delayMinutes(journey.Delay),
-    latitude: location.Latitude ?? location.latitude,
-    longitude: location.Longitude ?? location.longitude,
-    monitored: journey.Monitored,
-    journeyRef: serviceJourneyId(framed.DatedVehicleJourneyRef),
-    atStop: siriBool(call.VehicleAtStop),
-    stopName: firstKnownQuay(unwrapSiri(call.StopPointName)),
-    actualDeparture: unwrapSiri(call.ActualDepartureTime),
-    actualArrival: unwrapSiri(call.ActualArrivalTime),
-    expectedArrival: unwrapSiri(call.ExpectedArrivalTime),
-    aimedArrival: unwrapSiri(call.AimedArrivalTime),
-    originAimed: unwrapSiri(journey.OriginAimedDepartureTime),
-    validUntil: activity.ValidUntilTime,
-    recordedAt: recorded,
-  };
+  return core.parseVehicleMonitoring(data, knownQuays());
 }
 
 function liveStatus(live) {
@@ -2516,113 +2440,37 @@ function scheduleMessagesPoll() {
   }, MESSAGES_POLL_MS);
 }
 
-async function fetchLive(url) {
-  const response = await fetch(url, {
-    headers: {
-      "ET-Client-Name": ENTUR_CLIENT,
-      Accept: "application/json",
-    },
-  });
-  if (response.status === 429 || response.status >= 500) {
-    const error = new Error(response.statusText);
-    error.retryable = true;
-    throw error;
-  }
-  if (!response.ok) throw new Error(response.statusText);
-  return parseVehicleMonitoring(await response.json());
-}
-
 function liveFetchUrls(mode = activeMode()) {
-  if (mode === "1135") return [LIVE_VM_URLS["1135"]];
-  if (mode === "1136") return [LIVE_VM_URLS["1136"]];
-  return [LIVE_VM_URLS["1136"], LIVE_VM_URLS["1135"]];
+  return core.liveFetchUrls(mode);
 }
 
 function serviceWindowMinutes(date) {
-  const legs = legsForDate(date);
-  if (!legs.length) return null;
-  let start = Infinity;
-  let end = 0;
-  for (const leg of legs) {
-    start = Math.min(start, clockMinutes(leg.departure));
-    if (leg.arrival) end = Math.max(end, clockMinutes(leg.arrival));
-    else end = Math.max(end, clockMinutes(leg.departure));
-  }
-  return { start, end };
+  return core.serviceWindowMinutes(legsForDate(date));
 }
 
 function shouldFetchLive(nowMs = Date.now()) {
   if (typeof document !== "undefined" && document.hidden) return false;
   if (!hasTimetable()) return false;
-  if (nowMs < (state.liveBlockedUntil || 0)) return false;
-  const date = osloIsoFromMs(nowMs);
-  const win = serviceWindowMinutes(date);
-  if (!win) return false;
-  const minutes = nowMinutes(nowMs);
-  return (
-    minutes >= win.start - LIVE_SERVICE_MARGIN_MIN &&
-    minutes <= win.end + LIVE_SERVICE_MARGIN_MIN
-  );
+  return core.shouldFetchLive(legsForDate(osloIsoFromMs(nowMs)), nowMs, state.liveBlockedUntil);
 }
 
 function noteLiveFailure(nowMs = Date.now()) {
-  const prev = state.liveBackoffMs || LIVE_BACKOFF_START_MS / 2;
-  state.liveBackoffMs = Math.min(LIVE_MAX_BACKOFF_MS, prev * 2);
-  state.liveBlockedUntil = nowMs + state.liveBackoffMs;
+  const next = core.liveBackoff(state.liveBackoffMs, nowMs);
+  state.liveBackoffMs = next.backoffMs;
+  state.liveBlockedUntil = next.blockedUntil;
 }
 
 function liveBlockedUntil() {
   return state.liveBlockedUntil || 0;
 }
 
-async function fetchCancellations() {
-  const stops = cancellationStops();
-  if (!stops.length) return { cancelled: new Set(), seen: new Set() };
-  const response = await fetch(ENTUR_JOURNEY_URL, {
-    method: "POST",
-    headers: {
-      "ET-Client-Name": ENTUR_CLIENT,
-      "Content-Type": "application/json",
-      Accept: "application/json",
-    },
-    body: JSON.stringify({
-      query: cancellationQuery(stops),
-      variables: { start: osloDayStartIso() },
-    }),
-  });
-  if (!response.ok) throw new Error(response.statusText);
-  const payload = await response.json();
-  if (payload?.errors && !payload.data) throw new Error("Entur");
-  return {
-    cancelled: cancelledJourneyIds(payload),
-    seen: seenJourneyIds(payload),
-    actualDepartures: actualDeparturesFromPayload(payload),
-  };
-}
-
+/** Hugs signalturar Entur har faktisk avgang for. Avlyste turar blir gløymde. */
 function rememberSeenBookings() {
   for (const id of state.cancelledJourneys) state.confirmedBooked.delete(id);
   const fetchedAt = state.cancellationsFetchedAt;
   if (!fetchedAt || osloIsoFromMs(fetchedAt) !== todayIso()) return;
-  const ev = statusEvidence();
-  for (const leg of legsForDate(todayIso())) {
-    if (!leg?.signal || core.positioningBlocksBooked(leg, nowMinutes(), ev)) continue;
-    const id = serviceJourneyId(leg.id);
-    if (!id || journeyCancelled(leg) || !core.feedDepartureIso(leg, ev)) continue;
+  for (const id of core.bookingsSeenInFeed(legsForDate(todayIso()), nowMinutes(), statusEvidence())) {
     state.confirmedBooked.add(id);
-  }
-}
-
-async function loadCancellations() {
-  try {
-    const { cancelled, seen, actualDepartures } = await fetchCancellations();
-    state.cancelledJourneys = cancelled;
-    state.seenJourneys = seen;
-    state.actualDepartures = actualDepartures;
-    state.cancellationsFetchedAt = Date.now();
-    rememberSeenBookings();
-  } catch (error) {
-    console.error(error);
   }
 }
 
@@ -2630,30 +2478,33 @@ async function loadLivePosition() {
   if (!shouldFetchLive()) return;
   if (Date.now() - (state.liveFetchedAt || 0) < LIVE_MIN_INTERVAL_MS) return;
   state.liveFetchedAt = Date.now();
-  const urls = liveFetchUrls();
-  const found = [];
-  const cancellations = loadCancellations();
-  try {
-    for (const url of urls) {
-      const live = await fetchLive(url);
-      if (live) found.push(live);
-      if (found.some((item) => isLiveFresh(item))) break;
-    }
-    state.live = pickFreshest(found);
+  const result = await core.loadEnturEvidence(fetch, {
+    mode: activeMode(),
+    todayLegs: legsForDate(todayIso()),
+    quays: knownQuays(),
+  });
+  if (result.live !== undefined) {
+    state.live = result.live;
     rememberLiveSailed();
+  }
+  if (result.liveError) {
+    state.liveFailed = true;
+    noteLiveFailure();
+    console.error(result.liveError);
+  } else {
     state.liveBackoffMs = 0;
     state.liveBlockedUntil = 0;
     state.liveFailed = false;
-  } catch (error) {
-    if (found.length) {
-      state.live = pickFreshest(found);
-      rememberLiveSailed();
-    }
-    state.liveFailed = true;
-    noteLiveFailure();
-    console.error(error);
   }
-  await cancellations;
+  if (result.journeys) {
+    state.cancelledJourneys = result.journeys.cancelled;
+    state.seenJourneys = result.journeys.seen;
+    state.actualDepartures = result.journeys.actualDepartures;
+    state.cancellationsFetchedAt = Date.now();
+    rememberSeenBookings();
+  } else {
+    console.error(result.journeysError);
+  }
 }
 
 function applyTimetable({ routes, kombirute, connections }, { persist = true } = {}) {

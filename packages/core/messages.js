@@ -2,7 +2,7 @@
  * Trafikkmeldingar: tolking av Fjord1-tekst, vindauge, rutemodus og omlegging.
  * Rein logikk utan DOM, flytta uendra frå assets/app.js.
  */
-import { t } from "../../assets/i18n.js?v=81";
+import { t } from "../../assets/i18n.js?v=82";
 import {
   NUMDATE_TOKEN,
   WEEKDAY_TOKEN,
@@ -13,9 +13,9 @@ import {
   osloIsoFromMs,
   parseClockToken,
   parseNumDate,
-} from "./time.js?v=81";
-import { quayPlace } from "./legs.js?v=81";
-import { vesselFromText } from "./live.js?v=81";
+} from "./time.js?v=82";
+import { quayPlace } from "./legs.js?v=82";
+import { vesselFromText } from "./live.js?v=82";
 
 export const FJORD1_MESSAGES_PAGE = "https://www.fjord1.no/trafikkmeldingar";
 

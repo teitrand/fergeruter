@@ -34,7 +34,7 @@ import {
   tableName,
   tripStatus,
 } from "../../../packages/core/index.js";
-import { planContext, rememberBooking, statusEvidence, statusView } from "./context.js";
+import { planContext, statusEvidence, statusView } from "./context.js";
 import { signalPhone } from "./vessel.js";
 
 /**
@@ -107,26 +107,29 @@ function departureRow(leg, status, ctx, ev, now, { today, showArrivals }) {
  * @param {import("./context.js").AppData} data
  * @param {import("./context.js").UiState} ui
  * @param {import("./context.js").Memory} memory
- * @returns {{ empty: string|null, rows: object[], pastCount: number }}
+ * Les minnet, men endrar det ikkje: det tripStatus ber appen hugse, kjem i `remember`,
+ * og App legg det inn i ein effekt etter teikninga (rememberBookings i context.js).
+ * @returns {{ empty: string|null, rows: object[], pastCount: number, remember: object[] }}
  */
 export function buildTimeline(data, ui, memory, { now = nowMinutes(), showArrivals = true } = {}) {
-  if (!data.routes && !data.kombirute) return { empty: "empty.noTimetable", rows: [], pastCount: 0 };
+  if (!data.routes && !data.kombirute) return { empty: "empty.noTimetable", rows: [], pastCount: 0, remember: [] };
   const ctx = planContext(data, ui);
   const today = ctx.date === ctx.today;
   const legs = legsForDate(ctx.date, ctx);
-  if (!legs.length) return { empty: "empty.noTripsDay", rows: [], pastCount: 0 };
+  if (!legs.length) return { empty: "empty.noTripsDay", rows: [], pastCount: 0, remember: [] };
   const ev = statusEvidence(data, ui, memory, ctx);
   const combined = isCombinedTimetable(ctx);
   const plan = activePlan(ctx.date, ctx);
   const events = [];
   const seenDep = new Set();
+  const remember = [];
 
   legs.forEach((leg, index) => {
     const depKey = `${leg.from}|${leg.departure}`;
     if (isVisibleDeparture(leg) && !seenDep.has(depKey)) {
       seenDep.add(depKey);
       const status = tripStatus(leg, ev, now);
-      rememberBooking(memory, status.remember);
+      if (status.remember?.id) remember.push(status.remember);
       events.push({ at: clockMinutes(leg.departure), kind: "dep", leg, status });
     }
     const next = legs[index + 1];
@@ -183,7 +186,7 @@ export function buildTimeline(data, ui, memory, { now = nowMinutes(), showArriva
     const past = isPast(event);
     rows.push(toRow(event, past, { ctx, ev, now, today, showArrivals }));
   }
-  return { empty: null, rows, pastCount };
+  return { empty: null, rows, pastCount, remember };
 }
 
 function toRow(event, past, { ctx, ev, now, today, showArrivals }) {
