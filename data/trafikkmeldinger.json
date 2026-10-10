@@ -1,7 +1,27 @@
 {
   "source": "https://www.fjord1.no/trafikkmeldingar",
-  "fetchedAt": "2026-10-10T07:00:26.653891+00:00",
+  "fetchedAt": "2026-10-10T13:19:37.967044+00:00",
   "messages": [
+    {
+      "id": "RG9tYWluQ29udGVudDoyMTk5OTgxMQ==",
+      "heading": "Mortavika-Arsvågen",
+      "text": "Rute 1130 Arsvågen - Mortavika: Grunnet driftsproblem blir høstferiens suppleringsrute (E ruten) innstilt, i tidsrommet 1300-2000 søndag 11. oktober. Det vil i dette tidsrommet være avganger hvert kvarter i fra begge sider, som på vanlige søndager.",
+      "publishedAt": "2026-10-10T14:14:41+02:00",
+      "validFrom": "2026-10-10T12:14:41+00:00",
+      "validTo": "2026-10-11T12:13:41+00:00",
+      "countyNumber": 11,
+      "connectionNumber": 528,
+      "important": false,
+      "severity": "cancelled",
+      "isRoute1136": false,
+      "isLocal": false,
+      "isRouteControl": false,
+      "routeMode": "1136",
+      "routeWindow": null,
+      "activateAt": null,
+      "vessel": null,
+      "routeSwitch": null
+    },
     {
       "id": "RG9tYWluQ29udGVudDoyMTk5ODI3MA==",
       "heading": "Bognes – Skarberget",
