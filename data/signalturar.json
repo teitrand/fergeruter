@@ -1,6 +1,6 @@
 {
   "keptDays": 7,
-  "updatedAt": "2026-10-15T07:07:52.481587+02:00",
+  "updatedAt": "2026-10-15T07:37:53.147536+02:00",
   "days": {
     "2026-10-09": [
       {
@@ -518,6 +518,25 @@
         "evidence": "departed"
       }
     ],
-    "2026-10-15": []
+    "2026-10-15": [
+      {
+        "id": "MOR:ServiceJourney:1136_102_9150000047474169",
+        "from": "Standal",
+        "to": "Trandal",
+        "departure": "06:45:00",
+        "status": "skipped",
+        "observedAt": "2026-10-15T07:37:53.147536+02:00",
+        "skippedAt": "2026-10-15T07:37:53.147536+02:00"
+      },
+      {
+        "id": "MOR:ServiceJourney:1136_101_9150000046366323",
+        "from": "Trandal",
+        "to": "Standal",
+        "departure": "07:05:00",
+        "status": "skipped",
+        "observedAt": "2026-10-15T07:37:53.147536+02:00",
+        "skippedAt": "2026-10-15T07:37:53.147536+02:00"
+      }
+    ]
   }
 }
