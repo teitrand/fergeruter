@@ -1,6 +1,6 @@
 {
   "source": "https://www.fjord1.no/trafikkmeldingar",
-  "fetchedAt": "2026-10-15T22:33:25.847055+00:00",
+  "fetchedAt": "2026-10-16T00:39:35.019259+00:00",
   "messages": [
     {
       "id": "RG9tYWluQ29udGVudDoyMjAzODU4Nw==",
@@ -193,26 +193,6 @@
       "connectionNumber": 390,
       "important": false,
       "severity": "cancelled",
-      "isRoute1136": false,
-      "isLocal": false,
-      "isRouteControl": false,
-      "routeMode": "1136",
-      "routeWindow": null,
-      "activateAt": null,
-      "vessel": null,
-      "routeSwitch": null
-    },
-    {
-      "id": "RG9tYWluQ29udGVudDoyMTg1MjAzNA==",
-      "heading": "Askvoll-Fure-Værlandet",
-      "text": "Rute 1141 Askvoll - Værlandet: Grunnet hviletid til mannskap blir bestillingstur fra Fure kl 21.35 på søndager kansellert. Dette gjelder så lenge Bjørnsund seiler på sambandet. Mvh Fjord1 på vegner av Skyss.",
-      "publishedAt": "2026-09-25T15:55:06+02:00",
-      "validFrom": "2026-09-25T13:55:00+00:00",
-      "validTo": "2026-10-15T21:59:00+00:00",
-      "countyNumber": 14,
-      "connectionNumber": 434,
-      "important": false,
-      "severity": "info",
       "isRoute1136": false,
       "isLocal": false,
       "isRouteControl": false,
