@@ -1,7 +1,27 @@
 {
   "source": "https://www.fjord1.no/trafikkmeldingar",
-  "fetchedAt": "2026-10-17T05:02:31.005783+00:00",
+  "fetchedAt": "2026-10-17T09:08:06.409642+00:00",
   "messages": [
+    {
+      "id": "RG9tYWluQ29udGVudDoyMjA3MTE2Mg==",
+      "heading": "Kleppestø - Bergen",
+      "text": "Rute 490 Kleppestø - Bergen: Grunna ladeproblemer vert følgjande avgangar innstilt: 1023 fra Kleppestø og 1040 fra Strandkaien Mvh Fjord1 på vegner av Skyss.",
+      "publishedAt": "2026-10-17T09:32:18+02:00",
+      "validFrom": "2026-10-17T07:32:18+00:00",
+      "validTo": "2026-10-18T07:30:36+00:00",
+      "countyNumber": 12,
+      "connectionNumber": 490,
+      "important": false,
+      "severity": "cancelled",
+      "isRoute1136": false,
+      "isLocal": false,
+      "isRouteControl": false,
+      "routeMode": "1136",
+      "routeWindow": null,
+      "activateAt": null,
+      "vessel": null,
+      "routeSwitch": null
+    },
     {
       "id": "RG9tYWluQ29udGVudDoyMjA2OTc5Mg==",
       "heading": "Stavanger - Byøyene - Hommersåk",
