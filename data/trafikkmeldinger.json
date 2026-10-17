@@ -1,7 +1,27 @@
 {
   "source": "https://www.fjord1.no/trafikkmeldingar",
-  "fetchedAt": "2026-10-17T00:49:14.507204+00:00",
+  "fetchedAt": "2026-10-17T05:02:31.005783+00:00",
   "messages": [
+    {
+      "id": "RG9tYWluQ29udGVudDoyMjA2OTc5Mg==",
+      "heading": "Stavanger - Byøyene - Hommersåk",
+      "text": "Rute 800 Stavanger - Byøyene - Hommersåk: Grunna driftsproblem vert følgjande avgangar innstilt: 0550. Mvh Fjord1 på vegne av Kolumbus.",
+      "publishedAt": "2026-10-17T05:53:49+02:00",
+      "validFrom": "2026-10-17T03:53:49+00:00",
+      "validTo": "2026-10-18T03:52:07+00:00",
+      "countyNumber": 11,
+      "connectionNumber": 800,
+      "important": false,
+      "severity": "cancelled",
+      "isRoute1136": false,
+      "isLocal": false,
+      "isRouteControl": false,
+      "routeMode": "1136",
+      "routeWindow": null,
+      "activateAt": null,
+      "vessel": null,
+      "routeSwitch": null
+    },
     {
       "id": "RG9tYWluQ29udGVudDoyMjA1MjI2Mg==",
       "heading": "Kleppestø - Bergen",
