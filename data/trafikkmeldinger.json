@@ -1,6 +1,6 @@
 {
   "source": "https://www.fjord1.no/trafikkmeldingar",
-  "fetchedAt": "2026-10-16T22:52:49.676202+00:00",
+  "fetchedAt": "2026-10-17T00:49:14.507204+00:00",
   "messages": [
     {
       "id": "RG9tYWluQ29udGVudDoyMjA1MjI2Mg==",
@@ -33,26 +33,6 @@
       "connectionNumber": 165,
       "important": false,
       "severity": "capacity",
-      "isRoute1136": false,
-      "isLocal": false,
-      "isRouteControl": false,
-      "routeMode": "1136",
-      "routeWindow": null,
-      "activateAt": null,
-      "vessel": null,
-      "routeSwitch": null
-    },
-    {
-      "id": "RG9tYWluQ29udGVudDoyMjAzODMzMA==",
-      "heading": "Brekstad-Valset",
-      "text": "Rute 870 Brekstad - Valset: I forbindelse med planlagt årlig verkstedsopphold/ klassing, vil sambandet betjenes av ett fartøy iht ruteplan for A-fergen (Det er da avganger fra Valset hver hele time og fra Brekstad hver halve time). Dette gjelder f.o.m søndag 18 oktober, vi forventer at det er normal drift med 2 fartøy fra og med søndag 1 november.",
-      "publishedAt": "2026-10-15T13:02:55+02:00",
-      "validFrom": "2026-10-15T11:02:00+00:00",
-      "validTo": "2026-10-16T21:59:00+00:00",
-      "countyNumber": 16,
-      "connectionNumber": 870,
-      "important": false,
-      "severity": "normal",
       "isRoute1136": false,
       "isLocal": false,
       "isRouteControl": false,
