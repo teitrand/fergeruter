@@ -1,156 +1,24 @@
-const IS_DEV = self.location.pathname.includes("/dev/");
-const CACHE = IS_DEV ? "fergeruter-dev-v76" : "fergeruter-v76";
-const PRECACHE = [
-  "./",
-  "./index.html",
-  "./manifest.webmanifest",
-  "./assets/app.js",
-  "./assets/app.js?v=75",
-  "./assets/i18n.js",
-  "./assets/i18n.js?v=75",
-  "./assets/styles.css",
-  "./assets/styles.css?v=75",
-  "./assets/favicon.svg",
-  "./assets/icons/icon-192.png?v=2",
-  "./assets/icons/icon-512.png?v=2",
-  "./assets/icons/icon-maskable-192.png?v=2",
-  "./assets/icons/icon-maskable-512.png?v=2",
-  "./assets/icons/apple-touch-icon.png?v=2",
-  "./data/ruter.json",
-  "./data/kombirute.json",
-  "./data/trafikkmeldinger.json",
-  "./data/korrespondanse.json",
-  "./data/signalturar.json",
-];
+// Fergeorakelet har flytta til https://ruter.trandal.org/.
+// Denne service workeren erstattar den gamle: tømer alle cachar,
+// avregistrerer seg sjølv og sender opne vindauge til den nye adressa.
+const TARGET = "https://ruter.trandal.org/";
 
-function isOwnCache(key) {
-  return IS_DEV ? key.startsWith("fergeruter-dev-") : /^fergeruter-v\d/.test(key);
-}
-
-/** Rutetabellar endrar seg sjeldan (ny FRAM-sesong). Ikkje vent på nett. */
-function isTimetableJson(url) {
-  return /\/data\/(ruter|kombirute|korrespondanse)\.json$/.test(url.pathname);
-}
-
-/** Trafikkmeldingar styrer 1136/1135/kombi og kan skifte medan sida er open. */
-function isMessagesJson(url) {
-  return url.pathname.endsWith("/trafikkmeldinger.json");
-}
-
-/** Signaltur-loggen blir skriven nokre gonger om dagen og skal ikkje bli liggjande gammal. */
-function isSignalLogJson(url) {
-  return url.pathname.endsWith("/signalturar.json");
-}
-
-/** Same cache-nøkkel for datafiler, òg når meldingar vart henta med ?t= tidlegare. */
-function cacheKey(request) {
-  const url = new URL(request.url);
-  if (!url.pathname.includes("/data/")) return request;
-  url.search = "";
-  return new Request(url, { method: "GET" });
-}
-
-self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches
-      .open(CACHE)
-      .then((cache) => cache.addAll(PRECACHE))
-      .then(() => self.skipWaiting())
-  );
-});
+self.addEventListener("install", () => self.skipWaiting());
 
 self.addEventListener("activate", (event) => {
-  event.waitUntil(
-    caches
-      .keys()
-      .then((keys) =>
-        Promise.all(
-          keys.filter((key) => isOwnCache(key) && key !== CACHE).map((key) => caches.delete(key))
-        )
-      )
-      .then(() => self.clients.claim())
-  );
+  event.waitUntil((async () => {
+    const keys = await caches.keys();
+    await Promise.all(keys.map((key) => caches.delete(key)));
+    await self.clients.claim();
+    await self.registration.unregister();
+    const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+    await Promise.all(windows.map((client) => {
+      const url = new URL(client.url);
+      return client.navigate(TARGET + url.search + url.hash).catch(() => {});
+    }));
+  })());
 });
 
-async function networkFirst(request, { notifyType } = {}) {
-  const cache = await caches.open(CACHE);
-  const key = cacheKey(request);
-  const cached = await cache.match(key);
-  try {
-    const response = await fetch(request);
-    if (response.ok) {
-      const changed = !cached || (await responsesDiffer(cached, response));
-      await cache.put(key, response.clone());
-      if (notifyType && changed) notifyClients({ type: notifyType });
-    }
-    return response;
-  } catch {
-    if (cached) return cached;
-    throw new Error("offline");
-  }
-}
-
-async function responsesDiffer(cached, response) {
-  const etagA = cached.headers.get("etag");
-  const etagB = response.headers.get("etag");
-  if (etagA && etagB) return etagA !== etagB;
-  const [a, b] = await Promise.all([cached.clone().text(), response.clone().text()]);
-  return a !== b;
-}
-
-function notifyClients(data) {
-  return self.clients
-    .matchAll({ type: "window", includeUncontrolled: true })
-    .then((clients) => {
-      for (const client of clients) client.postMessage(data);
-    })
-    .catch(() => undefined);
-}
-
-async function staleWhileRevalidate(request, { notify = false, waitUntil } = {}) {
-  const cache = await caches.open(CACHE);
-  const key = cacheKey(request);
-  const cached = await cache.match(key);
-  const network = fetch(request)
-    .then(async (response) => {
-      if (response.ok) {
-        const changed = !cached || (await responsesDiffer(cached, response));
-        await cache.put(key, response.clone());
-        if (notify && changed) notifyClients({ type: "timetable-updated" });
-      }
-      return response;
-    })
-    .catch(() => cached);
-  if (waitUntil && cached) waitUntil(network.then(() => undefined).catch(() => undefined));
-  return cached || network;
-}
-
 self.addEventListener("fetch", (event) => {
-  const request = event.request;
-  if (request.method !== "GET") return;
-  const url = new URL(request.url);
-  if (url.origin !== self.location.origin) return;
-  const shell = /(?:\.html|\.css|\.js)$/.test(url.pathname) || url.pathname.endsWith("/");
-  if (isTimetableJson(url)) {
-    event.respondWith(
-      staleWhileRevalidate(request, {
-        notify: true,
-        waitUntil: (promise) => event.waitUntil(promise),
-      })
-    );
-    return;
-  }
-  if (isMessagesJson(url)) {
-    event.respondWith(networkFirst(request, { notifyType: "messages-updated" }));
-    return;
-  }
-  if (isSignalLogJson(url)) {
-    event.respondWith(networkFirst(request));
-    return;
-  }
-  if (shell) {
-    event.respondWith(networkFirst(request));
-    return;
-  }
-  event.respondWith(staleWhileRevalidate(request));
+  event.respondWith(fetch(event.request));
 });
