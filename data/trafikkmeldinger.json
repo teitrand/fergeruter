@@ -1,7 +1,27 @@
 {
   "source": "https://www.fjord1.no/trafikkmeldingar",
-  "fetchedAt": "2026-10-21T00:10:37.668521+00:00",
+  "fetchedAt": "2026-10-21T04:38:17.208823+00:00",
   "messages": [
+    {
+      "id": "RG9tYWluQ29udGVudDoyMjA4Nzg5NQ==",
+      "heading": "Ranavik - Skjersholmane",
+      "text": "Rute 1032 Ranavik - Skjersholmane: Grunna driftsproblem vert følgjande avgangar innstilt: 0545 fra Skjersholmane, 0635 fra Ranavik Mvh Fjord1 på vegner av Skyss.",
+      "publishedAt": "2026-10-21T06:02:38+02:00",
+      "validFrom": "2026-10-21T04:02:38+00:00",
+      "validTo": "2026-10-22T04:01:58+00:00",
+      "countyNumber": 12,
+      "connectionNumber": 1140,
+      "important": false,
+      "severity": "cancelled",
+      "isRoute1136": false,
+      "isLocal": false,
+      "isRouteControl": false,
+      "routeMode": "1136",
+      "routeWindow": null,
+      "activateAt": null,
+      "vessel": null,
+      "routeSwitch": null
+    },
     {
       "id": "RG9tYWluQ29udGVudDoyMjA4MzU3Nw==",
       "heading": "Levanger - Hokstad",
