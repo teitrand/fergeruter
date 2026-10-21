@@ -1,7 +1,27 @@
 {
   "source": "https://www.fjord1.no/trafikkmeldingar",
-  "fetchedAt": "2026-10-21T14:37:05.361347+00:00",
+  "fetchedAt": "2026-10-21T18:51:46.544760+00:00",
   "messages": [
+    {
+      "id": "RG9tYWluQ29udGVudDoyMjA5MzA5Ng==",
+      "heading": "Drag - Kjøpsvik",
+      "text": "Rute 201108 Drag - Kjøpsvik: Grunnet transport av farlig last blir det redusert kapasitet (maks. 12 passasjerer) på avgangen kl. 06:50 fra Drag torsdagen 22. Oktober 2026.",
+      "publishedAt": "2026-10-21T18:16:56+02:00",
+      "validFrom": "2026-10-21T16:16:56+00:00",
+      "validTo": "2026-10-22T16:16:25+00:00",
+      "countyNumber": 18,
+      "connectionNumber": 581,
+      "important": false,
+      "severity": "capacity",
+      "isRoute1136": false,
+      "isLocal": false,
+      "isRouteControl": false,
+      "routeMode": "1136",
+      "routeWindow": null,
+      "activateAt": null,
+      "vessel": null,
+      "routeSwitch": null
+    },
     {
       "id": "RG9tYWluQ29udGVudDoyMjA5MTk0NQ==",
       "heading": "Ranavik - Skjersholmane",
