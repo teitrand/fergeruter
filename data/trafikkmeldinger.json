@@ -1,7 +1,27 @@
 {
   "source": "https://www.fjord1.no/trafikkmeldingar",
-  "fetchedAt": "2026-10-22T00:27:29.976144+00:00",
+  "fetchedAt": "2026-10-22T10:04:00.809695+00:00",
   "messages": [
+    {
+      "id": "RG9tYWluQ29udGVudDoyMjA5ODQ2MQ==",
+      "heading": "Bognes – Skarberget",
+      "text": "Rute 201109 Bognes - Skarberget: Det vert normal drift i sambandet frå kl. 0720",
+      "publishedAt": "2026-10-22T07:14:29+02:00",
+      "validFrom": "2026-10-22T05:14:29+00:00",
+      "validTo": "2026-10-23T05:13:29+00:00",
+      "countyNumber": 18,
+      "connectionNumber": 611,
+      "important": false,
+      "severity": "normal",
+      "isRoute1136": false,
+      "isLocal": false,
+      "isRouteControl": false,
+      "routeMode": "1136",
+      "routeWindow": null,
+      "activateAt": null,
+      "vessel": null,
+      "routeSwitch": null
+    },
     {
       "id": "RG9tYWluQ29udGVudDoyMjA5NjMxMA==",
       "heading": "Bognes – Skarberget",
