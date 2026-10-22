@@ -1,7 +1,27 @@
 {
   "source": "https://www.fjord1.no/trafikkmeldingar",
-  "fetchedAt": "2026-10-22T15:02:47.634389+00:00",
+  "fetchedAt": "2026-10-22T19:07:21.646689+00:00",
   "messages": [
+    {
+      "id": "RG9tYWluQ29udGVudDoyMjEwNDQ0MA==",
+      "heading": "Lavik - Oppedal",
+      "text": "Rute 1045 Lavik - Oppedal: Grunna driftsproblem blir det alternativ rute frå kl 20:00 med avgang frå Lavik kl xx:00 og xx:30 og frå Oppedal kl xx:00 og xx:30. Frå kl 21:00 blir det normal rutedrift i henhold til rutetabell.",
+      "publishedAt": "2026-10-22T19:13:25+02:00",
+      "validFrom": "2026-10-22T17:13:25+00:00",
+      "validTo": "2026-10-23T17:12:56+00:00",
+      "countyNumber": 14,
+      "connectionNumber": 1045,
+      "important": false,
+      "severity": "info",
+      "isRoute1136": false,
+      "isLocal": false,
+      "isRouteControl": false,
+      "routeMode": "1136",
+      "routeWindow": null,
+      "activateAt": null,
+      "vessel": null,
+      "routeSwitch": null
+    },
     {
       "id": "RG9tYWluQ29udGVudDoyMjEwMjkzOQ==",
       "heading": "Lavik - Oppedal",
