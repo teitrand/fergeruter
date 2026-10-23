@@ -1,7 +1,27 @@
 {
   "source": "https://www.fjord1.no/trafikkmeldingar",
-  "fetchedAt": "2026-10-23T18:54:35.761097+00:00",
+  "fetchedAt": "2026-10-23T21:44:15.982693+00:00",
   "messages": [
+    {
+      "id": "RG9tYWluQ29udGVudDoyMjExNjkzOA==",
+      "heading": "Kvanne-Rykkjem",
+      "text": "Rute 1061 Kvanne - Rykkjem: Det blir utført ordinær rute fra kl. 07:00",
+      "publishedAt": "2026-10-23T21:50:26+02:00",
+      "validFrom": "2026-10-23T19:50:26+00:00",
+      "validTo": "2026-10-24T19:49:39+00:00",
+      "countyNumber": 15,
+      "connectionNumber": 431,
+      "important": false,
+      "severity": "info",
+      "isRoute1136": false,
+      "isLocal": false,
+      "isRouteControl": false,
+      "routeMode": "1136",
+      "routeWindow": null,
+      "activateAt": null,
+      "vessel": null,
+      "routeSwitch": null
+    },
     {
       "id": "RG9tYWluQ29udGVudDoyMjExNjM1Ng==",
       "heading": "Lavik - Oppedal",
