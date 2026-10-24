@@ -1,7 +1,27 @@
 {
   "source": "https://www.fjord1.no/trafikkmeldingar",
-  "fetchedAt": "2026-10-24T00:02:18.301249+00:00",
+  "fetchedAt": "2026-10-24T08:49:57.282341+00:00",
   "messages": [
+    {
+      "id": "RG9tYWluQ29udGVudDoyMjEyMTYxOQ==",
+      "heading": "Rysjedalsvika-Rutledal-Krakhella",
+      "text": "Rute 1042 Rysjedalsvika - Rutledal - Krakhella: På grunn av vêret blir anløpa til Losna innstilte frå ruteoppstart i morgon og inntil vidare. Mvh Fjord1 på vegner av Skyss.",
+      "publishedAt": "2026-10-24T09:34:27+02:00",
+      "validFrom": "2026-10-24T07:34:27+00:00",
+      "validTo": "2026-10-25T08:33:55+00:00",
+      "countyNumber": 14,
+      "connectionNumber": 321,
+      "important": false,
+      "severity": "cancelled",
+      "isRoute1136": false,
+      "isLocal": false,
+      "isRouteControl": false,
+      "routeMode": "1136",
+      "routeWindow": null,
+      "activateAt": null,
+      "vessel": null,
+      "routeSwitch": null
+    },
     {
       "id": "RG9tYWluQ29udGVudDoyMjExNjkzOA==",
       "heading": "Kvanne-Rykkjem",
