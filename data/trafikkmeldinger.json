@@ -1,7 +1,27 @@
 {
   "source": "https://www.fjord1.no/trafikkmeldingar",
-  "fetchedAt": "2026-10-24T23:12:15.053469+00:00",
+  "fetchedAt": "2026-10-25T05:58:20.125373+00:00",
   "messages": [
+    {
+      "id": "RG9tYWluQ29udGVudDoyMjEzNDA0Mw==",
+      "heading": "Gjermundshamn - Varaldsøy - Årsnes",
+      "text": "Rute 1027 Gjermundshamn - Varaldsøy - Årsnes: Grunna driftsproblem som følge av strømbrudd på land vert B-ruta innstilt inntil vidare Mvh Fjord1 på vegner av Skyss.",
+      "publishedAt": "2026-10-25T06:52:19+01:00",
+      "validFrom": "2026-10-25T05:52:19+00:00",
+      "validTo": "2026-10-26T05:51:11+00:00",
+      "countyNumber": 12,
+      "connectionNumber": 1142,
+      "important": false,
+      "severity": "cancelled",
+      "isRoute1136": false,
+      "isLocal": false,
+      "isRouteControl": false,
+      "routeMode": "1136",
+      "routeWindow": null,
+      "activateAt": null,
+      "vessel": null,
+      "routeSwitch": null
+    },
     {
       "id": "RG9tYWluQ29udGVudDoyMjEyNzEzNA==",
       "heading": "Bognes – Skarberget",
