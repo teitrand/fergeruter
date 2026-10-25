@@ -1,6 +1,6 @@
 {
   "keptDays": 7,
-  "updatedAt": "2026-10-25T18:07:18.497910+01:00",
+  "updatedAt": "2026-10-25T18:36:11.536113+01:00",
   "days": {
     "2026-10-19": [
       {
@@ -509,6 +509,24 @@
         "status": "skipped",
         "observedAt": "2026-10-25T17:07:20.051275+01:00",
         "skippedAt": "2026-10-25T17:07:20.051275+01:00"
+      },
+      {
+        "id": "MOR:ServiceJourney:1136_710_9150000046318681",
+        "from": "Skår",
+        "to": "Sæbø",
+        "departure": "18:15:00",
+        "status": "booked",
+        "observedAt": "2026-10-25T18:10:34+01:00",
+        "evidence": "departed"
+      },
+      {
+        "id": "MOR:ServiceJourney:1136_712_9150000046366693",
+        "from": "Sæbø",
+        "to": "Trandal",
+        "departure": "18:35:00",
+        "status": "booked",
+        "observedAt": "2026-10-25T18:35:03+01:00",
+        "evidence": "departed"
       }
     ]
   }
