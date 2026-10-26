@@ -1,7 +1,27 @@
 {
   "source": "https://www.fjord1.no/trafikkmeldingar",
-  "fetchedAt": "2026-10-26T17:00:50.759153+00:00",
+  "fetchedAt": "2026-10-26T21:26:59.363044+00:00",
   "messages": [
+    {
+      "id": "RG9tYWluQ29udGVudDoyMjE1MTQyMw==",
+      "heading": "Lavik - Oppedal",
+      "text": "Rute 1045 Lavik - Oppedal: Grunna transport av farleg last vert det redusert kapasitet (maks. 12 passasjerar) på avgang frå Lavik kl. 09:30 i morgon.",
+      "publishedAt": "2026-10-26T21:15:15+01:00",
+      "validFrom": "2026-10-26T20:15:15+00:00",
+      "validTo": "2026-10-27T20:14:51+00:00",
+      "countyNumber": 14,
+      "connectionNumber": 1045,
+      "important": false,
+      "severity": "capacity",
+      "isRoute1136": false,
+      "isLocal": false,
+      "isRouteControl": false,
+      "routeMode": "1136",
+      "routeWindow": null,
+      "activateAt": null,
+      "vessel": null,
+      "routeSwitch": null
+    },
     {
       "id": "RG9tYWluQ29udGVudDoyMjE0ODA1NQ==",
       "heading": "Hareid-Sulesund",
