@@ -1,13 +1,12 @@
 {
   "source": "https://api.entur.io/journey-planner/v3/graphql",
-  "fetchedAt": "2026-10-25T09:14:23.540050+00:00",
+  "fetchedAt": "2026-10-26T10:17:46.511205+00:00",
   "hub": "Festøya",
   "roadTo": "Standal",
   "driveMinutes": 14,
   "marginMinutes": 5,
   "calendars": {
     "1": [
-      "2026-10-24",
       "2026-10-31",
       "2026-11-07",
       "2026-11-14",
@@ -29,7 +28,8 @@
       "2027-02-27",
       "2027-03-06",
       "2027-03-13",
-      "2027-03-20"
+      "2027-03-20",
+      "2027-03-27"
     ],
     "2": [
       "2026-10-25",
@@ -167,7 +167,6 @@
       "2027-03-24"
     ],
     "4": [
-      "2026-10-24",
       "2026-10-31",
       "2026-11-07",
       "2026-11-14",
@@ -191,7 +190,8 @@
     ],
     "5": [
       "2026-12-24",
-      "2026-12-31"
+      "2026-12-31",
+      "2027-03-27"
     ],
     "6": [
       "2026-10-25",
@@ -222,6 +222,32 @@
       "2027-03-26"
     ],
     "7": [
+      "2026-10-31",
+      "2026-11-07",
+      "2026-11-14",
+      "2026-11-21",
+      "2026-11-28",
+      "2026-12-05",
+      "2026-12-12",
+      "2026-12-19",
+      "2027-01-02",
+      "2027-01-09",
+      "2027-01-16",
+      "2027-01-23",
+      "2027-01-30",
+      "2027-02-06",
+      "2027-02-13",
+      "2027-02-20",
+      "2027-02-27",
+      "2027-03-06",
+      "2027-03-13",
+      "2027-03-20",
+      "2027-03-27"
+    ],
+    "8": [
+      "2027-03-27"
+    ],
+    "9": [
       "2026-10-26",
       "2026-10-27",
       "2026-10-28",
@@ -1722,7 +1748,7 @@
           "to": "Solavågen",
           "departure": "18:40:00",
           "arrival": "19:00:00",
-          "cal": "4"
+          "cal": "7"
         },
         {
           "from": "Solavågen",
@@ -1778,7 +1804,7 @@
           "to": "Festøya",
           "departure": "19:10:00",
           "arrival": "19:30:00",
-          "cal": "4"
+          "cal": "7"
         },
         {
           "from": "Solavågen",
@@ -1799,7 +1825,7 @@
           "to": "Solavågen",
           "departure": "19:40:00",
           "arrival": "20:00:00",
-          "cal": "4"
+          "cal": "7"
         },
         {
           "from": "Festøya",
@@ -1869,7 +1895,7 @@
           "to": "Festøya",
           "departure": "20:10:00",
           "arrival": "20:30:00",
-          "cal": "4"
+          "cal": "7"
         },
         {
           "from": "Festøya",
@@ -1890,7 +1916,7 @@
           "to": "Solavågen",
           "departure": "20:40:00",
           "arrival": "21:00:00",
-          "cal": "4"
+          "cal": "7"
         },
         {
           "from": "Solavågen",
@@ -1939,7 +1965,7 @@
           "to": "Festøya",
           "departure": "21:10:00",
           "arrival": "21:30:00",
-          "cal": "4"
+          "cal": "7"
         },
         {
           "from": "Solavågen",
@@ -1967,7 +1993,7 @@
           "to": "Solavågen",
           "departure": "21:40:00",
           "arrival": "22:00:00",
-          "cal": "4"
+          "cal": "7"
         },
         {
           "from": "Festøya",
@@ -2023,7 +2049,7 @@
           "to": "Festøya",
           "departure": "22:10:00",
           "arrival": "22:30:00",
-          "cal": "4"
+          "cal": "7"
         },
         {
           "from": "Solavågen",
@@ -2052,6 +2078,13 @@
           "departure": "22:40:00",
           "arrival": "23:00:00",
           "cal": "6"
+        },
+        {
+          "from": "Festøya",
+          "to": "Solavågen",
+          "departure": "22:40:00",
+          "arrival": "23:00:00",
+          "cal": "8"
         },
         {
           "from": "Solavågen",
@@ -2101,6 +2134,13 @@
           "departure": "23:10:00",
           "arrival": "23:30:00",
           "cal": "6"
+        },
+        {
+          "from": "Solavågen",
+          "to": "Festøya",
+          "departure": "23:10:00",
+          "arrival": "23:30:00",
+          "cal": "8"
         },
         {
           "from": "Solavågen",
@@ -2357,14 +2397,14 @@
           "to": "Festøya",
           "departure": "14:00:00",
           "arrival": "14:23:00",
-          "cal": "4"
+          "cal": "7"
         },
         {
           "from": "Festøya",
           "to": "Hundeidvik",
           "departure": "14:30:00",
           "arrival": "14:53:00",
-          "cal": "4"
+          "cal": "7"
         },
         {
           "from": "Festøya",
@@ -2399,14 +2439,14 @@
           "to": "Festøya",
           "departure": "15:00:00",
           "arrival": "15:23:00",
-          "cal": "4"
+          "cal": "7"
         },
         {
           "from": "Festøya",
           "to": "Hundeidvik",
           "departure": "15:30:00",
           "arrival": "15:53:00",
-          "cal": "4"
+          "cal": "7"
         },
         {
           "from": "Festøya",
@@ -2441,14 +2481,14 @@
           "to": "Festøya",
           "departure": "16:00:00",
           "arrival": "16:23:00",
-          "cal": "4"
+          "cal": "7"
         },
         {
           "from": "Festøya",
           "to": "Hundeidvik",
           "departure": "16:30:00",
           "arrival": "16:53:00",
-          "cal": "4"
+          "cal": "7"
         },
         {
           "from": "Festøya",
@@ -2483,14 +2523,14 @@
           "to": "Festøya",
           "departure": "17:00:00",
           "arrival": "17:23:00",
-          "cal": "4"
+          "cal": "7"
         },
         {
           "from": "Festøya",
           "to": "Hundeidvik",
           "departure": "17:20:00",
           "arrival": "17:43:00",
-          "cal": "4"
+          "cal": "7"
         },
         {
           "from": "Festøya",
@@ -2579,42 +2619,42 @@
           "to": "Leknes",
           "departure": "08:10:00",
           "arrival": "08:25:00",
-          "cal": "7"
+          "cal": "9"
         },
         {
           "from": "Leknes",
           "to": "Øye",
           "departure": "08:30:00",
           "arrival": "08:45:00",
-          "cal": "7"
+          "cal": "9"
         },
         {
           "from": "Øye",
           "to": "Leknes",
           "departure": "14:45:00",
           "arrival": "15:00:00",
-          "cal": "7"
+          "cal": "9"
         },
         {
           "from": "Leknes",
           "to": "Øye",
           "departure": "15:00:00",
           "arrival": "15:15:00",
-          "cal": "7"
+          "cal": "9"
         },
         {
           "from": "Øye",
           "to": "Leknes",
           "departure": "16:30:00",
           "arrival": "16:45:00",
-          "cal": "7"
+          "cal": "9"
         },
         {
           "from": "Leknes",
           "to": "Øye",
           "departure": "16:45:00",
           "arrival": "17:00:00",
-          "cal": "7"
+          "cal": "9"
         }
       ]
     }
