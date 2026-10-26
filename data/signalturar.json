@@ -1,81 +1,7 @@
 {
   "keptDays": 7,
-  "updatedAt": "2026-10-25T23:28:27.802980+01:00",
+  "updatedAt": "2026-10-26T05:07:19.739405+01:00",
   "days": {
-    "2026-10-19": [
-      {
-        "id": "MOR:ServiceJourney:1136_102_9150000047474169",
-        "from": "Standal",
-        "to": "Trandal",
-        "departure": "06:45:00",
-        "status": "skipped",
-        "observedAt": "2026-10-19T07:37:50.135695+02:00",
-        "skippedAt": "2026-10-19T07:37:50.135695+02:00"
-      },
-      {
-        "id": "MOR:ServiceJourney:1136_101_9150000046366323",
-        "from": "Trandal",
-        "to": "Standal",
-        "departure": "07:05:00",
-        "status": "skipped",
-        "observedAt": "2026-10-19T07:37:50.135695+02:00",
-        "skippedAt": "2026-10-19T07:37:50.135695+02:00"
-      },
-      {
-        "id": "MOR:ServiceJourney:1136_108_9150000046319006",
-        "from": "Sæbø",
-        "to": "Skår",
-        "departure": "08:35:00",
-        "status": "skipped",
-        "observedAt": "2026-10-19T09:37:51.798778+02:00",
-        "skippedAt": "2026-10-19T09:37:51.798778+02:00"
-      },
-      {
-        "id": "MOR:ServiceJourney:1136_105_9150000046318624",
-        "from": "Skår",
-        "to": "Sæbø",
-        "departure": "08:55:00",
-        "status": "skipped",
-        "observedAt": "2026-10-19T09:37:51.798778+02:00",
-        "skippedAt": "2026-10-19T09:37:51.798778+02:00"
-      },
-      {
-        "id": "MOR:ServiceJourney:1136_120_9150000047476409",
-        "from": "Trandal",
-        "to": "Sæbø",
-        "departure": "16:25:00",
-        "status": "booked",
-        "observedAt": "2026-10-19T16:26:04+02:00",
-        "evidence": "departed"
-      },
-      {
-        "id": "MOR:ServiceJourney:1136_121_9150000046366642",
-        "from": "Sæbø",
-        "to": "Trandal",
-        "departure": "17:45:00",
-        "status": "skipped",
-        "observedAt": "2026-10-19T17:07:51.272598+02:00",
-        "skippedAt": "2026-10-19T17:07:51.272598+02:00"
-      },
-      {
-        "id": "MOR:ServiceJourney:1136_128_9150000047474268",
-        "from": "Standal",
-        "to": "Trandal",
-        "departure": "20:00:00",
-        "status": "skipped",
-        "observedAt": "2026-10-19T19:37:51.809347+02:00",
-        "skippedAt": "2026-10-19T19:37:51.809347+02:00"
-      },
-      {
-        "id": "MOR:ServiceJourney:1136_129_9150000046366348",
-        "from": "Trandal",
-        "to": "Standal",
-        "departure": "20:20:00",
-        "status": "skipped",
-        "observedAt": "2026-10-19T19:37:51.809347+02:00",
-        "skippedAt": "2026-10-19T19:37:51.809347+02:00"
-      }
-    ],
     "2026-10-20": [
       {
         "id": "MOR:ServiceJourney:1136_102_9150000047474169",
@@ -564,6 +490,7 @@
         "observedAt": "2026-10-25T20:07:18.890418+01:00",
         "skippedAt": "2026-10-25T20:07:18.890418+01:00"
       }
-    ]
+    ],
+    "2026-10-26": []
   }
 }
