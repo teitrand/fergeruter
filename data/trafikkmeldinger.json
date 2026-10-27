@@ -1,7 +1,27 @@
 {
   "source": "https://www.fjord1.no/trafikkmeldingar",
-  "fetchedAt": "2026-10-27T00:38:37.150724+00:00",
+  "fetchedAt": "2026-10-27T05:32:32.560746+00:00",
   "messages": [
+    {
+      "id": "RG9tYWluQ29udGVudDoyMjE1OTA5MA==",
+      "heading": "Ranavik - Skjersholmane",
+      "text": "Rute 1032 Ranavik - Skjersholmane: Grunna driftsproblem vert B-ruta innstilt inntil videre. Mvh Fjord1 på vegner av Skyss.",
+      "publishedAt": "2026-10-27T05:38:28+01:00",
+      "validFrom": "2026-10-27T04:38:28+00:00",
+      "validTo": "2026-10-28T04:37:49+00:00",
+      "countyNumber": 12,
+      "connectionNumber": 1140,
+      "important": false,
+      "severity": "cancelled",
+      "isRoute1136": false,
+      "isLocal": false,
+      "isRouteControl": false,
+      "routeMode": "1136",
+      "routeWindow": null,
+      "activateAt": null,
+      "vessel": null,
+      "routeSwitch": null
+    },
     {
       "id": "RG9tYWluQ29udGVudDoyMjE1MTQyMw==",
       "heading": "Lavik - Oppedal",
