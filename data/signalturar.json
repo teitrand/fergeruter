@@ -1,6 +1,6 @@
 {
   "keptDays": 7,
-  "updatedAt": "2026-10-28T11:30:18.482808+01:00",
+  "updatedAt": "2026-10-28T12:07:35.926054+01:00",
   "days": {
     "2026-10-22": [
       {
@@ -572,6 +572,15 @@
         "status": "booked",
         "observedAt": "2026-10-28T08:35:02+01:00",
         "evidence": "departed"
+      },
+      {
+        "id": "MOR:ServiceJourney:1136_111_9150000037358260",
+        "from": "Store Kalvøy",
+        "to": "Valderøya",
+        "departure": "12:10:00",
+        "status": "skipped",
+        "observedAt": "2026-10-28T12:07:35.926054+01:00",
+        "skippedAt": "2026-10-28T12:07:35.926054+01:00"
       }
     ]
   }
