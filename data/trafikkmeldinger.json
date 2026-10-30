@@ -1,7 +1,27 @@
 {
   "source": "https://www.fjord1.no/trafikkmeldingar",
-  "fetchedAt": "2026-10-30T15:22:23.260999+00:00",
+  "fetchedAt": "2026-10-30T19:57:02.417865+00:00",
   "messages": [
+    {
+      "id": "RG9tYWluQ29udGVudDoyMjIzMDE4Nw==",
+      "heading": "Mortavika-Arsvågen",
+      "text": "Rute 1130 Arsvågen - Mortavika: Det vert normal drift i sambandet frå kl. 21:00",
+      "publishedAt": "2026-10-30T19:32:05+01:00",
+      "validFrom": "2026-10-30T18:32:05+00:00",
+      "validTo": "2026-10-31T18:31:33+00:00",
+      "countyNumber": 11,
+      "connectionNumber": 528,
+      "important": false,
+      "severity": "normal",
+      "isRoute1136": false,
+      "isLocal": false,
+      "isRouteControl": false,
+      "routeMode": "1136",
+      "routeWindow": null,
+      "activateAt": "21:00:00",
+      "vessel": null,
+      "routeSwitch": null
+    },
     {
       "id": "RG9tYWluQ29udGVudDoyMjIyOTE1Ng==",
       "heading": "Mortavika-Arsvågen",
