@@ -1,7 +1,27 @@
 {
   "source": "https://www.fjord1.no/trafikkmeldingar",
-  "fetchedAt": "2026-11-03T00:52:23.273966+00:00",
+  "fetchedAt": "2026-11-03T07:17:59.856197+00:00",
   "messages": [
+    {
+      "id": "RG9tYWluQ29udGVudDoyMjI0MzcxMA==",
+      "heading": "Lavik - Oppedal",
+      "text": "Rute 1045 Lavik - Oppedal: Grunna driftsproblem vert C ruta innstilt. Vi forventer normal drift i sambandet ca kl 11:00.",
+      "publishedAt": "2026-11-03T07:48:37+01:00",
+      "validFrom": "2026-11-03T06:48:37+00:00",
+      "validTo": "2026-11-04T06:47:36+00:00",
+      "countyNumber": 14,
+      "connectionNumber": 1045,
+      "important": false,
+      "severity": "normal",
+      "isRoute1136": false,
+      "isLocal": false,
+      "isRouteControl": false,
+      "routeMode": "1136",
+      "routeWindow": null,
+      "activateAt": null,
+      "vessel": null,
+      "routeSwitch": null
+    },
     {
       "id": "RG9tYWluQ29udGVudDoyMjI0MjM3Ng==",
       "heading": "Stårheim-Isane",
