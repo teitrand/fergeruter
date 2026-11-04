@@ -1,27 +1,7 @@
 {
   "keptDays": 7,
-  "updatedAt": "2026-11-03T22:37:44.438604+01:00",
+  "updatedAt": "2026-11-04T01:10:50.035859+01:00",
   "days": {
-    "2026-10-28": [
-      {
-        "id": "MOR:ServiceJourney:1136_103_9150000048258633",
-        "from": "Sæbø",
-        "to": "Trandal",
-        "departure": "08:35:00",
-        "status": "booked",
-        "observedAt": "2026-10-28T08:35:02+01:00",
-        "evidence": "departed"
-      },
-      {
-        "id": "MOR:ServiceJourney:1136_111_9150000037358260",
-        "from": "Store Kalvøy",
-        "to": "Valderøya",
-        "departure": "12:10:00",
-        "status": "skipped",
-        "observedAt": "2026-10-28T12:07:35.926054+01:00",
-        "skippedAt": "2026-10-28T12:07:35.926054+01:00"
-      }
-    ],
     "2026-10-29": [
       {
         "id": "MOR:ServiceJourney:1136_102_9150000047474169",
@@ -573,6 +553,7 @@
         "observedAt": "2026-11-03T19:37:49.637450+01:00",
         "skippedAt": "2026-11-03T19:37:49.637450+01:00"
       }
-    ]
+    ],
+    "2026-11-04": []
   }
 }
