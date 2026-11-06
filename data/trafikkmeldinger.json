@@ -1,7 +1,27 @@
 {
   "source": "https://www.fjord1.no/trafikkmeldingar",
-  "fetchedAt": "2026-11-06T16:52:57.997245+00:00",
+  "fetchedAt": "2026-11-06T21:46:58.874348+00:00",
   "messages": [
+    {
+      "id": "RG9tYWluQ29udGVudDoyMjI4NDk0Nw==",
+      "heading": "Leirvåg - Sløvåg",
+      "text": "Rute 1029 Leirvåg - Sløvåg: Det er normal drift i sambandet med MF Sogn. Mvh Fjord1 på vegner av Skyss.",
+      "publishedAt": "2026-11-06T18:37:26+01:00",
+      "validFrom": "2026-11-06T17:37:26+00:00",
+      "validTo": "2026-11-07T17:36:27+00:00",
+      "countyNumber": 12,
+      "connectionNumber": 1122,
+      "important": false,
+      "severity": "normal",
+      "isRoute1136": false,
+      "isLocal": false,
+      "isRouteControl": false,
+      "routeMode": "1136",
+      "routeWindow": null,
+      "activateAt": null,
+      "vessel": null,
+      "routeSwitch": null
+    },
     {
       "id": "RG9tYWluQ29udGVudDoyMjI4NDY1MA==",
       "heading": "Drag - Kjøpsvik",
