@@ -1,7 +1,27 @@
 {
   "source": "https://www.fjord1.no/trafikkmeldingar",
-  "fetchedAt": "2026-11-08T14:22:55.809833+00:00",
+  "fetchedAt": "2026-11-08T18:53:26.964218+00:00",
   "messages": [
+    {
+      "id": "RG9tYWluQ29udGVudDoyMjMwNjQ3Nw==",
+      "heading": "Lavik - Oppedal",
+      "text": "Rute 1045 Lavik - Oppedal: Grunna driftsproblem vert følgjande avgangar innstilt: frå Oppedal kl 20:45.",
+      "publishedAt": "2026-11-08T18:37:24+01:00",
+      "validFrom": "2026-11-08T17:37:24+00:00",
+      "validTo": "2026-11-09T17:37:04+00:00",
+      "countyNumber": 14,
+      "connectionNumber": 1045,
+      "important": false,
+      "severity": "cancelled",
+      "isRoute1136": false,
+      "isLocal": false,
+      "isRouteControl": false,
+      "routeMode": "1136",
+      "routeWindow": null,
+      "activateAt": null,
+      "vessel": null,
+      "routeSwitch": null
+    },
     {
       "id": "RG9tYWluQ29udGVudDoyMjMwNDk1MQ==",
       "heading": "Leirvåg - Sløvåg",
