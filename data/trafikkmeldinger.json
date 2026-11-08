@@ -1,7 +1,27 @@
 {
   "source": "https://www.fjord1.no/trafikkmeldingar",
-  "fetchedAt": "2026-11-08T18:53:26.964218+00:00",
+  "fetchedAt": "2026-11-08T22:32:09.925962+00:00",
   "messages": [
+    {
+      "id": "RG9tYWluQ29udGVudDoyMjMwNzIwNg==",
+      "heading": "Bognes – Skarberget",
+      "text": "Rute 201109 Bognes - Skarberget: Grunna dårleg ver vert sambandet innstilt inntil vidare.",
+      "publishedAt": "2026-11-08T22:38:08+01:00",
+      "validFrom": "2026-11-08T21:38:08+00:00",
+      "validTo": "2026-11-09T21:37:04+00:00",
+      "countyNumber": 18,
+      "connectionNumber": 611,
+      "important": false,
+      "severity": "cancelled",
+      "isRoute1136": false,
+      "isLocal": false,
+      "isRouteControl": false,
+      "routeMode": "1136",
+      "routeWindow": null,
+      "activateAt": null,
+      "vessel": null,
+      "routeSwitch": null
+    },
     {
       "id": "RG9tYWluQ29udGVudDoyMjMwNjQ3Nw==",
       "heading": "Lavik - Oppedal",
