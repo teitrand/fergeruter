@@ -1,7 +1,27 @@
 {
   "source": "https://www.fjord1.no/trafikkmeldingar",
-  "fetchedAt": "2026-11-12T03:32:53.048288+00:00",
+  "fetchedAt": "2026-11-12T11:43:54.514615+00:00",
   "messages": [
+    {
+      "id": "RG9tYWluQ29udGVudDoyMjM0MDY4OA==",
+      "heading": "Kleppestø - Bergen",
+      "text": "Rute 490 Kleppestø - Bergen: Grunna driftsproblem må det reknast med forseinkingar i sambandet. Mvh Fjord1 på vegner av Skyss.",
+      "publishedAt": "2026-11-12T07:51:50+01:00",
+      "validFrom": "2026-11-12T06:51:50+00:00",
+      "validTo": "2026-11-13T06:50:19+00:00",
+      "countyNumber": 12,
+      "connectionNumber": 490,
+      "important": false,
+      "severity": "info",
+      "isRoute1136": false,
+      "isLocal": false,
+      "isRouteControl": false,
+      "routeMode": "1136",
+      "routeWindow": null,
+      "activateAt": null,
+      "vessel": null,
+      "routeSwitch": null
+    },
     {
       "id": "RG9tYWluQ29udGVudDoyMjMzNzQ4MA==",
       "heading": "Lavik - Oppedal",
