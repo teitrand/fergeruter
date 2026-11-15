@@ -1,7 +1,27 @@
 {
   "source": "https://www.fjord1.no/trafikkmeldingar",
-  "fetchedAt": "2026-11-15T09:47:23.527397+00:00",
+  "fetchedAt": "2026-11-15T16:37:26.150008+00:00",
   "messages": [
+    {
+      "id": "RG9tYWluQ29udGVudDoyMjM2OTI4NQ==",
+      "heading": "Mortavika-Arsvågen",
+      "text": "Rute 1130 Arsvågen - Mortavika: Grunna driftsproblem vert følgjande avgangar innstilt: Frå Mortavika 13:00 og Arsvågen 13:30",
+      "publishedAt": "2026-11-15T12:58:23+01:00",
+      "validFrom": "2026-11-15T11:58:23+00:00",
+      "validTo": "2026-11-16T11:57:12+00:00",
+      "countyNumber": 11,
+      "connectionNumber": 528,
+      "important": false,
+      "severity": "cancelled",
+      "isRoute1136": false,
+      "isLocal": false,
+      "isRouteControl": false,
+      "routeMode": "1136",
+      "routeWindow": null,
+      "activateAt": null,
+      "vessel": null,
+      "routeSwitch": null
+    },
     {
       "id": "RG9tYWluQ29udGVudDoyMjM2ODExNw==",
       "heading": "Rysjedalsvika-Rutledal-Krakhella",
