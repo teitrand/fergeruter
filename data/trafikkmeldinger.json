@@ -1,7 +1,87 @@
 {
   "source": "https://www.fjord1.no/trafikkmeldingar",
-  "fetchedAt": "2026-11-24T11:35:05.365256+00:00",
+  "fetchedAt": "2026-11-24T21:28:04.598057+00:00",
   "messages": [
+    {
+      "id": "RG9tYWluQ29udGVudDoyMjQ3MzM1Nw==",
+      "heading": "Hareid-Sulesund",
+      "text": "Rute 1068 Hareid - Sulesund: Grunna transport av farleg last vert det redusert kapasitet (maks. 12 passasjerar) på avgang frå Sulesund kl. 05.50 i morgon, 25.11.26.",
+      "publishedAt": "2026-11-24T18:20:16+01:00",
+      "validFrom": "2026-11-24T17:20:16+00:00",
+      "validTo": "2026-11-25T17:18:08+00:00",
+      "countyNumber": 15,
+      "connectionNumber": 6,
+      "important": false,
+      "severity": "capacity",
+      "isRoute1136": false,
+      "isLocal": false,
+      "isRouteControl": false,
+      "routeMode": "1136",
+      "routeWindow": null,
+      "activateAt": null,
+      "vessel": null,
+      "routeSwitch": null
+    },
+    {
+      "id": "RG9tYWluQ29udGVudDoyMjQ3MDk3Mw==",
+      "heading": "Mortavika-Arsvågen",
+      "text": "Rute 1130 Arsvågen - Mortavika: Det vert normal drift i sambandet frå kl. 1745",
+      "publishedAt": "2026-11-24T14:28:34+01:00",
+      "validFrom": "2026-11-24T13:28:34+00:00",
+      "validTo": "2026-11-25T13:27:32+00:00",
+      "countyNumber": 11,
+      "connectionNumber": 528,
+      "important": false,
+      "severity": "normal",
+      "isRoute1136": false,
+      "isLocal": false,
+      "isRouteControl": false,
+      "routeMode": "1136",
+      "routeWindow": null,
+      "activateAt": null,
+      "vessel": null,
+      "routeSwitch": null
+    },
+    {
+      "id": "RG9tYWluQ29udGVudDoyMjQ3MDU5OA==",
+      "heading": "Halsa-Kanestraum",
+      "text": "Rute 1072 Halsa - Kanestraum: Det blir normal kapasitet i C ruta fra 14:30.",
+      "publishedAt": "2026-11-24T13:53:14+01:00",
+      "validFrom": "2026-11-24T12:53:14+00:00",
+      "validTo": "2026-11-25T12:51:44+00:00",
+      "countyNumber": 15,
+      "connectionNumber": 452,
+      "important": false,
+      "severity": "capacity",
+      "isRoute1136": false,
+      "isLocal": false,
+      "isRouteControl": false,
+      "routeMode": "1136",
+      "routeWindow": null,
+      "activateAt": null,
+      "vessel": null,
+      "routeSwitch": null
+    },
+    {
+      "id": "RG9tYWluQ29udGVudDoyMjQ3MDAzNg==",
+      "heading": "Lavik - Oppedal",
+      "text": "Rute 1045 Lavik - Oppedal: Grunna arbeid på oppstillings området vil ein i perioder stoppe trafikk før den kommer til kaia. Det blir manuell dirigering på stedet. Dette vil gjelde for Oppedal, onsdag 25.11 og for Lavik torsdag 26.11, tidsrommet kl 08:30-15:00.",
+      "publishedAt": "2026-11-24T12:59:31+01:00",
+      "validFrom": "2026-11-24T11:59:31+00:00",
+      "validTo": "2026-11-25T11:58:47+00:00",
+      "countyNumber": 14,
+      "connectionNumber": 1045,
+      "important": false,
+      "severity": "info",
+      "isRoute1136": false,
+      "isLocal": false,
+      "isRouteControl": false,
+      "routeMode": "1136",
+      "routeWindow": null,
+      "activateAt": null,
+      "vessel": null,
+      "routeSwitch": null
+    },
     {
       "id": "RG9tYWluQ29udGVudDoyMjQ2OTI0MQ==",
       "heading": "Jektavik - Nordhuglo - Hodnanes",
@@ -143,7 +223,7 @@
       "routeSwitch": null
     },
     {
-      "id": "RG9tYWluQ29udGVudDoyMjQ2MjY1NQ==",
+      "id": "RG9tYWluQ29udGVudDoyMjQ3NTk2OQ==",
       "heading": "Halsa-Kanestraum",
       "text": "Rute 1072 Halsa - Kanestraum: Normaldrift i A-ruta frå kl 22.30 i kveld. B-ruta vert innstilt frå kl 07.00 i morgon tidleg den 24.11.26. Fra kl 08:30 blir det normal drift i sambandet, men noe redusert kapasitet i C ruta.",
       "publishedAt": "2026-11-23T21:13:33+01:00",
@@ -163,7 +243,7 @@
       "routeSwitch": null
     },
     {
-      "id": "RG9tYWluQ29udGVudDoyMjQ2MjYxNA==",
+      "id": "RG9tYWluQ29udGVudDoyMjQ3NTk3MA==",
       "heading": "Mortavika-Arsvågen",
       "text": "Rute 1130 Arsvågen - Mortavika: Det vert normal drift i sambandet frå kl. 2100",
       "publishedAt": "2026-11-23T21:05:42+01:00",
@@ -183,7 +263,7 @@
       "routeSwitch": null
     },
     {
-      "id": "RG9tYWluQ29udGVudDoyMjQ2MjU2Mw==",
+      "id": "RG9tYWluQ29udGVudDoyMjQ3NTk3MQ==",
       "heading": "Halsa-Kanestraum",
       "text": "Rute 1072 Halsa - Kanestraum: Normaldrift i A-ruta frå kl 22.30 i kveld. B-ruta vert innstilt inntil vidare frå kl 07.00 i morgon tidleg den 24.11.26.",
       "publishedAt": "2026-11-23T20:55:42+01:00",
@@ -203,7 +283,7 @@
       "routeSwitch": null
     },
     {
-      "id": "RG9tYWluQ29udGVudDoyMjQ2MjExMw==",
+      "id": "RG9tYWluQ29udGVudDoyMjQ3NTk3Mg==",
       "heading": "Kleppestø - Bergen",
       "text": "Rute 490 Kleppestø - Bergen: I morgen tirsdag utfører reserve fartøy avgangen fra Kleppestø kl 0603 sammen med hoved fartøy inntil videre Mvh Fjord1 på vegner av Skyss.",
       "publishedAt": "2026-11-23T19:31:52+01:00",
@@ -223,7 +303,7 @@
       "routeSwitch": null
     },
     {
-      "id": "RG9tYWluQ29udGVudDoyMjQ2MTM1OA==",
+      "id": "RG9tYWluQ29udGVudDoyMjQ3NTk3Mw==",
       "heading": "Halsa-Kanestraum",
       "text": "Rute 1072 Halsa - Kanestraum: Grunna driftsproblem vert A ruta innstilt inntil videre.",
       "publishedAt": "2026-11-23T17:34:16+01:00",
@@ -243,7 +323,7 @@
       "routeSwitch": null
     },
     {
-      "id": "RG9tYWluQ29udGVudDoyMjQ1OTgwOA==",
+      "id": "RG9tYWluQ29udGVudDoyMjQ3NTk3NA==",
       "heading": "Mortavika-Arsvågen",
       "text": "Rute 1130 Arsvågen - Mortavika: Grunna mannskapsmangel vert D-ruta innstilt inntil videre. Det vil si xx45 fra Mortavika og xx15 fra Arsvågen. Ny oppdatering innen 2000.",
       "publishedAt": "2026-11-23T13:44:06+01:00",
@@ -263,7 +343,7 @@
       "routeSwitch": null
     },
     {
-      "id": "RG9tYWluQ29udGVudDoyMjQ1ODQwMA==",
+      "id": "RG9tYWluQ29udGVudDoyMjQ3NTk3NQ==",
       "heading": "Askvoll-Gjervik-Fure-Askvoll",
       "text": "Rute 1140 Askvoll - Gjervik - Fure: Grunna mannskapsmangel vert følgjande avgangar innstilt: Askvoll kl 10.05 og kl 10.20 frå Gjervik. Mvh Fjord1 på vegner av Skyss.",
       "publishedAt": "2026-11-23T10:04:35+01:00",
@@ -283,7 +363,7 @@
       "routeSwitch": null
     },
     {
-      "id": "RG9tYWluQ29udGVudDoyMjQ1Nzk4NA==",
+      "id": "RG9tYWluQ29udGVudDoyMjQ3NTk3Ng==",
       "heading": "Sølsnes-Åfarnes",
       "text": "Rute 1060 Sølsnes - Åfarnes: Det vert normal drift i sambandet frå kl. 09:05",
       "publishedAt": "2026-11-23T08:48:20+01:00",
@@ -303,7 +383,7 @@
       "routeSwitch": null
     },
     {
-      "id": "RG9tYWluQ29udGVudDoyMjQ1Nzc3OQ==",
+      "id": "RG9tYWluQ29udGVudDoyMjQ3NTk3Nw==",
       "heading": "Mortavika-Arsvågen",
       "text": "Rute 1130 Arsvågen - Mortavika: Grunna mannskapsmangel vert D-ruta innstilt inntil videre fra 0845. Det vil si xx45 fra Mortavika og xx15 fra Arsvågen. Ny oppdatering innen 1400.",
       "publishedAt": "2026-11-23T08:14:27+01:00",
@@ -323,7 +403,7 @@
       "routeSwitch": null
     },
     {
-      "id": "RG9tYWluQ29udGVudDoyMjQ1NjkxMA==",
+      "id": "RG9tYWluQ29udGVudDoyMjQ3NTk3OA==",
       "heading": "Sølsnes-Åfarnes",
       "text": "Rute 1060 Sølsnes - Åfarnes: Grunna driftsproblem vert B-ruta innstilt inntil videre.",
       "publishedAt": "2026-11-23T06:24:41+01:00",
@@ -343,7 +423,7 @@
       "routeSwitch": null
     },
     {
-      "id": "RG9tYWluQ29udGVudDoyMjQ1NjUxNw==",
+      "id": "RG9tYWluQ29udGVudDoyMjQ3NTk3OQ==",
       "heading": "Sølsnes-Åfarnes",
       "text": "Rute 1060 Sølsnes - Åfarnes: Grunna driftsproblem vert følgjande avgangar innstilt med B-ruta: kl 07.00 frå Sølsnes og kl 07.15 frå Åfarnes. Kl 07.40 frå Sølsnes og kl 07.55 frå Åfarnes.",
       "publishedAt": "2026-11-23T05:35:13+01:00",
@@ -363,7 +443,7 @@
       "routeSwitch": null
     },
     {
-      "id": "RG9tYWluQ29udGVudDoyMjQ1NjM5Ng==",
+      "id": "RG9tYWluQ29udGVudDoyMjQ3NTk4MA==",
       "heading": "Sølsnes-Åfarnes",
       "text": "Rute 1060 Sølsnes - Åfarnes: Grunna driftsproblem vert følgjande avgangar innstilt med B-ruta: kl 07.00 frå Sølsnes og kl 07.15 frå Åfarnes.",
       "publishedAt": "2026-11-23T05:20:35+01:00",
