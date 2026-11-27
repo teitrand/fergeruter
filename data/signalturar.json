@@ -1,6 +1,6 @@
 {
   "keptDays": 7,
-  "updatedAt": "2026-11-27T20:07:40.215205+01:00",
+  "updatedAt": "2026-11-27T20:37:40.223655+01:00",
   "days": {
     "2026-11-21": [
       {
@@ -572,6 +572,24 @@
         "status": "skipped",
         "observedAt": "2026-11-27T17:07:41.195168+01:00",
         "skippedAt": "2026-11-27T17:07:41.195168+01:00"
+      },
+      {
+        "id": "MOR:ServiceJourney:1136_128_9150000047474268",
+        "from": "Standal",
+        "to": "Trandal",
+        "departure": "20:00:00",
+        "status": "booked",
+        "observedAt": "2026-11-27T19:57:10+01:00",
+        "evidence": "departed"
+      },
+      {
+        "id": "MOR:ServiceJourney:1136_129_9150000046366348",
+        "from": "Trandal",
+        "to": "Standal",
+        "departure": "20:20:00",
+        "status": "skipped",
+        "observedAt": "2026-11-27T20:37:40.223655+01:00",
+        "skippedAt": "2026-11-27T20:37:40.223655+01:00"
       }
     ]
   }
